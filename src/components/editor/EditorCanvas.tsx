@@ -4,6 +4,7 @@ import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { EditorElement, ImageElement, PageBackground } from "../../types/editor";
 import { useEditorStore } from "../../stores/editorStore";
+import { ParticleRenderer } from "../../features/particles/ParticleRenderer";
 
 const CANVAS_WIDTH = 390;
 const CANVAS_HEIGHT = 844;
@@ -83,16 +84,116 @@ export function EditorCanvas() {
   if (!page) return null;
 
   return (
-    <div className="canvas-area" onMouseDown={(event) => { if (event.target === event.currentTarget) selectElement(null); }}>
-      <div className="phone-shell" style={{ width: CANVAS_WIDTH * zoom + 20, height: CANVAS_HEIGHT * zoom + 20 }}>
-        <Stage ref={stageRef} width={CANVAS_WIDTH * zoom} height={CANVAS_HEIGHT * zoom} scaleX={zoom} scaleY={zoom} onMouseDown={(event) => { if (event.target === event.target.getStage()) selectElement(null); }} onTouchStart={(event) => { if (event.target === event.target.getStage()) selectElement(null); }}>
+  <div
+    className="canvas-area"
+    onMouseDown={(event) => {
+      if (event.target === event.currentTarget) {
+        selectElement(null);
+      }
+    }}
+  >
+    <div
+      className="phone-shell"
+      style={{
+        width: CANVAS_WIDTH * zoom + 20,
+        height: CANVAS_HEIGHT * zoom + 20,
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {project?.particles?.enabled &&
+        project.particles.layer === "behind" && (
+          <ParticleRenderer
+            config={project.particles}
+          />
+        )}
+
+      <div
+        style={{
+          position: "relative",
+          zIndex: 10,
+        }}
+      >
+        <Stage
+          ref={stageRef}
+          width={CANVAS_WIDTH * zoom}
+          height={CANVAS_HEIGHT * zoom}
+          scaleX={zoom}
+          scaleY={zoom}
+          onMouseDown={(event) => {
+            if (
+              event.target ===
+              event.target.getStage()
+            ) {
+              selectElement(null);
+            }
+          }}
+          onTouchStart={(event) => {
+            if (
+              event.target ===
+              event.target.getStage()
+            ) {
+              selectElement(null);
+            }
+          }}
+        >
           <Layer>
-            <Background background={page.background} />
-            {elements.map((element) => <CanvasElement key={element.id} element={element} selected={element.id === selectedElementId} onSelect={() => selectElement(element.id)} />)}
-            <Transformer ref={transformerRef} rotateEnabled enabledAnchors={["top-left", "top-right", "bottom-left", "bottom-right", "middle-left", "middle-right"]} anchorFill="#fff" anchorStroke="#9a6d51" borderStroke="#9a6d51" anchorSize={10 / zoom} borderStrokeWidth={1.5 / zoom} rotateAnchorOffset={28 / zoom} boundBoxFunc={(oldBox, newBox) => newBox.width < 12 || newBox.height < 12 ? oldBox : newBox} />
+            <Background
+              background={page.background}
+            />
+
+            {elements.map((element) => (
+              <CanvasElement
+                key={element.id}
+                element={element}
+                selected={
+                  element.id ===
+                  selectedElementId
+                }
+                onSelect={() =>
+                  selectElement(element.id)
+                }
+              />
+            ))}
+
+            <Transformer
+              ref={transformerRef}
+              rotateEnabled
+              enabledAnchors={[
+                "top-left",
+                "top-right",
+                "bottom-left",
+                "bottom-right",
+                "middle-left",
+                "middle-right",
+              ]}
+              anchorFill="#fff"
+              anchorStroke="#9a6d51"
+              borderStroke="#9a6d51"
+              anchorSize={10 / zoom}
+              borderStrokeWidth={1.5 / zoom}
+              rotateAnchorOffset={28 / zoom}
+              boundBoxFunc={(
+                oldBox,
+                newBox
+              ) =>
+                newBox.width < 12 ||
+                newBox.height < 12
+                  ? oldBox
+                  : newBox
+              }
+            />
           </Layer>
         </Stage>
       </div>
+
+      {project?.particles?.enabled &&
+        project.particles.layer === "front" && (
+          <ParticleRenderer
+            config={project.particles}
+          />
+        )}
     </div>
-  );
+  </div>
+);
 }
