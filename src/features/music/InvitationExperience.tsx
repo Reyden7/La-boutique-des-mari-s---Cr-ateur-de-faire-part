@@ -5,6 +5,7 @@ import { createAudioController } from "./audioEngine";
 import type { WeddingProject } from "../../types/editor";
 import { WeddingRenderer } from "../../components/renderer/WeddingRenderer";
 import { OpeningRenderer } from "../openings/OpeningRenderer";
+import { ParticleRenderer } from "../particles/ParticleRenderer";
 
 export function InvitationExperience({ project }: { project: WeddingProject }) {
   const controllerRef = useRef<AudioController | null>(null);
@@ -30,5 +31,83 @@ export function InvitationExperience({ project }: { project: WeddingProject }) {
   const onInteract = () => { if (project.audio.startMode === "opening-interaction") void start(); };
   const couple = project.name.match(/—\s*(.*)/)?.[1] ?? project.name;
 
-  return <div className="invitation-experience"><OpeningRenderer config={project.opening} couple={couple} onInteract={onInteract}><WeddingRenderer project={project} /></OpeningRenderer>{project.audio.enabled && <div className={`guest-audio-control ${audioReady ? "ready" : ""}`}><button onClick={() => void toggle()} aria-label={playing ? "Mettre la musique en pause" : "Écouter la musique"}>{playing ? <Pause size={17} /> : <Play size={17} fill="currentColor" />}</button><Volume2 size={13} /><span>{playing ? "Musique" : "En pause"}</span></div>}</div>;
+ return (
+  <div className="invitation-experience">
+    {project.particles?.layer ===
+      "behind" && (
+      <ParticleRenderer
+        config={
+          project.particles
+        }
+      />
+    )}
+
+    <div className="invitation-content-layer">
+      <OpeningRenderer
+        config={
+          project.opening
+        }
+        couple={couple}
+        onInteract={
+          onInteract
+        }
+      >
+        <WeddingRenderer
+          project={project}
+        />
+      </OpeningRenderer>
+    </div>
+
+    {project.particles?.layer ===
+      "front" && (
+      <ParticleRenderer
+        config={
+          project.particles
+        }
+      />
+    )}
+
+    {project.audio.enabled && (
+      <div
+        className={`guest-audio-control ${
+          audioReady
+            ? "ready"
+            : ""
+        }`}
+      >
+        <button
+          onClick={() =>
+            void toggle()
+          }
+          aria-label={
+            playing
+              ? "Mettre la musique en pause"
+              : "Écouter la musique"
+          }
+        >
+          {playing ? (
+            <Pause
+              size={17}
+            />
+          ) : (
+            <Play
+              size={17}
+              fill="currentColor"
+            />
+          )}
+        </button>
+
+        <Volume2
+          size={13}
+        />
+
+        <span>
+          {playing
+            ? "Musique"
+            : "En pause"}
+        </span>
+      </div>
+    )}
+  </div>
+);
 }

@@ -291,9 +291,9 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .vertical-envelope-left-fold { left: 3%; clip-path: polygon(0 0, 100% 61%, 0 100%); }
 .vertical-envelope-right-fold { right: 3%; clip-path: polygon(100% 0, 0 61%, 100% 100%); background: linear-gradient(215deg, color-mix(in srgb, var(--opening-primary), #000 4%), var(--opening-primary)); }
 .vertical-envelope-front { position: absolute; z-index: -1; top: 8%; right: 3%; bottom: 3%; left: 3%; border-radius: 22px; background: linear-gradient(165deg, color-mix(in srgb, var(--opening-primary), #fff 6%), var(--opening-primary)); clip-path: polygon(0 0, 18% 0, 50% 44%, 82% 0, 100% 0, 100% 100%, 0 100%); box-shadow: inset 0 1px rgba(255,255,255,.2); }
-.vertical-envelope-flap { position: absolute; z-index: 6; top: 8%; right: 3%; left: 3%; height: 47%; background: linear-gradient(170deg, color-mix(in srgb, var(--opening-flap), #fff 13%), var(--opening-flap)); clip-path: polygon(0 0, 100% 0, 50% 92%); transform-origin: top center; transform-style: preserve-3d; backface-visibility: visible; filter: drop-shadow(0 4px 4px rgba(73,50,34,.12)); will-change: transform, opacity; pointer-events: none; }
+.vertical-envelope-flap { position: absolute; z-index: 6; top: 10.5%; right: 7%; left: 7%; height: 47%; background: linear-gradient(170deg, color-mix(in srgb, var(--opening-flap), #fff 13%), var(--opening-flap)); clip-path: polygon(0 0, 100% 0, 50% 92%); transform-origin: top center; transform-style: preserve-3d; backface-visibility: visible; filter: drop-shadow(0 4px 4px rgba(73,50,34,.12)); will-change: transform, opacity; pointer-events: none; }
 .vertical-envelope-flap::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, var(--opening-secondary), color-mix(in srgb, var(--opening-secondary), #000 5%)); clip-path: inherit; transform: rotateX(180deg) translateZ(1px); backface-visibility: hidden; }
-.vertical-envelope-seal { position: absolute; z-index: 7; left: calc(50% - 27px); top: 47%; width: 54px; height: 54px; display: grid; place-items: center; border-radius: 48% 53% 47% 52%; color: color-mix(in srgb, var(--opening-accent), #fff 82%); background: radial-gradient(circle at 35% 28%, color-mix(in srgb, var(--opening-accent), #fff 18%), var(--opening-accent) 48%, color-mix(in srgb, var(--opening-accent), #000 17%)); box-shadow: inset 0 0 0 3px rgba(255,255,255,.11), inset -3px -4px 7px rgba(72,22,21,.14), 0 7px 13px rgba(73,39,35,.25); font-size: 18px; will-change: transform, opacity; pointer-events: none; }
+.vertical-envelope-seal { position: absolute; z-index: 12; left: calc(50% - 27px); top: 47%; width: 54px; height: 54px; display: grid; place-items: center; border-radius: 48% 53% 47% 52%; color: color-mix(in srgb, var(--opening-accent), #fff 82%); background: radial-gradient(circle at 35% 28%, color-mix(in srgb, var(--opening-accent), #fff 18%), var(--opening-accent) 48%, color-mix(in srgb, var(--opening-accent), #000 17%)); box-shadow: inset 0 0 0 3px rgba(255,255,255,.11), inset -3px -4px 7px rgba(72,22,21,.14), 0 7px 13px rgba(73,39,35,.25); font-size: 18px; will-change: transform, opacity; pointer-events: none; }
 .vertical-envelope-trigger { position: absolute; z-index: 10; inset: -18px; border: 0; border-radius: 30px; background: transparent; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .vertical-envelope-trigger:focus-visible { outline: 2px solid color-mix(in srgb, var(--opening-accent), #fff 15%); outline-offset: 5px; }
 .vertical-open-hint { position: absolute; z-index: 11; top: calc(100% + 17px); right: 0; left: 0; color: color-mix(in srgb, var(--opening-primary), #000 42%); font-size: 11px; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: .16em; pointer-events: none; }
@@ -425,4 +425,112 @@ button:disabled { cursor: not-allowed; opacity: .38; }
   .renderer-phone { width: auto; height: calc(100dvh - 10px); }
   .vertical-envelope-scene { width: auto; height: calc(100dvh - 46px); }
   .vertical-open-hint { top: auto; bottom: 3%; color: color-mix(in srgb, var(--opening-primary), #000 55%); }
+}
+
+
+/* =========================================================
+   PARTICULES
+   ========================================================= */
+
+.invitation-experience {
+  position: relative;
+  isolation: isolate;
+  min-height: 100dvh;
+  overflow: hidden;
+}
+
+.invitation-content-layer {
+  position: relative;
+  z-index: 10;
+  min-height: 100dvh;
+}
+
+/*
+ * Couche globale des particules.
+ *
+ * pointer-events:none est indispensable :
+ * les particules ne doivent jamais empêcher
+ * l'utilisateur de cliquer sur le faire-part.
+ */
+.particle-layer {
+  position: fixed;
+  inset: 0;
+
+  width: 100%;
+  height: 100dvh;
+
+  overflow: hidden;
+
+  pointer-events: none;
+
+  user-select: none;
+
+  contain: layout paint;
+
+  z-index: 50;
+}
+
+/* Particules derrière le faire-part */
+.particle-layer-behind {
+  z-index: 1;
+}
+
+/* Particules devant le faire-part */
+.particle-layer-front {
+  z-index: 50;
+}
+
+/* Particule individuelle */
+.wedding-particle {
+  position: absolute;
+
+  display: block;
+
+  line-height: 1;
+
+  transform-origin: center;
+
+  will-change:
+    transform,
+    opacity;
+
+  pointer-events: none;
+
+  user-select: none;
+
+  white-space: nowrap;
+}
+
+/* Cœurs */
+.wedding-particle-heart {
+  line-height: 1;
+}
+
+/* Étoiles */
+.wedding-particle-star {
+  line-height: 1;
+}
+
+/* Scintillements */
+.wedding-particle-sparkle {
+  line-height: 1;
+
+  text-shadow:
+    0 0 6px
+    currentColor;
+}
+
+/* Pétales */
+.wedding-particle-petal {
+  line-height: 1;
+}
+
+/* Losanges */
+.wedding-particle-diamond {
+  line-height: 1;
+}
+
+/* Ronds */
+.wedding-particle-circle {
+  line-height: 1;
 }

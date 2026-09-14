@@ -115,6 +115,47 @@ export interface ProjectAudioConfig {
   fadeOutDuration?: number;
 }
 
+export type ParticleShape =
+  | "circle"
+  | "heart"
+  | "star"
+  | "petal"
+  | "sparkle"
+  | "diamond";
+
+export type ParticleDirection =
+  | "up"
+  | "down"
+  | "left"
+  | "right"
+  | "up-left"
+  | "up-right"
+  | "down-left"
+  | "down-right";
+
+export interface ParticleConfig {
+  enabled: boolean;
+
+  shape: ParticleShape;
+
+  direction: ParticleDirection;
+
+  // 0 = flottement local, sans sortir de l’écran
+  speed: number;
+
+  quantity: number;
+
+  colors: string[];
+
+  minSize: number;
+
+  maxSize: number;
+
+  opacity: number;
+
+  layer: "behind" | "front";
+}
+
 export interface WeddingProject {
   id: string;
   ownerId?: string;
@@ -125,9 +166,14 @@ export interface WeddingProject {
   publicId?: string;
   publishedAt?: string;
   expiresAt?: string;
+
   pages: WeddingPage[];
+
   opening: OpeningAnimationConfig;
+
   audio: ProjectAudioConfig;
+
+  particles: ParticleConfig;
 }
 
 export const WEDDING_FONTS = [

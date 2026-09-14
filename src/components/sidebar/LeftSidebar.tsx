@@ -1,9 +1,27 @@
 import { useRef, useState, type ComponentType } from "react";
-import { ChevronDown, ChevronUp, Eye, EyeOff, ImagePlus, Layers3, Lock, LockOpen, Music2, Palette, Plus, Shapes, Sparkles, Trash2, Type } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  EyeOff,
+  ImagePlus,
+  Layers3,
+  Lock,
+  LockOpen,
+  Music2,
+  Palette,
+  Plus,
+  Shapes,
+  Sparkles,
+  Trash2,
+  Type,
+  WandSparkles,
+} from "lucide-react";
 import { makeShapeElement, makeTextElement, useEditorStore, type SidebarView } from "../../stores/editorStore";
 import type { EditorElement, OpeningAnimationType } from "../../types/editor";
 import { OpeningSelector } from "../../features/openings/OpeningSelector";
 import { MusicPanel } from "../../features/music/MusicPanel";
+import { ParticlePanel } from "../../features/particles/ParticlePanel";
 import { isSupabaseConfigured } from "../../lib/supabase";
 import { uploadProjectAsset } from "../../services/assetRepository";
 
@@ -13,6 +31,7 @@ const navItems: { id: SidebarView; label: string; icon: ComponentType<{ size?: n
   { id: "elements", label: "Éléments", icon: Shapes },
   { id: "opening", label: "Ouverture", icon: Sparkles },
   { id: "music", label: "Musique", icon: Music2 },
+  { id: "effects", label: "Effets", icon: WandSparkles,},
 ];
 
 export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: OpeningAnimationType) => void }) {
@@ -48,5 +67,6 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
     {sidebarView === "elements" && <div className="sidebar-view"><section><div className="panel-title"><Plus size={15} /> Ajouter</div><div className="add-grid"><button onClick={() => addElement(makeTextElement())}><Type size={20} /><span>Texte</span></button><button onClick={() => fileRef.current?.click()}><ImagePlus size={20} /><span>Image</span></button><button onClick={() => setShapeMenu((value) => !value)}><Shapes size={20} /><span>Forme</span></button><button onClick={() => addElement({ id: uid(), type: "icon", name: "Décoration", x: 145, y: 300, width: 100, height: 80, rotation: 0, opacity: 1, zIndex: Date.now(), visible: true, locked: false, icon: "❦", color: "#8a765f", fontSize: 54, animation: { type: "zoom", duration: .8, delay: 0 } })}><span className="ornament-icon">❦</span><span>Décor</span></button></div><input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={(event) => { void addImage(event.target.files?.[0]); event.currentTarget.value = ""; }} />{shapeMenu && <div className="shape-picker">{(["rectangle", "rounded-rectangle", "circle", "line"] as const).map((shape) => <button key={shape} onClick={() => { addElement(makeShapeElement(shape)); setShapeMenu(false); }}>{shape === "rounded-rectangle" ? "Arrondi" : shape === "circle" ? "Cercle" : shape === "line" ? "Ligne" : "Rectangle"}</button>)}</div>}</section>{pages}<section className="layers-section"><div className="panel-title"><Layers3 size={15} /> Calques</div><div className="layers-list">{[...(page?.elements ?? [])].sort((a, b) => b.zIndex - a.zIndex).map((element) => <div className={`layer-row ${element.id === selectedElementId ? "active" : ""}`} key={element.id} onClick={() => selectElement(element.id)}><span className="layer-kind">{element.type === "text" ? "T" : element.type === "image" ? "▧" : element.type === "icon" ? "❦" : "▱"}</span><span className="layer-name">{element.name}</span><button title={element.visible ? "Masquer" : "Afficher"} onClick={(event) => { event.stopPropagation(); updateElement(element.id, { visible: !element.visible }); }}>{element.visible ? <Eye size={14} /> : <EyeOff size={14} />}</button><button title={element.locked ? "Déverrouiller" : "Verrouiller"} onClick={(event) => { event.stopPropagation(); updateElement(element.id, { locked: !element.locked }); }}>{element.locked ? <Lock size={14} /> : <LockOpen size={14} />}</button><button title="Avancer" onClick={(event) => { event.stopPropagation(); moveLayer(element.id, "forward"); }}><ChevronUp size={14} /></button><button title="Reculer" onClick={(event) => { event.stopPropagation(); moveLayer(element.id, "backward"); }}><ChevronDown size={14} /></button><button title="Supprimer" onClick={(event) => { event.stopPropagation(); removeElement(element.id); }}><Trash2 size={14} /></button></div>)}</div></section></div>}
     {sidebarView === "opening" && <OpeningSelector onPreview={onPreviewOpening} />}
     {sidebarView === "music" && <MusicPanel />}
+    {sidebarView === "effects" && (<ParticlePanel />)}
   </aside>;
 }
