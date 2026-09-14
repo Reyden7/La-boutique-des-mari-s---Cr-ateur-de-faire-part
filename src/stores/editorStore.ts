@@ -6,11 +6,18 @@ import type {
   PageBackground,
   ParticleConfig,
   ProjectAudioConfig,
+  ResponsiveElementLayout,
   WeddingProject,
 } from "../types/editor";
+import type { PreviewDevice } from "../config/previewDevices";
 
 import { publishRemoteProject } from "../services/projectRepository";
 import { getProject, syncProject, upsertProject } from "../utils/storage";
+import {
+  getElementLayout,
+  resetElementLayoutForDevice,
+  setElementLayoutForDevice,
+} from "../utils/responsiveLayout";
 
 type SaveStatus = "idle" | "saving" | "saved";
 
@@ -29,6 +36,10 @@ interface EditorState {
   selectedElementId: string | null;
 
   zoom: number;
+
+  fitZoom: number;
+
+  previewDevice: PreviewDevice;
 
   saveStatus: SaveStatus;
 
@@ -52,12 +63,23 @@ interface EditorState {
 
   setZoom: (zoom: number) => void;
 
+  setFitZoom: (zoom: number) => void;
+
+  setPreviewDevice: (device: PreviewDevice) => void;
+
   addElement: (element: EditorElement) => void;
 
   updateElement: (
     id: string,
     updates: Partial<EditorElement>
   ) => void;
+
+  updateElementLayout: (
+    id: string,
+    updates: ResponsiveElementLayout
+  ) => void;
+
+  resetElementLayout: (id: string) => void;
 
   removeElement: (id: string) => void;
 
@@ -200,6 +222,10 @@ export const useEditorStore =
 
       zoom: 0.72,
 
+      fitZoom: 0.72,
+
+      previewDevice: "mobile",
+
       saveStatus: "idle",
 
       past: [],
@@ -273,11 +299,17 @@ export const useEditorStore =
           zoom: Math.min(
             1.25,
             Math.max(
-              0.35,
+              0.1,
               zoom
             )
           ),
         }),
+
+      setFitZoom: (fitZoom) =>
+        set({ fitZoom }),
+
+      setPreviewDevice: (previewDevice) =>
+        set({ previewDevice }),
 
       addElement: (element) =>
         set((state) =>
@@ -334,6 +366,54 @@ export const useEditorStore =
 
                   ...updates,
                 } as EditorElement;
+              }
+            }
+          )
+        ),
+
+      updateElementLayout: (
+        id,
+        updates
+      ) =>
+        set((state) =>
+          mutateProject(
+            state,
+            (project) => {
+              const page = project.pages.find(
+                (item) => item.id === state.currentPageId
+              );
+              const index = page?.elements.findIndex(
+                (element) => element.id === id
+              ) ?? -1;
+
+              if (page && index >= 0) {
+                page.elements[index] = setElementLayoutForDevice(
+                  page.elements[index],
+                  state.previewDevice,
+                  updates,
+                );
+              }
+            }
+          )
+        ),
+
+      resetElementLayout: (id) =>
+        set((state) =>
+          mutateProject(
+            state,
+            (project) => {
+              const page = project.pages.find(
+                (item) => item.id === state.currentPageId
+              );
+              const index = page?.elements.findIndex(
+                (element) => element.id === id
+              ) ?? -1;
+
+              if (page && index >= 0) {
+                page.elements[index] = resetElementLayoutForDevice(
+                  page.elements[index],
+                  state.previewDevice,
+                );
               }
             }
           )
@@ -396,7 +476,7 @@ export const useEditorStore =
                   duplicatedId =
                     uid();
 
-                  page.elements.push({
+                  let duplicated = {
                     ...structuredClone(
                       element
                     ),
@@ -407,18 +487,22 @@ export const useEditorStore =
                     name:
                       `${element.name} copie`,
 
-                    x:
-                      element.x +
-                      18,
-
-                    y:
-                      element.y +
-                      18,
-
                     zIndex:
                       page.elements.length +
                       1,
-                  });
+                  } as EditorElement;
+
+                  const layout = getElementLayout(
+                    duplicated,
+                    state.previewDevice,
+                  );
+                  duplicated = setElementLayoutForDevice(
+                    duplicated,
+                    state.previewDevice,
+                    { x: layout.x + 18, y: layout.y + 18 },
+                  );
+
+                  page.elements.push(duplicated);
                 }
               },
 
@@ -466,10 +550,11 @@ export const useEditorStore =
       pasteElement: () => {
         const {
           clipboard,
+          previewDevice,
         } = get();
 
         if (clipboard) {
-          get().addElement({
+          const copy = {
             ...structuredClone(
               clipboard
             ),
@@ -479,14 +564,15 @@ export const useEditorStore =
             name:
               `${clipboard.name} copie`,
 
-            x:
-              clipboard.x +
-              18,
+          } as EditorElement;
+          const layout = getElementLayout(copy, previewDevice);
 
-            y:
-              clipboard.y +
-              18,
-          });
+          get().addElement(
+            setElementLayoutForDevice(copy, previewDevice, {
+              x: layout.x + 18,
+              y: layout.y + 18,
+            })
+          );
         }
       },
 

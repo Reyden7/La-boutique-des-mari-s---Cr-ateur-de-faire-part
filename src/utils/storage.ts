@@ -1,9 +1,10 @@
-import type { OpeningAnimationType, ProjectAudioConfig, WeddingProject } from "../types/editor";
+import type { OpeningAnimationType, ParticleConfig, ProjectAudioConfig, WeddingProject } from "../types/editor";
 import { deleteRemoteProject, isSupabaseConfigured, loadRemoteProjects, saveRemoteProject } from "../services/projectRepository";
 
 const STORAGE_KEY = "lbm-studio-projects-v1";
 
 const defaultAudio = (): ProjectAudioConfig => ({ enabled: false, source: null, volume: 0.7, loop: true, startMode: "opening-interaction", fadeInDuration: 2 });
+const defaultParticles = (): ParticleConfig => ({ enabled: false, shape: "heart", direction: "down", speed: 30, quantity: 25, colors: ["#FFFFFF", "#F0CACA"], minSize: 8, maxSize: 18, opacity: 0.8, layer: "front" });
 
 export const normalizeProject = (value: unknown): WeddingProject | null => {
   if (!value || typeof value !== "object") return null;
@@ -19,6 +20,7 @@ export const normalizeProject = (value: unknown): WeddingProject | null => {
     updatedAt: legacy.updatedAt ?? new Date().toISOString(),
     opening: legacy.opening ?? { type: legacyType, duration: 3.4, colors: ["#E7D2C3", "#F5E9DF", "#B58A62"], variant: "classic", customSettings: { flapColor: "#DFC4B1", backgroundColor: "#F5EFEA", hintText: "Touchez pour ouvrir" } },
     audio: legacy.audio ?? defaultAudio(),
+    particles: legacy.particles ?? defaultParticles(),
     status: legacy.status ?? (legacy.published ? "published" : "draft"),
   };
 };

@@ -50,55 +50,55 @@ function getMovement(
     case "up":
       return {
         x: [0, 0],
-        y: ["110vh", "-20vh"],
+        y: ["110cqh", "-20cqh"],
       };
 
     case "down":
       return {
         x: [0, 0],
-        y: ["-20vh", "110vh"],
+        y: ["-20cqh", "110cqh"],
       };
 
     case "left":
       return {
-        x: ["110vw", "-20vw"],
+        x: ["110cqw", "-20cqw"],
         y: [0, 0],
       };
 
     case "right":
       return {
-        x: ["-20vw", "110vw"],
+        x: ["-20cqw", "110cqw"],
         y: [0, 0],
       };
 
     case "up-left":
       return {
-        x: ["110vw", "-20vw"],
-        y: ["110vh", "-20vh"],
+        x: ["110cqw", "-20cqw"],
+        y: ["110cqh", "-20cqh"],
       };
 
     case "up-right":
       return {
-        x: ["-20vw", "110vw"],
-        y: ["110vh", "-20vh"],
+        x: ["-20cqw", "110cqw"],
+        y: ["110cqh", "-20cqh"],
       };
 
     case "down-left":
       return {
-        x: ["110vw", "-20vw"],
-        y: ["-20vh", "110vh"],
+        x: ["110cqw", "-20cqw"],
+        y: ["-20cqh", "110cqh"],
       };
 
     case "down-right":
       return {
-        x: ["-20vw", "110vw"],
-        y: ["-20vh", "110vh"],
+        x: ["-20cqw", "110cqw"],
+        y: ["-20cqh", "110cqh"],
       };
 
     default:
       return {
         x: [0, 0],
-        y: ["-20vh", "110vh"],
+        y: ["-20cqh", "110cqh"],
       };
   }
 }

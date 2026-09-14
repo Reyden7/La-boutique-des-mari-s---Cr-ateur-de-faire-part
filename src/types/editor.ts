@@ -7,6 +7,20 @@ export interface AnimationConfig {
   delay: number;
 }
 
+export interface ResponsiveElementLayout {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  rotation?: number;
+  fontSize?: number;
+}
+
+export interface ResponsiveLayouts {
+  tablet?: ResponsiveElementLayout;
+  desktop?: ResponsiveElementLayout;
+}
+
 export interface BaseElement {
   id: string;
   type: ElementType;
@@ -21,6 +35,7 @@ export interface BaseElement {
   visible: boolean;
   locked: boolean;
   animation?: AnimationConfig;
+  responsive?: ResponsiveLayouts;
 }
 
 export interface TextElement extends BaseElement {

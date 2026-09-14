@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { EditorCanvas } from "../components/editor/EditorCanvas";
 import { ZoomControls } from "../components/editor/ZoomControls";
+import { PreviewDeviceSwitcher } from "../components/editor/PreviewDeviceSwitcher";
 import { PreviewMode } from "../components/preview/PreviewMode";
 import { PropertiesPanel } from "../components/properties/PropertiesPanel";
 import { LeftSidebar } from "../components/sidebar/LeftSidebar";
@@ -18,6 +19,7 @@ export function EditorPage() {
   const [openingPreview, setOpeningPreview] = useState<OpeningAnimationType | null>(null);
   const [mobilePanel, setMobilePanel] = useState<"tools" | "properties" | null>(null);
   const project = useEditorStore((state) => state.project);
+  const previewDevice = useEditorStore((state) => state.previewDevice);
 
   useEffect(() => {
     if (!projectId) return;
@@ -53,17 +55,10 @@ export function EditorPage() {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, []);
 
-  useEffect(() => {
-    if (!window.matchMedia("(max-width: 760px)").matches) return;
-    const widthFit = (window.innerWidth - 56) / 390;
-    const heightFit = (window.innerHeight - 210) / 844;
-    useEditorStore.getState().setZoom(Math.min(.72, widthFit, heightFit));
-  }, [projectId]);
-
   if (missing) return <Navigate to="/" replace />;
   if (!project) return <div className="loading-screen">Ouverture de votre studio…</div>;
-  if (openingPreview) return <OpeningPreview project={project} type={openingPreview} onUse={(opening) => useEditorStore.getState().updateOpening(opening)} onClose={() => setOpeningPreview(null)} />;
-  if (preview) return <PreviewMode project={project} onClose={() => setPreview(false)} />;
+  if (openingPreview) return <OpeningPreview project={project} type={openingPreview} device={previewDevice} onUse={(opening) => useEditorStore.getState().updateOpening(opening)} onClose={() => setOpeningPreview(null)} />;
+  if (preview) return <PreviewMode project={project} device={previewDevice} onClose={() => setPreview(false)} />;
 
   return (
     <div className="studio-layout">
@@ -72,7 +67,7 @@ export function EditorPage() {
         <button className="mobile-panel-close" onClick={() => setMobilePanel(null)} aria-label="Fermer les outils"><X size={18} /></button>
         <LeftSidebar onPreviewOpening={setOpeningPreview} />
       </div>
-      <main className="editor-main"><div className="workspace-label">{project.pages.find((page) => page.id === useEditorStore.getState().currentPageId)?.name}</div><EditorCanvas /><ZoomControls /></main>
+      <main className="editor-main"><div className="editor-preview-toolbar"><div className="workspace-label">{project.pages.find((page) => page.id === useEditorStore.getState().currentPageId)?.name}</div><PreviewDeviceSwitcher /></div><EditorCanvas /><ZoomControls /></main>
       <div className={`editor-panel-host properties-panel-host ${mobilePanel === "properties" ? "mobile-open" : ""}`}>
         <button className="mobile-panel-close" onClick={() => setMobilePanel(null)} aria-label="Fermer les réglages"><X size={18} /></button>
         <PropertiesPanel onPreviewOpening={setOpeningPreview} />

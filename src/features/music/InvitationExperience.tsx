@@ -6,8 +6,9 @@ import type { WeddingProject } from "../../types/editor";
 import { WeddingRenderer } from "../../components/renderer/WeddingRenderer";
 import { OpeningRenderer } from "../openings/OpeningRenderer";
 import { ParticleRenderer } from "../particles/ParticleRenderer";
+import type { PreviewDevice } from "../../config/previewDevices";
 
-export function InvitationExperience({ project }: { project: WeddingProject }) {
+export function InvitationExperience({ project, device }: { project: WeddingProject; device?: PreviewDevice }) {
   const controllerRef = useRef<AudioController | null>(null);
   const [playing, setPlaying] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
@@ -54,6 +55,7 @@ export function InvitationExperience({ project }: { project: WeddingProject }) {
       >
         <WeddingRenderer
           project={project}
+          device={device}
         />
       </OpeningRenderer>
     </div>
