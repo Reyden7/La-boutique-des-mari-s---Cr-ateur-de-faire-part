@@ -549,3 +549,277 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .phone-shell .particle-layer-behind {
   z-index: 1;
 }
+
+/* =========================================================
+   PANNEAU PARTICULES - MOTIFS
+   ========================================================= */
+
+.particle-shape-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.particle-shape-button {
+  position: relative;
+
+  height: 62px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid #e4ded8;
+  border-radius: 12px;
+
+  background: #fff;
+
+  cursor: pointer;
+
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.particle-shape-button:hover {
+  transform: translateY(-1px);
+
+  border-color: #b9947d;
+
+  box-shadow:
+    0 4px 12px rgba(70, 50, 40, 0.08);
+}
+
+.particle-shape-button.active {
+  border-color: #9a6d51;
+
+  background: #f7f0eb;
+
+  box-shadow:
+    0 0 0 1px #9a6d51;
+}
+
+.particle-shape-preview {
+  font-size: 27px;
+  line-height: 1;
+}
+
+.particle-shape-check {
+  position: absolute;
+
+  right: 6px;
+  top: 5px;
+
+  width: 18px;
+  height: 18px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  font-size: 11px;
+  font-weight: 700;
+
+  background: #9a6d51;
+  color: #fff;
+}
+
+.particle-shape-button:not(.active)
+  .particle-shape-check {
+  background: transparent;
+}
+
+
+/* =========================================================
+   PANNEAU PARTICULES - ROUE DE DIRECTION
+   ========================================================= */
+
+.particle-direction-wheel {
+  position: relative;
+
+  width: 150px;
+  height: 150px;
+
+  margin:
+    14px auto
+    4px;
+
+  border-radius: 50%;
+
+  background:
+    radial-gradient(
+      circle,
+      #fff 0%,
+      #fff 38%,
+      #f7f3ef 39%,
+      #f7f3ef 100%
+    );
+
+  border: 1px solid #e4ded8;
+}
+
+.particle-direction-button {
+  position: absolute;
+
+  width: 36px;
+  height: 36px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: none;
+  border-radius: 50%;
+
+  background: transparent;
+
+  color: #74645a;
+
+  font-size: 21px;
+
+  cursor: pointer;
+
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.particle-direction-button:hover {
+  background: #eee5df;
+
+  transform: scale(1.08);
+}
+
+.particle-direction-button.active {
+  background: #9a6d51;
+
+  color: #fff;
+
+  box-shadow:
+    0 3px 9px rgba(85, 58, 43, 0.2);
+}
+
+.particle-direction-center {
+  position: absolute;
+
+  left: 50%;
+  top: 50%;
+
+  width: 26px;
+  height: 26px;
+
+  transform:
+    translate(-50%, -50%);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #fff;
+
+  border: 1px solid #ddd4ce;
+
+  color: #b9aaa0;
+
+  pointer-events: none;
+}
+
+/* HAUT */
+
+.direction-up {
+  left: 50%;
+  top: 7px;
+
+  transform:
+    translateX(-50%);
+}
+
+.direction-up:hover {
+  transform:
+    translateX(-50%)
+    scale(1.08);
+}
+
+/* BAS */
+
+.direction-down {
+  left: 50%;
+  bottom: 7px;
+
+  transform:
+    translateX(-50%);
+}
+
+.direction-down:hover {
+  transform:
+    translateX(-50%)
+    scale(1.08);
+}
+
+/* GAUCHE */
+
+.direction-left {
+  left: 7px;
+  top: 50%;
+
+  transform:
+    translateY(-50%);
+}
+
+.direction-left:hover {
+  transform:
+    translateY(-50%)
+    scale(1.08);
+}
+
+/* DROITE */
+
+.direction-right {
+  right: 7px;
+  top: 50%;
+
+  transform:
+    translateY(-50%);
+}
+
+.direction-right:hover {
+  transform:
+    translateY(-50%)
+    scale(1.08);
+}
+
+/* HAUT GAUCHE */
+
+.direction-up-left {
+  left: 22px;
+  top: 22px;
+}
+
+/* HAUT DROITE */
+
+.direction-up-right {
+  right: 22px;
+  top: 22px;
+}
+
+/* BAS GAUCHE */
+
+.direction-down-left {
+  left: 22px;
+  bottom: 22px;
+}
+
+/* BAS DROITE */
+
+.direction-down-right {
+  right: 22px;
+  bottom: 22px;
+}

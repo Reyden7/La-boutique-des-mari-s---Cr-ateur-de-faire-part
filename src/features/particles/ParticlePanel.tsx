@@ -206,81 +206,82 @@ export function ParticlePanel() {
       </section>
 
       {/* Motif */}
-      <section className="particle-section">
+        <section className="particle-section">
         <div className="panel-title">
-          Motif
+            Motif
         </div>
 
         <div className="particle-shape-grid">
-          {particleShapes.map(
-            (shape) => (
-              <button
+            {particleShapes.map((shape) => {
+            const active =
+                particles.shape === shape.id;
+
+            return (
+                <button
                 type="button"
                 key={shape.id}
-                className={
-                  particles.shape ===
-                  shape.id
-                    ? "active"
-                    : ""
-                }
+                title={shape.label}
+                aria-label={shape.label}
+                className={`particle-shape-button ${
+                    active ? "active" : ""
+                }`}
                 onClick={() =>
-                  update({
-                    shape:
-                      shape.id,
-                  })
+                    update({
+                    shape: shape.id,
+                    })
                 }
-              >
+                >
                 <span className="particle-shape-preview">
-                  {shape.preview}
+                    {shape.preview}
                 </span>
 
-                <span>
-                  {shape.label}
+                <span className="particle-shape-check">
+                    {active ? "✓" : ""}
                 </span>
-              </button>
-            )
-          )}
+                </button>
+            );
+            })}
         </div>
-      </section>
+        </section>
 
       {/* Direction */}
-      <section className="particle-section">
+        <section className="particle-section">
         <div className="panel-title">
-          Direction
+            Direction
         </div>
 
-        <div className="particle-direction-grid">
-          {directions.map(
-            (direction) => (
-              <button
+        <div className="particle-direction-wheel">
+            {directions.map((direction) => {
+            const active =
+                particles.direction ===
+                direction.id;
+
+            return (
+                <button
                 type="button"
-                key={
-                  direction.id
-                }
-                title={
-                  direction.label
-                }
-                className={
-                  particles.direction ===
-                  direction.id
-                    ? "active"
-                    : ""
-                }
+                key={direction.id}
+                title={direction.label}
+                aria-label={direction.label}
+                className={`particle-direction-button direction-${direction.id} ${
+                    active ? "active" : ""
+                }`}
                 onClick={() =>
-                  update({
+                    update({
                     direction:
-                      direction.id,
-                  })
+                        direction.id,
+                    })
                 }
-              >
-                {
-                  direction.icon
-                }
-              </button>
-            )
-          )}
+                >
+                {direction.icon}
+                </button>
+            );
+            })}
+
+            <div className="particle-direction-center">
+            •
+            </div>
         </div>
-      </section>
+        </section>
 
       {/* Vitesse */}
       <section className="particle-section">
