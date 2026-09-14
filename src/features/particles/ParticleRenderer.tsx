@@ -12,37 +12,27 @@ interface ParticleRendererProps {
 
 interface GeneratedParticle {
   id: number;
-
   x: number;
   y: number;
-
   size: number;
-
   rotation: number;
-
   delay: number;
-
   duration: number;
-
   color: string;
-
   driftX: number;
   driftY: number;
-
   rotateAmount: number;
 }
 
-const PARTICLE_SYMBOLS: Record<
-  ParticleShape,
-  string
+const PARTICLE_SYMBOLS: Partial<
+  Record<ParticleShape, string>
 > = {
-    circle: "●",
-    heart: "♥",
-    star: "★",
-    petal: "❀",
-    sparkle: "✦",
-    diamond: "◆",
-    custom: ""
+  circle: "●",
+  heart: "♥",
+  star: "★",
+  petal: "❀",
+  sparkle: "✦",
+  diamond: "◆",
 };
 
 const randomBetween = (
@@ -131,45 +121,27 @@ export function ParticleRenderer({
         );
 
         return Array.from(
-          {
-            length: count,
-          },
+          { length: count },
           (_, index) => ({
             id: index,
-
-            x: randomBetween(
-              0,
-              100
-            ),
-
-            y: randomBetween(
-              0,
-              100
-            ),
-
+            x: randomBetween(0, 100),
+            y: randomBetween(0, 100),
             size: randomBetween(
               config.minSize,
               config.maxSize
             ),
-
-            rotation:
-              randomBetween(
-                0,
-                360
-              ),
-
-            delay:
-              randomBetween(
-                0,
-                8
-              ),
-
-            duration:
-              randomBetween(
-                0.8,
-                1.2
-              ),
-
+            rotation: randomBetween(
+              0,
+              360
+            ),
+            delay: randomBetween(
+              0,
+              8
+            ),
+            duration: randomBetween(
+              0.8,
+              1.2
+            ),
             color:
               config.colors[
                 Math.floor(
@@ -178,19 +150,14 @@ export function ParticleRenderer({
                       .length
                 )
               ] ?? "#FFFFFF",
-
-            driftX:
-              randomBetween(
-                -12,
-                12
-              ),
-
-            driftY:
-              randomBetween(
-                -10,
-                10
-              ),
-
+            driftX: randomBetween(
+              -12,
+              12
+            ),
+            driftY: randomBetween(
+              -10,
+              10
+            ),
             rotateAmount:
               randomBetween(
                 -25,
@@ -205,6 +172,7 @@ export function ParticleRenderer({
         config.maxSize,
         config.colors,
         config.shape,
+        config.customImageUrl,
       ]
     );
 
@@ -218,19 +186,12 @@ export function ParticleRenderer({
   const symbol =
     PARTICLE_SYMBOLS[
       config.shape
-    ];
+    ] ?? "";
 
   const isFloating =
     config.speed === 0 ||
     reduceMotion;
 
-  /*
-   * Plus speed est élevé,
-   * plus duration est faible.
-   *
-   * speed = 1   -> très lent
-   * speed = 100 -> rapide
-   */
   const baseDuration =
     22 -
     (Math.min(
@@ -258,24 +219,17 @@ export function ParticleRenderer({
           if (isFloating) {
             return (
               <motion.span
-                key={
-                  particle.id
-                }
+                key={particle.id}
                 className={`wedding-particle wedding-particle-${config.shape}`}
                 style={{
                   left: `${particle.x}%`,
-
                   top: `${particle.y}%`,
-
                   fontSize:
                     particle.size,
-
                   color:
                     particle.color,
-
                   opacity:
                     config.opacity,
-
                   rotate:
                     particle.rotation,
                 }}
@@ -288,7 +242,6 @@ export function ParticleRenderer({
                       0.5,
                     0,
                   ],
-
                   y: [
                     0,
                     particle.driftY,
@@ -297,7 +250,6 @@ export function ParticleRenderer({
                       0.6,
                     0,
                   ],
-
                   rotate: [
                     particle.rotation,
                     particle.rotation +
@@ -306,7 +258,6 @@ export function ParticleRenderer({
                       particle.rotateAmount,
                     particle.rotation,
                   ],
-
                   scale: [
                     1,
                     1.08,
@@ -319,18 +270,41 @@ export function ParticleRenderer({
                     4 +
                     particle.duration *
                       3,
-
                   delay:
                     particle.delay %
                     3,
-
                   repeat: Infinity,
-
                   ease:
                     "easeInOut",
                 }}
               >
-                {symbol}
+                {config.shape === "custom" &&
+                    config.customImageUrl ? (
+                    <span
+                        className="custom-particle-image"
+                        style={{
+                        width: `${particle.size}px`,
+                        height: `${particle.size}px`,
+
+                        backgroundColor:
+                            particle.color,
+
+                        WebkitMaskImage: `url("${config.customImageUrl}")`,
+                        maskImage: `url("${config.customImageUrl}")`,
+
+                        WebkitMaskRepeat: "no-repeat",
+                        maskRepeat: "no-repeat",
+
+                        WebkitMaskPosition: "center",
+                        maskPosition: "center",
+
+                        WebkitMaskSize: "contain",
+                        maskSize: "contain",
+                        }}
+                    />
+                    ) : (
+                    symbol
+                    )}
               </motion.span>
             );
           }
@@ -341,31 +315,23 @@ export function ParticleRenderer({
 
           return (
             <motion.span
-              key={
-                particle.id
-              }
+              key={particle.id}
               className={`wedding-particle wedding-particle-${config.shape}`}
               style={{
                 left: `${particle.x}%`,
-
                 top: `${particle.y}%`,
-
                 fontSize:
                   particle.size,
-
                 color:
                   particle.color,
-
                 opacity:
                   config.opacity,
               }}
               initial={{
                 x:
                   movement.x[0],
-
                 y:
                   movement.y[0],
-
                 rotate:
                   particle.rotation,
               }}
@@ -374,12 +340,10 @@ export function ParticleRenderer({
                   movement.x[0],
                   movement.x[1],
                 ],
-
                 y: [
                   movement.y[0],
                   movement.y[1],
                 ],
-
                 rotate: [
                   particle.rotation,
                   particle.rotation +
@@ -388,16 +352,39 @@ export function ParticleRenderer({
               }}
               transition={{
                 duration,
-
                 delay:
                   particle.delay,
-
                 repeat: Infinity,
-
                 ease: "linear",
               }}
             >
-              {symbol}
+              {config.shape === "custom" &&
+                config.customImageUrl ? (
+                <span
+                    className="custom-particle-image"
+                    style={{
+                    width: `${particle.size}px`,
+                    height: `${particle.size}px`,
+
+                    backgroundColor:
+                        particle.color,
+
+                    WebkitMaskImage: `url("${config.customImageUrl}")`,
+                    maskImage: `url("${config.customImageUrl}")`,
+
+                    WebkitMaskRepeat: "no-repeat",
+                    maskRepeat: "no-repeat",
+
+                    WebkitMaskPosition: "center",
+                    maskPosition: "center",
+
+                    WebkitMaskSize: "contain",
+                    maskSize: "contain",
+                    }}
+                />
+                ) : (
+                symbol
+                )}
             </motion.span>
           );
         }

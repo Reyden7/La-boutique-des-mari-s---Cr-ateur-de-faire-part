@@ -907,3 +907,15 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 
   cursor: pointer;
 }
+
+.custom-particle-image {
+  display: block;
+  flex: 0 0 auto;
+
+  pointer-events: none;
+  user-select: none;
+
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
