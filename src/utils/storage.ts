@@ -22,6 +22,7 @@ export const normalizeProject = (value: unknown): WeddingProject | null => {
     audio: legacy.audio ?? defaultAudio(),
     particles: legacy.particles ?? defaultParticles(),
     status: legacy.status ?? (legacy.published ? "published" : "draft"),
+    paymentStatus: legacy.paymentStatus ?? "unpaid",
   };
 };
 

@@ -11,7 +11,7 @@ import type {
 } from "../types/editor";
 import type { PreviewDevice } from "../config/previewDevices";
 
-import { publishRemoteProject } from "../services/projectRepository";
+import { startProjectCheckout } from "../services/projectRepository";
 import { getProject, syncProject, upsertProject } from "../utils/storage";
 import {
   getElementLayout,
@@ -120,7 +120,7 @@ interface EditorState {
 
   save: () => void;
 
-  publish: () => Promise<WeddingProject | null>;
+  checkoutAndPublish: () => Promise<string | null>;
 
   setSaveStatus: (
     status: SaveStatus
@@ -858,7 +858,7 @@ export const useEditorStore =
           );
       },
 
-      publish: async () => {
+      checkoutAndPublish: async () => {
         const state =
           get();
 
@@ -871,19 +871,17 @@ export const useEditorStore =
             "saving",
         });
 
-        const project =
-          await publishRemoteProject(
-            {
-              ...state.project,
+        const project = {
+          ...state.project,
+          updatedAt: new Date().toISOString(),
+        };
 
-              updatedAt:
-                new Date().toISOString(),
-            }
-          );
+        upsertProject(project);
+        const syncedProject = await syncProject(project);
 
         const normalized =
           normalizeProject(
-            project
+            syncedProject
           );
 
         upsertProject(
@@ -898,7 +896,15 @@ export const useEditorStore =
             "saved",
         });
 
-        return normalized;
+        if (
+          normalized.paymentStatus === "paid" &&
+          normalized.status === "published" &&
+          normalized.publicId
+        ) {
+          return null;
+        }
+
+        return startProjectCheckout(normalized.id);
       },
 
       setSaveStatus: (

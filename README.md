@@ -24,4 +24,45 @@ npm run dev
 - bibliothèque musicale CC0, import audio personnel et lecture après interaction ;
 - volume, boucle, fondu et contrôle pause/reprise côté invité ;
 - aperçu complet avec ouverture et ambiance sonore ;
-- publication simulée sur `/invite/:projectId`.
+- publication payante sécurisée par Stripe Checkout et webhook Supabase sur `/i/:publicId`.
+
+## Publication Stripe en mode test
+
+Le navigateur utilise uniquement les variables publiques suivantes :
+
+```bash
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your_anon_or_publishable_key
+```
+
+Les secrets restent exclusivement dans les secrets des Supabase Edge Functions :
+
+```bash
+supabase secrets set STRIPE_SECRET_KEY=sk_test_xxx
+supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_xxx
+supabase secrets set SUPABASE_URL=https://your-project.supabase.co
+supabase secrets set SUPABASE_SERVICE_ROLE_KEY=xxx
+supabase secrets set SITE_URL=http://localhost:5173
+```
+
+Appliquer puis déployer :
+
+```bash
+supabase db push
+supabase functions deploy create-checkout-session
+supabase functions deploy stripe-webhook --no-verify-jwt
+```
+
+Dans Stripe en mode test, créer un endpoint webhook vers
+`https://<project-ref>.supabase.co/functions/v1/stripe-webhook` et activer :
+
+- `checkout.session.completed` ;
+- `checkout.session.async_payment_succeeded` ;
+- `checkout.session.async_payment_failed` ;
+- `charge.refunded`.
+
+Le prix (2 490 centimes, EUR) est défini uniquement dans l’Edge Function. Le
+frontend ne reçoit que l’URL Checkout. La page de succès attend ensuite que le
+webhook signé ait marqué le projet `paid` et `published` avant d’afficher le lien.
+Les fonctions refusent volontairement toute clé autre que `sk_test_` dans cette
+première version.

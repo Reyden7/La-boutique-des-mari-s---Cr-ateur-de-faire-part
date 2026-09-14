@@ -14,7 +14,7 @@ export function HomePage() {
   useEffect(() => { void hydrateProjects().then(() => setRefresh((value) => value + 1)).catch((error) => console.warn("Synchronisation distante indisponible", error)); }, []);
   const projects = useMemo(() => loadProjects().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), [refresh]);
   const openProject = (project: WeddingProject) => { upsertProject(project); navigate(`/studio/${project.id}`); };
-  const duplicate = (project: WeddingProject) => { const copy = structuredClone(project); copy.id = crypto.randomUUID(); copy.name = `${copy.name} — copie`; copy.createdAt = new Date().toISOString(); copy.updatedAt = copy.createdAt; copy.status = "draft"; delete copy.ownerId; delete copy.publicId; delete copy.publishedAt; delete copy.expiresAt; upsertProject(copy); setRefresh((value) => value + 1); };
+  const duplicate = (project: WeddingProject) => { const copy = structuredClone(project); copy.id = crypto.randomUUID(); copy.name = `${copy.name} — copie`; copy.createdAt = new Date().toISOString(); copy.updatedAt = copy.createdAt; copy.status = "draft"; copy.paymentStatus = "unpaid"; delete copy.ownerId; delete copy.publicId; delete copy.publishedAt; delete copy.expiresAt; upsertProject(copy); setRefresh((value) => value + 1); };
 
   return (
     <div className="home-page">

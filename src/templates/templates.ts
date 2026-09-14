@@ -83,6 +83,7 @@ const create = (
   updatedAt: now(),
 
   status: "draft",
+  paymentStatus: "unpaid",
 
   opening: {
     type: "envelope",

@@ -3,10 +3,11 @@ import { isSupabaseConfigured, requireSupabaseSession, supabase } from "../lib/s
 
 interface ProjectRow {
   id: string;
-  owner_id: string;
+  owner_id?: string | null;
   name: string;
-  project_data: WeddingProject;
+  project_data: Partial<WeddingProject>;
   status: WeddingProject["status"];
+  payment_status: NonNullable<WeddingProject["paymentStatus"]>;
   public_id: string | null;
   created_at: string;
   updated_at: string;
@@ -14,40 +15,67 @@ interface ProjectRow {
   expires_at: string | null;
 }
 
+interface CheckoutResponse {
+  url: string;
+}
+
 const fromRow = (row: ProjectRow): WeddingProject => ({
   ...row.project_data,
   id: row.id,
-  ownerId: row.owner_id,
+  ownerId: row.owner_id ?? undefined,
   name: row.name,
   status: row.status,
+  paymentStatus: row.payment_status ?? "unpaid",
   publicId: row.public_id ?? undefined,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
   publishedAt: row.published_at ?? undefined,
   expiresAt: row.expires_at ?? undefined,
-});
+} as WeddingProject);
+
+const editableProjectData = (project: WeddingProject): Partial<WeddingProject> => {
+  const data = structuredClone(project) as Partial<WeddingProject>;
+  delete data.ownerId;
+  delete data.status;
+  delete data.paymentStatus;
+  delete data.publicId;
+  delete data.publishedAt;
+  return data;
+};
 
 export { isSupabaseConfigured };
 
 export async function saveRemoteProject(project: WeddingProject) {
   if (!supabase) return project;
   const user = await requireSupabaseSession();
-  const ownerId = project.ownerId ?? user.id;
-  const payload = { ...project, ownerId };
-  const { data, error } = await supabase.from("projects").upsert({
-    id: project.id,
-    owner_id: ownerId,
+  const editable = {
     name: project.name,
-    project_data: payload,
-    status: project.status,
-    public_id: project.publicId ?? null,
-    created_at: project.createdAt,
+    project_data: editableProjectData(project),
     updated_at: project.updatedAt,
-    published_at: project.publishedAt ?? null,
     expires_at: project.expiresAt ?? null,
-  }, { onConflict: "id" }).select().single<ProjectRow>();
-  if (error) throw error;
-  return fromRow(data);
+  };
+
+  const updated = await supabase
+    .from("projects")
+    .update(editable)
+    .eq("id", project.id)
+    .select("*")
+    .maybeSingle<ProjectRow>();
+  if (updated.error) throw updated.error;
+  if (updated.data) return fromRow(updated.data);
+
+  const inserted = await supabase
+    .from("projects")
+    .insert({
+      id: project.id,
+      owner_id: user.id,
+      ...editable,
+      created_at: project.createdAt,
+    })
+    .select("*")
+    .single<ProjectRow>();
+  if (inserted.error) throw inserted.error;
+  return fromRow(inserted.data);
 }
 
 export async function loadRemoteProjects() {
@@ -58,6 +86,14 @@ export async function loadRemoteProjects() {
   return data.map(fromRow);
 }
 
+export async function refreshRemoteProject(projectId: string) {
+  if (!supabase) return null;
+  await requireSupabaseSession();
+  const { data, error } = await supabase.from("projects").select("*").eq("id", projectId).maybeSingle<ProjectRow>();
+  if (error) throw error;
+  return data ? fromRow(data) : null;
+}
+
 export async function deleteRemoteProject(projectId: string) {
   if (!supabase) return;
   await requireSupabaseSession();
@@ -65,31 +101,20 @@ export async function deleteRemoteProject(projectId: string) {
   if (error) throw error;
 }
 
-const createPublicId = () => crypto.randomUUID().replaceAll("-", "").slice(0, 14);
-
-export async function publishRemoteProject(project: WeddingProject) {
+export async function startProjectCheckout(projectId: string) {
   if (!supabase) throw new Error("Supabase n’est pas configuré.");
-  const publishedAt = project.publishedAt ?? new Date().toISOString();
-  if (project.publicId) return saveRemoteProject({ ...project, status: "published", publishedAt });
-
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    try {
-      return await saveRemoteProject({ ...project, status: "published", publicId: createPublicId(), publishedAt });
-    } catch (error) {
-      if (!(error && typeof error === "object" && "code" in error && error.code === "23505")) throw error;
-    }
-  }
-  throw new Error("Impossible de générer un lien public unique.");
+  await requireSupabaseSession();
+  const { data, error } = await supabase.functions.invoke<CheckoutResponse>("create-checkout-session", {
+    body: { projectId },
+  });
+  if (error) throw error;
+  if (!data?.url) throw new Error("Stripe n’a retourné aucune URL de paiement.");
+  return data.url;
 }
 
 export async function loadPublicProject(publicId: string) {
   if (!supabase) return null;
-  const { data, error } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("public_id", publicId)
-    .eq("status", "published")
-    .maybeSingle<ProjectRow>();
+  const { data, error } = await supabase.rpc("get_public_project", { p_public_id: publicId });
   if (error) throw error;
-  return data ? fromRow(data) : null;
+  return data ? fromRow(data as ProjectRow) : null;
 }

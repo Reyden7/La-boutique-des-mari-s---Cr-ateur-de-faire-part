@@ -181,6 +181,7 @@ export interface WeddingProject {
   createdAt: string;
   updatedAt: string;
   status: "draft" | "published" | "expired";
+  paymentStatus?: "unpaid" | "pending" | "paid" | "refunded";
   publicId?: string;
   publishedAt?: string;
   expiresAt?: string;

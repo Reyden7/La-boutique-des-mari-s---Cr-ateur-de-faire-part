@@ -112,6 +112,31 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .publish-popover .copy-public-link { display: flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid #d8cec5; border-radius: 8px; background: #fff; color: #4a4541; padding: 9px; font-size: 10px; }
 .publish-popover.error > span { color: #9b3f3f; }
 .publish-popover .publish-close { position: absolute; right: 8px; top: 8px; border: 0; background: transparent; color: #948981; padding: 4px; }
+.publication-backdrop { z-index: 120; }
+.publication-modal { position: relative; width: min(460px, 100%); padding: 40px; border: 1px solid #e2d8cf; border-radius: 24px; background: #fbfaf8; box-shadow: 0 30px 90px rgba(25,23,21,.32); }
+.publication-modal h2 { margin: 6px 0 18px; font: 500 38px/1.05 "Cormorant Garamond", serif; color: #302d2a; }
+.publication-lock { width: 44px; height: 44px; display: grid; place-items: center; margin-bottom: 16px; border-radius: 50%; background: #e8eee8; color: var(--forest); }
+.publication-price { display: grid; gap: 2px; padding: 16px 18px; border: 1px solid #e1d6cc; border-radius: 13px; background: #fff; }
+.publication-price strong { font: 600 25px "Cormorant Garamond", serif; color: #302d2a; }
+.publication-price span { color: var(--muted); font-size: 11px; }
+.publication-modal ul { display: grid; gap: 10px; margin: 20px 0; padding: 0; list-style: none; color: #514b46; font-size: 12px; }
+.publication-modal li { display: flex; align-items: center; gap: 9px; }
+.publication-modal li svg { flex: 0 0 auto; color: var(--forest); }
+.checkout-button { width: 100%; min-height: 46px; border: 0; border-radius: 10px; background: var(--forest); color: #fff; font-weight: 700; letter-spacing: .02em; }
+.checkout-button:disabled { opacity: .65; cursor: wait; }
+.publication-modal > small { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 12px; color: #877d75; font-size: 9px; text-align: center; }
+.payment-result-page { min-height: 100dvh; display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at top, #f8f2ec, #ede6df); }
+.payment-result-card { width: min(560px, 100%); padding: 52px 44px; border: 1px solid #e0d5cb; border-radius: 24px; background: rgba(255,255,255,.94); box-shadow: 0 24px 70px rgba(54,44,37,.15); text-align: center; }
+.payment-result-card > svg { color: #9b765c; }
+.payment-result-card.success > svg { color: var(--forest); }
+.payment-result-card.cancelled > svg { color: #9b5353; }
+.payment-result-card h1 { margin: 10px 0 12px; font: 500 40px/1.06 "Cormorant Garamond", serif; }
+.payment-result-card > p:not(.eyebrow) { max-width: 420px; margin: 0 auto; color: var(--muted); font: 13px/1.7 "Lora", serif; }
+.payment-result-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+.payment-result-actions a { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 16px; border: 1px solid #d6ccc3; border-radius: 9px; color: #4b4642; background: #fff; text-decoration: none; font-size: 11px; font-weight: 700; }
+.payment-result-actions a:first-child { border-color: var(--forest); background: var(--forest); color: #fff; }
+.payment-spinner { animation: payment-spin 1.6s linear infinite; }
+@keyframes payment-spin { to { transform: rotate(360deg); } }
 
 .left-sidebar, .properties-panel { min-height: 0; background: #fff; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #d8d0c8 transparent; }
 .left-sidebar { border-right: 1px solid var(--line); padding: 18px 15px; }
