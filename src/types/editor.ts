@@ -121,8 +121,8 @@ export type ParticleShape =
   | "star"
   | "petal"
   | "sparkle"
-  | "diamond";
-
+  | "diamond"
+  | "custom";
 export type ParticleDirection =
   | "up"
   | "down"
@@ -154,6 +154,9 @@ export interface ParticleConfig {
   opacity: number;
 
   layer: "behind" | "front";
+
+  customImageUrl?: string;
+  customImageName?: string;
 }
 
 export interface WeddingProject {

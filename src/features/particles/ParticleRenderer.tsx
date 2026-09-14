@@ -36,12 +36,13 @@ const PARTICLE_SYMBOLS: Record<
   ParticleShape,
   string
 > = {
-  circle: "●",
-  heart: "♥",
-  star: "★",
-  petal: "❀",
-  sparkle: "✦",
-  diamond: "◆",
+    circle: "●",
+    heart: "♥",
+    star: "★",
+    petal: "❀",
+    sparkle: "✦",
+    diamond: "◆",
+    custom: ""
 };
 
 const randomBetween = (

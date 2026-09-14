@@ -1,4 +1,5 @@
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Upload } from "lucide-react";
+import { useRef } from "react";
 import { useEditorStore } from "../../stores/editorStore";
 import type {
   ParticleDirection,
@@ -90,6 +91,9 @@ const directions: {
 ];
 
 export function ParticlePanel() {
+  const fileRef =
+    useRef<HTMLInputElement>(null);
+
   const {
     project,
     updateParticles,
@@ -99,15 +103,74 @@ export function ParticlePanel() {
     return null;
   }
 
-  const particles = project.particles;
+  const particles =
+    project.particles;
 
   const update = (
-    changes: Partial<typeof particles>
+    changes: Partial<
+      typeof particles
+    >
   ) => {
     updateParticles({
       ...particles,
       ...changes,
     });
+  };
+
+  const handleCustomParticleUpload = (
+    file?: File
+  ) => {
+    if (!file) {
+      return;
+    }
+
+    const allowedTypes = [
+      "image/png",
+      "image/webp",
+      "image/svg+xml",
+    ];
+
+    if (
+      !allowedTypes.includes(
+        file.type
+      )
+    ) {
+      window.alert(
+        "Choisissez une image PNG, WebP ou SVG."
+      );
+
+      return;
+    }
+
+    if (
+      file.size >
+      2 * 1024 * 1024
+    ) {
+      window.alert(
+        "Le motif doit faire moins de 2 Mo."
+      );
+
+      return;
+    }
+
+    const reader =
+      new FileReader();
+
+    reader.onload = () => {
+      update({
+        shape: "custom",
+        customImageUrl:
+          String(
+            reader.result
+          ),
+        customImageName:
+          file.name,
+      });
+    };
+
+    reader.readAsDataURL(
+      file
+    );
   };
 
   const updateColor = (
@@ -118,7 +181,8 @@ export function ParticlePanel() {
       ...particles.colors,
     ];
 
-    colors[index] = color;
+    colors[index] =
+      color;
 
     update({
       colors,
@@ -127,7 +191,8 @@ export function ParticlePanel() {
 
   const addColor = () => {
     if (
-      particles.colors.length >= 5
+      particles.colors.length >=
+      5
     ) {
       return;
     }
@@ -144,7 +209,8 @@ export function ParticlePanel() {
     index: number
   ) => {
     if (
-      particles.colors.length <= 1
+      particles.colors.length <=
+      1
     ) {
       return;
     }
@@ -152,8 +218,12 @@ export function ParticlePanel() {
     update({
       colors:
         particles.colors.filter(
-          (_, colorIndex) =>
-            colorIndex !== index
+          (
+            _,
+            colorIndex
+          ) =>
+            colorIndex !==
+            index
         ),
     });
   };
@@ -161,9 +231,13 @@ export function ParticlePanel() {
   return (
     <div className="sidebar-view particle-panel">
       <div className="view-intro">
-        <span>Effets</span>
+        <span>
+          Effets
+        </span>
 
-        <h2>Particules</h2>
+        <h2>
+          Particules
+        </h2>
 
         <p>
           Ajoutez des particules animées
@@ -191,10 +265,13 @@ export function ParticlePanel() {
               checked={
                 particles.enabled
               }
-              onChange={(event) =>
+              onChange={(
+                event
+              ) =>
                 update({
                   enabled:
-                    event.target
+                    event
+                      .target
                       .checked,
                 })
               }
@@ -206,82 +283,214 @@ export function ParticlePanel() {
       </section>
 
       {/* Motif */}
-        <section className="particle-section">
+      <section className="particle-section">
         <div className="panel-title">
-            Motif
+          Motif
         </div>
 
         <div className="particle-shape-grid">
-            {particleShapes.map((shape) => {
-            const active =
-                particles.shape === shape.id;
+          {particleShapes.map(
+            (shape) => {
+              const active =
+                particles.shape ===
+                shape.id;
 
-            return (
+              return (
                 <button
-                type="button"
-                key={shape.id}
-                title={shape.label}
-                aria-label={shape.label}
-                className={`particle-shape-button ${
-                    active ? "active" : ""
-                }`}
-                onClick={() =>
+                  type="button"
+                  key={
+                    shape.id
+                  }
+                  title={
+                    shape.label
+                  }
+                  aria-label={
+                    shape.label
+                  }
+                  className={`particle-shape-button ${
+                    active
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() =>
                     update({
-                    shape: shape.id,
+                      shape:
+                        shape.id,
                     })
-                }
+                  }
                 >
-                <span className="particle-shape-preview">
-                    {shape.preview}
-                </span>
+                  <span className="particle-shape-preview">
+                    {
+                      shape.preview
+                    }
+                  </span>
 
-                <span className="particle-shape-check">
-                    {active ? "✓" : ""}
-                </span>
+                  <span className="particle-shape-check">
+                    {active
+                      ? "✓"
+                      : ""}
+                  </span>
                 </button>
-            );
-            })}
+              );
+            }
+          )}
+
+          {/* Motif personnalisé */}
+          <button
+            type="button"
+            title="Importer un motif personnalisé"
+            aria-label="Importer un motif personnalisé"
+            className={`particle-shape-button particle-custom-shape-button ${
+              particles.shape ===
+              "custom"
+                ? "active"
+                : ""
+            }`}
+            onClick={() =>
+              fileRef.current?.click()
+            }
+          >
+            {particles.customImageUrl ? (
+              <img
+                src={
+                  particles.customImageUrl
+                }
+                alt=""
+                className="particle-custom-preview"
+              />
+            ) : (
+              <Upload
+                size={24}
+              />
+            )}
+
+            <span className="particle-shape-check">
+              {particles.shape ===
+              "custom"
+                ? "✓"
+                : ""}
+            </span>
+          </button>
         </div>
-        </section>
+
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/png,image/webp,image/svg+xml"
+          hidden
+          onChange={(
+            event
+          ) => {
+            handleCustomParticleUpload(
+              event.target
+                .files?.[0]
+            );
+
+            event.currentTarget.value =
+              "";
+          }}
+        />
+
+        {particles.customImageUrl && (
+          <div className="custom-particle-info">
+            <img
+              src={
+                particles.customImageUrl
+              }
+              alt=""
+            />
+
+            <div>
+              <strong>
+                Motif personnalisé
+              </strong>
+
+              <small>
+                {
+                  particles.customImageName ??
+                  "Image importée"
+                }
+              </small>
+            </div>
+
+            <button
+              type="button"
+              title="Supprimer le motif personnalisé"
+              onClick={() =>
+                update({
+                  shape:
+                    "heart",
+                  customImageUrl:
+                    undefined,
+                  customImageName:
+                    undefined,
+                })
+              }
+            >
+              <Trash2
+                size={14}
+              />
+            </button>
+          </div>
+        )}
+
+        <p className="particle-help">
+          PNG, WebP ou SVG · 2 Mo maximum · fond transparent conseillé.
+        </p>
+      </section>
 
       {/* Direction */}
-        <section className="particle-section">
+      <section className="particle-section">
         <div className="panel-title">
-            Direction
+          Direction
         </div>
 
         <div className="particle-direction-wheel">
-            {directions.map((direction) => {
-            const active =
+          {directions.map(
+            (
+              direction
+            ) => {
+              const active =
                 particles.direction ===
                 direction.id;
 
-            return (
+              return (
                 <button
-                type="button"
-                key={direction.id}
-                title={direction.label}
-                aria-label={direction.label}
-                className={`particle-direction-button direction-${direction.id} ${
-                    active ? "active" : ""
-                }`}
-                onClick={() =>
+                  type="button"
+                  key={
+                    direction.id
+                  }
+                  title={
+                    direction.label
+                  }
+                  aria-label={
+                    direction.label
+                  }
+                  className={`particle-direction-button direction-${direction.id} ${
+                    active
+                      ? "active"
+                      : ""
+                  }`}
+                  onClick={() =>
                     update({
-                    direction:
+                      direction:
                         direction.id,
                     })
-                }
+                  }
                 >
-                {direction.icon}
+                  {
+                    direction.icon
+                  }
                 </button>
-            );
-            })}
+              );
+            }
+          )}
 
-            <div className="particle-direction-center">
+          <div className="particle-direction-center">
             •
-            </div>
+          </div>
         </div>
-        </section>
+      </section>
 
       {/* Vitesse */}
       <section className="particle-section">
@@ -291,7 +500,8 @@ export function ParticlePanel() {
           </span>
 
           <strong>
-            {particles.speed === 0
+            {particles.speed ===
+            0
               ? "Flottement"
               : `${particles.speed} %`}
           </strong>
@@ -305,20 +515,24 @@ export function ParticlePanel() {
           value={
             particles.speed
           }
-          onChange={(event) =>
+          onChange={(
+            event
+          ) =>
             update({
-              speed: Number(
-                event.target.value
-              ),
+              speed:
+                Number(
+                  event.target
+                    .value
+                ),
             })
           }
         />
 
-        {particles.speed === 0 && (
+        {particles.speed ===
+          0 && (
           <p className="particle-help">
-            Les particules restent
-            dans l'écran et flottent
-            doucement.
+            Les particules restent dans
+            l'écran et flottent doucement.
           </p>
         )}
       </section>
@@ -331,7 +545,9 @@ export function ParticlePanel() {
           </span>
 
           <strong>
-            {particles.quantity}
+            {
+              particles.quantity
+            }
           </strong>
         </div>
 
@@ -343,11 +559,15 @@ export function ParticlePanel() {
           value={
             particles.quantity
           }
-          onChange={(event) =>
+          onChange={(
+            event
+          ) =>
             update({
-              quantity: Number(
-                event.target.value
-              ),
+              quantity:
+                Number(
+                  event.target
+                    .value
+                ),
             })
           }
         />
@@ -361,21 +581,33 @@ export function ParticlePanel() {
           </span>
 
           <small>
-            {particles.colors.length}/5
+            {
+              particles
+                .colors
+                .length
+            }
+            /5
           </small>
         </div>
 
         <div className="particle-colors">
           {particles.colors.map(
-            (color, index) => (
+            (
+              color,
+              index
+            ) => (
               <div
                 className="particle-color-row"
                 key={index}
               >
                 <input
                   type="color"
-                  value={color}
-                  onChange={(event) =>
+                  value={
+                    color
+                  }
+                  onChange={(
+                    event
+                  ) =>
                     updateColor(
                       index,
                       event.target
@@ -386,8 +618,12 @@ export function ParticlePanel() {
 
                 <input
                   type="text"
-                  value={color}
-                  onChange={(event) =>
+                  value={
+                    color
+                  }
+                  onChange={(
+                    event
+                  ) =>
                     updateColor(
                       index,
                       event.target
@@ -400,8 +636,10 @@ export function ParticlePanel() {
                   type="button"
                   title="Supprimer cette couleur"
                   disabled={
-                    particles.colors
-                      .length <= 1
+                    particles
+                      .colors
+                      .length <=
+                    1
                   }
                   onClick={() =>
                     removeColor(
@@ -418,8 +656,8 @@ export function ParticlePanel() {
           )}
         </div>
 
-        {particles.colors.length <
-          5 && (
+        {particles.colors
+          .length < 5 && (
           <button
             type="button"
             className="particle-add-color"
@@ -427,7 +665,9 @@ export function ParticlePanel() {
               addColor
             }
           >
-            <Plus size={15} />
+            <Plus
+              size={15}
+            />
 
             Ajouter une couleur
           </button>
@@ -472,7 +712,9 @@ export function ParticlePanel() {
               }}
             />
 
-            <small>px</small>
+            <small>
+              px
+            </small>
           </label>
 
           <label>
@@ -506,7 +748,9 @@ export function ParticlePanel() {
               }}
             />
 
-            <small>px</small>
+            <small>
+              px
+            </small>
           </label>
         </div>
       </section>
@@ -535,11 +779,15 @@ export function ParticlePanel() {
           value={
             particles.opacity
           }
-          onChange={(event) =>
+          onChange={(
+            event
+          ) =>
             update({
-              opacity: Number(
-                event.target.value
-              ),
+              opacity:
+                Number(
+                  event.target
+                    .value
+                ),
             })
           }
         />
@@ -562,7 +810,8 @@ export function ParticlePanel() {
             }
             onClick={() =>
               update({
-                layer: "behind",
+                layer:
+                  "behind",
               })
             }
           >
@@ -579,7 +828,8 @@ export function ParticlePanel() {
             }
             onClick={() =>
               update({
-                layer: "front",
+                layer:
+                  "front",
               })
             }
           >
