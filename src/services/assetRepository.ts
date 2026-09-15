@@ -14,7 +14,8 @@ const normalizedMimeType = (file: File, kind: "image" | "audio") => {
 export async function uploadProjectAsset(project: WeddingProject, file: File, kind: "image" | "audio") {
   if (!supabase) throw new Error("Supabase n’est pas configuré.");
   const user = await requireSupabaseSession();
-  const persistedProject = await saveRemoteProject({ ...project, ownerId: project.ownerId ?? user.id });
+  if (!project.ownerId || project.ownerId !== user.id) throw new Error("Associez d’abord ce projet à votre compte.");
+  const persistedProject = await saveRemoteProject(project);
   const folder = kind === "image" ? "images" : "audio";
   const storagePath = `${user.id}/${persistedProject.id}/${folder}/${crypto.randomUUID()}-${safeFilename(file.name)}`;
   const mimeType = normalizedMimeType(file, kind);

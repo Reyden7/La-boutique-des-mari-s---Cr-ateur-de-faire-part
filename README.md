@@ -26,6 +26,21 @@ npm run dev
 - aperçu complet avec ouverture et ambiance sonore ;
 - publication payante sécurisée par Stripe Checkout et webhook Supabase sur `/i/:publicId`.
 
+## Authentification Supabase
+
+Le Studio utilise l’authentification Supabase par email et mot de passe. Activez
+le provider Email dans `Authentication > Providers`. Selon votre environnement,
+vous pouvez conserver la confirmation d’adresse email ou la désactiver pour les
+tests locaux.
+
+Les routes `/`, `/studio/*`, `/payment/success` et `/payment/cancel` exigent une
+session authentifiée persistante. `/i/:publicId` reste publique. Les anciennes
+sessions anonymes sont refusées et supprimées du navigateur au démarrage.
+
+Un ancien projet local sans `ownerId` n’est jamais envoyé automatiquement : il
+apparaît avec l’action explicite « Associer », qui l’insère en brouillon pour le
+compte actuellement connecté.
+
 ## Publication Stripe en mode test
 
 Le navigateur utilise uniquement les variables publiques suivantes :

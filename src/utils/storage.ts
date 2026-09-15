@@ -55,23 +55,33 @@ export const syncProject = async (project: WeddingProject) => {
   return remoteProject;
 };
 
-export const hydrateProjects = async () => {
-  if (!isSupabaseConfigured) return loadProjects();
+export const hydrateProjects = async (ownerId: string) => {
+  const allLocalProjects = loadProjects();
+  const visibleLocalProjects = allLocalProjects.filter((project) => !project.ownerId || project.ownerId === ownerId);
+  if (!isSupabaseConfigured) return visibleLocalProjects;
   const remoteProjects = await loadRemoteProjects();
-  const localProjects = loadProjects();
-  const merged = new Map(localProjects.map((project) => [project.id, project]));
+  const merged = new Map(visibleLocalProjects.map((project) => [project.id, project]));
   for (const project of remoteProjects) {
     const localProject = merged.get(project.id);
     if (!localProject || project.updatedAt >= localProject.updatedAt) merged.set(project.id, project);
   }
   const projects = [...merged.values()].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-  saveProjects(projects);
+  const hiddenLocalProjects = allLocalProjects.filter((project) => project.ownerId && project.ownerId !== ownerId);
+  saveProjects([...projects, ...hiddenLocalProjects]);
   return projects;
 };
 
-export const getProject = (projectId: string) => loadProjects().find((project) => project.id === projectId);
+export const getProject = (projectId: string, ownerId: string) => loadProjects().find((project) => project.id === projectId && project.ownerId === ownerId);
 
 export const deleteProject = (projectId: string) => {
-  saveProjects(loadProjects().filter((project) => project.id !== projectId));
-  if (isSupabaseConfigured) void deleteRemoteProject(projectId).catch((error) => console.warn("Suppression distante différée", error));
+  const projects = loadProjects();
+  const project = projects.find((item) => item.id === projectId);
+  saveProjects(projects.filter((item) => item.id !== projectId));
+  if (isSupabaseConfigured && project?.ownerId) void deleteRemoteProject(projectId).catch((error) => console.warn("Suppression distante différée", error));
+};
+
+export const remoteErrorSummary = (error: unknown) => {
+  if (!error || typeof error !== "object") return String(error);
+  const value = error as { code?: unknown; message?: unknown };
+  return [value.code, value.message].filter((item): item is string => typeof item === "string").join(" — ") || "Erreur distante inconnue";
 };

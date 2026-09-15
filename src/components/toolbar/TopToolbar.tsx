@@ -2,6 +2,7 @@ import { Check, ChevronLeft, Copy, ExternalLink, Eye, LockKeyhole, Redo2, Save, 
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useEditorStore } from "../../stores/editorStore";
+import { remoteErrorSummary } from "../../utils/storage";
 
 const publicationBenefits = [
   "Lien personnalisé et stable",
@@ -37,7 +38,7 @@ export function TopToolbar({ onPreview }: { onPreview: () => void }) {
         setPublishedUrl(`${window.location.origin}/i/${refreshed.publicId}`);
       }
     } catch (error) {
-      console.warn("Création du paiement impossible", error);
+      console.warn("Création du paiement impossible", remoteErrorSummary(error));
       setPublishError("Le paiement n’a pas pu être préparé. Vérifiez votre connexion puis réessayez.");
       setConfirming(false);
     } finally {

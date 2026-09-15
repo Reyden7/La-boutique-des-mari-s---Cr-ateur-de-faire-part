@@ -12,7 +12,7 @@ import type {
 import type { PreviewDevice } from "../config/previewDevices";
 
 import { startProjectCheckout } from "../services/projectRepository";
-import { getProject, syncProject, upsertProject } from "../utils/storage";
+import { getProject, remoteErrorSummary, syncProject, upsertProject } from "../utils/storage";
 import {
   getElementLayout,
   resetElementLayoutForDevice,
@@ -53,7 +53,7 @@ interface EditorState {
 
   setProject: (project: WeddingProject) => void;
 
-  loadProject: (id: string) => WeddingProject | undefined;
+  loadProject: (id: string, ownerId: string) => WeddingProject | undefined;
 
   renameProject: (name: string) => void;
 
@@ -260,9 +260,9 @@ export const useEditorStore =
         });
       },
 
-      loadProject: (id) => {
+      loadProject: (id, ownerId) => {
         const project =
-          getProject(id);
+          getProject(id, ownerId);
 
         if (project) {
           get().setProject(project);
@@ -847,7 +847,7 @@ export const useEditorStore =
             (error) => {
               console.warn(
                 "Sauvegarde distante différée",
-                error
+                remoteErrorSummary(error)
               );
 
               set({

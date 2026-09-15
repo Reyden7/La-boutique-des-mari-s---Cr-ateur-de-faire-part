@@ -11,6 +11,7 @@ import { TopToolbar } from "../components/toolbar/TopToolbar";
 import { useEditorStore } from "../stores/editorStore";
 import type { OpeningAnimationType } from "../types/editor";
 import { OpeningPreview } from "../features/openings/OpeningPreview";
+import { useAuth } from "../contexts/AuthContext";
 
 export function EditorPage() {
   const { projectId } = useParams();
@@ -20,12 +21,14 @@ export function EditorPage() {
   const [mobilePanel, setMobilePanel] = useState<"tools" | "properties" | null>(null);
   const project = useEditorStore((state) => state.project);
   const previewDevice = useEditorStore((state) => state.previewDevice);
+  const { user } = useAuth();
 
   useEffect(() => {
-    if (!projectId) return;
+    if (!projectId || !user) return;
     const current = useEditorStore.getState().project;
-    if (current?.id !== projectId && !useEditorStore.getState().loadProject(projectId)) setMissing(true);
-  }, [projectId]);
+    if (current?.id === projectId && current.ownerId === user.id) return;
+    if (!useEditorStore.getState().loadProject(projectId, user.id)) setMissing(true);
+  }, [projectId, user]);
 
   useEffect(() => {
     if (!project) return;

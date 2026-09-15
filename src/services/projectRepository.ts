@@ -46,8 +46,15 @@ const editableProjectData = (project: WeddingProject): Partial<WeddingProject> =
 export { isSupabaseConfigured };
 
 export async function saveRemoteProject(project: WeddingProject) {
-  if (!supabase) return project;
+  if (!supabase) throw new Error("Supabase n’est pas configuré.");
+  const client = supabase;
   const user = await requireSupabaseSession();
+  if (!project.ownerId) {
+    throw new Error("Ce projet local doit être associé explicitement à votre compte avant sa première sauvegarde distante.");
+  }
+  if (project.ownerId !== user.id) {
+    throw new Error("Ce projet appartient à un autre compte.");
+  }
   const editable = {
     name: project.name,
     project_data: editableProjectData(project),
@@ -55,27 +62,51 @@ export async function saveRemoteProject(project: WeddingProject) {
     expires_at: project.expiresAt ?? null,
   };
 
-  const updated = await supabase
-    .from("projects")
-    .update(editable)
-    .eq("id", project.id)
-    .select("*")
-    .maybeSingle<ProjectRow>();
-  if (updated.error) throw updated.error;
-  if (updated.data) return fromRow(updated.data);
+  const updateExistingProject = async () => {
+    const { data, error } = await client
+      .from("projects")
+      .update(editable)
+      .eq("id", project.id)
+      .select("*")
+      .single<ProjectRow>();
+    if (error) throw error;
+    return fromRow(data);
+  };
 
-  const inserted = await supabase
+  const existing = await client
+    .from("projects")
+    .select("id")
+    .eq("id", project.id)
+    .maybeSingle<{ id: string }>();
+  if (existing.error) throw existing.error;
+  if (existing.data) return updateExistingProject();
+
+  const inserted = await client
     .from("projects")
     .insert({
       id: project.id,
       owner_id: user.id,
       ...editable,
       created_at: project.createdAt,
+      status: "draft",
+      payment_status: "unpaid",
+      public_id: null,
+      published_at: null,
     })
     .select("*")
     .single<ProjectRow>();
+  if (inserted.error?.code === "23505") return updateExistingProject();
   if (inserted.error) throw inserted.error;
   return fromRow(inserted.data);
+}
+
+export async function associateLocalProject(project: WeddingProject) {
+  const user = await requireSupabaseSession();
+  if (project.ownerId) {
+    if (project.ownerId !== user.id) throw new Error("Ce projet appartient déjà à un autre compte.");
+    return saveRemoteProject(project);
+  }
+  return saveRemoteProject({ ...project, ownerId: user.id });
 }
 
 export async function loadRemoteProjects() {

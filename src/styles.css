@@ -137,6 +137,42 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .payment-result-actions a:first-child { border-color: var(--forest); background: var(--forest); color: #fff; }
 .payment-spinner { animation: payment-spin 1.6s linear infinite; }
 @keyframes payment-spin { to { transform: rotate(360deg); } }
+.auth-page { min-height: 100dvh; display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at 20% 0, #fbf5ef, #ece4dc 70%); }
+.auth-card { width: min(440px, 100%); padding: 42px; border: 1px solid #e0d5cb; border-radius: 24px; background: rgba(255,255,255,.96); box-shadow: 0 28px 80px rgba(48,39,33,.16); }
+.auth-brand { display: flex; align-items: center; gap: 11px; margin-bottom: 34px; }
+.auth-brand > div:last-child { display: grid; }
+.auth-brand strong { font: 600 15px "Cormorant Garamond", serif; }
+.auth-brand span { color: #a07458; font-size: 8px; font-weight: 800; letter-spacing: .22em; text-transform: uppercase; }
+.auth-icon { width: 42px; height: 42px; display: grid; place-items: center; margin-bottom: 14px; border-radius: 50%; background: #e7ede7; color: var(--forest); }
+.auth-card h1 { margin: 4px 0 8px; font: 500 42px/1 "Cormorant Garamond", serif; }
+.auth-intro { margin: 0 0 24px; color: var(--muted); font: 12px/1.7 "Lora", serif; }
+.auth-card form, .auth-card label { display: grid; gap: 8px; }
+.auth-card form { gap: 16px; }
+.auth-card label > span { color: #5b544f; font-size: 10px; font-weight: 700; }
+.auth-card label > div { min-height: 44px; display: flex; align-items: center; gap: 9px; padding: 0 13px; border: 1px solid #dcd2c9; border-radius: 9px; background: #fff; color: #9a8e85; }
+.auth-card input { width: 100%; border: 0; outline: 0; background: transparent; color: #36312e; font-size: 12px; }
+.auth-submit { min-height: 46px; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; border: 0; border-radius: 10px; background: var(--forest); color: #fff; font-weight: 700; }
+.auth-submit:disabled { opacity: .6; }
+.auth-switch { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 22px; color: var(--muted); font-size: 10px; }
+.auth-switch button { border: 0; background: transparent; color: #936c54; font-weight: 800; }
+.auth-message { margin-bottom: 16px; padding: 11px 13px; border-radius: 8px; background: #e9f0e9; color: #405543; font-size: 10px; line-height: 1.5; }
+.auth-message.error, .project-sync-message { background: #f8e9e7; color: #8b3f3c; }
+.home-account { display: flex; align-items: center; gap: 12px; }
+.home-account > span { max-width: 220px; overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.home-account .help-button { display: flex; align-items: center; gap: 7px; }
+.project-sync-message { margin-bottom: 18px; padding: 11px 14px; border-radius: 9px; font-size: 10px; }
+.projects-loading { padding: 50px 0; color: var(--muted); text-align: center; font: 13px "Lora", serif; }
+.legacy-local-project { border-style: dashed; }
+.project-preview:disabled { cursor: default; opacity: .76; }
+.legacy-project-badge { position: absolute; top: 12px; left: 12px; z-index: 2; padding: 6px 8px; border-radius: 6px; background: rgba(45,49,44,.88); color: #fff !important; font: 700 8px sans-serif !important; letter-spacing: .06em; text-transform: uppercase; }
+.claim-project-button { display: flex; align-items: center; gap: 6px; border: 1px solid #cdbbac; border-radius: 7px; background: #fff; color: #775c4c; padding: 7px 9px; font-size: 9px; font-weight: 700; }
+
+@media (max-width: 640px) {
+  .auth-card { padding: 32px 22px; }
+  .auth-card h1 { font-size: 36px; }
+  .home-account > span { display: none; }
+  .home-account .help-button { padding-inline: 10px; }
+}
 
 .left-sidebar, .properties-panel { min-height: 0; background: #fff; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #d8d0c8 transparent; }
 .left-sidebar { border-right: 1px solid var(--line); padding: 18px 15px; }

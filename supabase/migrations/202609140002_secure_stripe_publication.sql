@@ -57,6 +57,17 @@ grant select on table public.project_payments to authenticated;
 -- listing every published project through the projects REST endpoint.
 drop policy if exists "published projects are publicly readable" on public.projects;
 
+drop policy if exists "owners can create projects" on public.projects;
+create policy "owners can create draft unpaid projects" on public.projects
+  for insert to authenticated
+  with check (
+    owner_id = auth.uid()
+    and status = 'draft'
+    and payment_status = 'unpaid'
+    and public_id is null
+    and published_at is null
+  );
+
 drop policy if exists "owners can update projects" on public.projects;
 create policy "owners can update editable project fields" on public.projects
   for update to authenticated
@@ -65,7 +76,7 @@ create policy "owners can update editable project fields" on public.projects
 
 revoke insert, update on table public.projects from anon;
 revoke insert, update on table public.projects from authenticated;
-grant insert (id, owner_id, name, project_data, created_at, updated_at, expires_at)
+grant insert (id, owner_id, name, project_data, status, payment_status, public_id, created_at, updated_at, published_at, expires_at)
   on table public.projects to authenticated;
 grant update (name, project_data, updated_at, expires_at)
   on table public.projects to authenticated;
