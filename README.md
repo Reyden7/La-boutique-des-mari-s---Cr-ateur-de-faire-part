@@ -41,23 +41,26 @@ Un ancien projet local sans `ownerId` n’est jamais envoyé automatiquement : i
 apparaît avec l’action explicite « Associer », qui l’insère en brouillon pour le
 compte actuellement connecté.
 
-## Publication Stripe en mode test
+## Paiements Stripe et fonctions backend
 
 Le navigateur utilise uniquement les variables publiques suivantes :
 
 ```bash
 VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your_anon_or_publishable_key
+VITE_SUPABASE_PUBLISHABLE_KEY=your_publishable_key
+VITE_RSVP_ADDON_PRICE_CENTS=990
 ```
 
 Les secrets restent exclusivement dans les secrets des Supabase Edge Functions :
 
 ```bash
-supabase secrets set STRIPE_SECRET_KEY=sk_test_xxx
+supabase secrets set STRIPE_SECRET_KEY=rk_live_xxx
 supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_xxx
-supabase secrets set SUPABASE_URL=https://your-project.supabase.co
-supabase secrets set SUPABASE_SERVICE_ROLE_KEY=xxx
-supabase secrets set SITE_URL=http://localhost:5173
+supabase secrets set SITE_URL=https://www.laboutiquedesmaries.fr
+supabase secrets set RSVP_ADDON_PRICE_CENTS=990
+supabase secrets set RSVP_ABUSE_SALT=<secret-aleatoire-de-32-caracteres-minimum>
+supabase secrets set RESEND_API_KEY=re_xxx
+supabase secrets set 'RSVP_EMAIL_FROM=RSVP <rsvp@laboutiquedesmaries.fr>'
 ```
 
 Appliquer puis déployer :
@@ -65,7 +68,9 @@ Appliquer puis déployer :
 ```bash
 supabase db push
 supabase functions deploy create-checkout-session
-supabase functions deploy stripe-webhook --no-verify-jwt
+supabase functions deploy create-commerce-checkout
+supabase functions deploy stripe-webhook
+supabase functions deploy submit-rsvp
 ```
 
 Dans Stripe en mode test, créer un endpoint webhook vers
@@ -76,8 +81,11 @@ Dans Stripe en mode test, créer un endpoint webhook vers
 - `checkout.session.async_payment_failed` ;
 - `charge.refunded`.
 
-Le prix (2 490 centimes, EUR) est défini uniquement dans l’Edge Function. Le
-frontend ne reçoit que l’URL Checkout. La page de succès attend ensuite que le
-webhook signé ait marqué le projet `paid` et `published` avant d’afficher le lien.
-Les fonctions refusent volontairement toute clé autre que `sk_test_` dans cette
-première version.
+Les prix réellement facturés sont définis côté Edge Functions : 2 490 centimes
+pour la publication, 5 000 centimes pour la commande sur mesure et
+`RSVP_ADDON_PRICE_CENTS` pour l’option RSVP. La variable frontend du prix RSVP
+est uniquement informative. Le déblocage des achats dépend exclusivement du
+webhook Stripe signé.
+
+La procédure complète de mise en production se trouve dans
+[`docs/backend-deployment.md`](docs/backend-deployment.md).

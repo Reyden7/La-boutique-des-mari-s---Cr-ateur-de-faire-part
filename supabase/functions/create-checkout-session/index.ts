@@ -4,12 +4,29 @@ import { corsHeaders, jsonResponse } from "../_shared/http.ts";
 
 const PRICE_CENTS = 2490;
 const CURRENCY = "eur";
+const PRODUCTION_ORIGIN = "https://www.laboutiquedesmaries.fr";
 const integrationIdentifier = () => `lbm-publication-${Array.from(crypto.getRandomValues(new Uint8Array(8)), (value) => String.fromCharCode(97 + value % 26)).join("")}`;
 
 const requireEnvironment = (name: string) => {
   const value = Deno.env.get(name)?.trim();
   if (!value) throw new Error(`Missing server environment variable: ${name}`);
   return value;
+};
+
+const requireSiteOrigin = () => {
+  const configured = new URL(requireEnvironment("SITE_URL"));
+  if (configured.origin !== PRODUCTION_ORIGIN) {
+    throw new Error(`SITE_URL must be ${PRODUCTION_ORIGIN}`);
+  }
+  return configured.origin;
+};
+
+const requireStripeKey = () => {
+  const key = requireEnvironment("STRIPE_SECRET_KEY");
+  if (!/^(?:sk|rk)_(?:test|live)_/.test(key)) {
+    throw new Error("STRIPE_SECRET_KEY has an unsupported format");
+  }
+  return key;
 };
 
 Deno.serve(async (request) => {
@@ -23,15 +40,8 @@ Deno.serve(async (request) => {
   try {
     const supabaseUrl = requireEnvironment("SUPABASE_URL");
     const serviceRoleKey = requireEnvironment("SUPABASE_SERVICE_ROLE_KEY");
-    const stripeSecretKey = requireEnvironment("STRIPE_SECRET_KEY");
-    const siteUrl = requireEnvironment("SITE_URL").replace(/\/$/, "");
-    if (!stripeSecretKey.startsWith("sk_test_")) {
-      return jsonResponse(
-        { error: "This deployment accepts Stripe test mode only" },
-        503,
-        true,
-      );
-    }
+    const stripeSecretKey = requireStripeKey();
+    const siteUrl = requireSiteOrigin();
 
     const authorization = request.headers.get("Authorization");
     const accessToken = authorization?.replace(/^Bearer\s+/i, "");
@@ -57,7 +67,7 @@ Deno.serve(async (request) => {
     }
     if (
       typeof body.projectId !== "string" ||
-      !/^[0-9a-f-]{36}$/i.test(body.projectId)
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.projectId)
     ) {
       return jsonResponse(
         { error: "A valid projectId is required" },
@@ -193,9 +203,17 @@ Deno.serve(async (request) => {
             product_data: { name: "Publication d’un faire-part numérique" },
           },
         }],
-        metadata: { project_id: projectId, owner_id: userData.user.id },
+        metadata: {
+          purchase_type: "publication",
+          project_id: projectId,
+          owner_id: userData.user.id,
+        },
         payment_intent_data: {
-          metadata: { project_id: projectId, owner_id: userData.user.id },
+          metadata: {
+            purchase_type: "publication",
+            project_id: projectId,
+            owner_id: userData.user.id,
+          },
         },
         success_url: `${siteUrl}/payment/success?projectId=${
           encodeURIComponent(projectId)

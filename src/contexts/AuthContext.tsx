@@ -13,6 +13,7 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+const PRODUCTION_SITE_URL = "https://www.laboutiquedesmaries.fr";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -55,7 +56,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     configured: isSupabaseConfigured,
     signUp: async (email, password) => {
       if (!supabase) throw new Error("Supabase n’est pas configuré.");
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: `${PRODUCTION_SITE_URL}/` },
+      });
       if (error) throw error;
       return { confirmationRequired: !data.session };
     },

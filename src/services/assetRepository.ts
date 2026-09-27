@@ -24,6 +24,15 @@ const normalizedMimeType = (file: File, kind: ProjectAssetKind) => {
 
 export async function uploadProjectAsset(project: WeddingProject, file: File, kind: ProjectAssetKind) {
   if (!supabase) throw new Error("Supabase n’est pas configuré.");
+  if (kind === "font") {
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    if (!extension || !["ttf", "otf", "woff", "woff2"].includes(extension)) {
+      throw new Error("Format de police non pris en charge.");
+    }
+    if (file.size <= 0 || file.size > 8 * 1024 * 1024) {
+      throw new Error("La police doit peser moins de 8 Mo.");
+    }
+  }
   const user = await requireSupabaseSession();
   if (!project.ownerId || project.ownerId !== user.id) throw new Error("Associez d’abord ce projet à votre compte.");
   const persistedProject = await saveRemoteProject(project);

@@ -4,6 +4,7 @@ import { jsonResponse } from "../_shared/http.ts";
 
 const PRICE_CENTS = 2490;
 const CURRENCY = "eur";
+type PurchaseType = "publication" | "custom_invitation" | "rsvp_addon";
 
 const requireEnvironment = (name: string) => {
   const value = Deno.env.get(name)?.trim();
@@ -13,6 +14,20 @@ const requireEnvironment = (name: string) => {
 
 const stripeId = (value: string | { id: string } | null) =>
   typeof value === "string" ? value : value?.id ?? null;
+
+const purchaseTypeFromSession = (session: Stripe.Checkout.Session): PurchaseType | null => {
+  const explicit = session.metadata?.purchase_type;
+  if (explicit === "publication" || explicit === "custom_invitation" || explicit === "rsvp_addon") {
+    return explicit;
+  }
+
+  // Transitional compatibility for Checkout Sessions created before the
+  // explicit purchase_type metadata was deployed. Never infer from amount.
+  const legacy = session.metadata?.purchase_kind;
+  if (legacy === "custom_invitation" || legacy === "rsvp_addon") return legacy;
+  if (session.metadata?.project_id && !session.metadata?.entity_id) return "publication";
+  return null;
+};
 
 Deno.serve(async (request) => {
   if (request.method !== "POST") {
@@ -24,10 +39,8 @@ Deno.serve(async (request) => {
   let webhookSecret: string;
   try {
     const stripeSecretKey = requireEnvironment("STRIPE_SECRET_KEY");
-    if (!stripeSecretKey.startsWith("sk_test_")) {
-      return jsonResponse({
-        error: "This deployment accepts Stripe test mode only",
-      }, 503);
+    if (!/^(?:sk|rk)_(?:test|live)_/.test(stripeSecretKey)) {
+      throw new Error("STRIPE_SECRET_KEY has an unsupported format");
     }
     stripe = new Stripe(stripeSecretKey, {
       httpClient: Stripe.createFetchHttpClient(),
@@ -82,21 +95,27 @@ Deno.serve(async (request) => {
         return jsonResponse({ received: true });
       }
 
-      const purchaseKind = session.metadata?.purchase_kind;
-      const entityId = session.metadata?.entity_id;
+      const purchaseType = purchaseTypeFromSession(session);
+      if (!purchaseType) {
+        return jsonResponse({ error: "Unknown purchase type" }, 400);
+      }
       const commerceOwnerId = session.metadata?.owner_id;
       const commercePaymentIntentId = stripeId(session.payment_intent);
-      if (purchaseKind === "custom_invitation" || purchaseKind === "rsvp_addon") {
+      if (purchaseType === "custom_invitation" || purchaseType === "rsvp_addon") {
+        const entityId = purchaseType === "custom_invitation"
+          ? session.metadata?.custom_request_id ?? session.metadata?.entity_id
+          : session.metadata?.project_id ?? session.metadata?.entity_id;
         if (!entityId || !commerceOwnerId || !commercePaymentIntentId || session.currency !== CURRENCY || !session.amount_total) return jsonResponse({ error: "Missing commerce metadata" }, 400);
-        const expectedAmount = purchaseKind === "custom_invitation" ? 5000 : Number(requireEnvironment("RSVP_ADDON_PRICE_CENTS"));
+        const expectedAmount = purchaseType === "custom_invitation" ? 5000 : Number(requireEnvironment("RSVP_ADDON_PRICE_CENTS"));
+        if (!Number.isSafeInteger(expectedAmount) || expectedAmount <= 0) throw new Error("Invalid configured commerce amount");
         if (session.amount_total !== expectedAmount) return jsonResponse({ error: "Commerce amount mismatch" }, 400);
-        const rpc = purchaseKind === "custom_invitation" ? "finalize_custom_invitation_payment" : "finalize_rsvp_addon_payment";
-        const parameters = purchaseKind === "custom_invitation"
+        const rpc = purchaseType === "custom_invitation" ? "finalize_custom_invitation_payment" : "finalize_rsvp_addon_payment";
+        const parameters = purchaseType === "custom_invitation"
           ? { p_request_id: entityId, p_owner_id: commerceOwnerId, p_session_id: session.id, p_payment_intent_id: commercePaymentIntentId, p_amount_cents: expectedAmount }
           : { p_project_id: entityId, p_owner_id: commerceOwnerId, p_session_id: session.id, p_payment_intent_id: commercePaymentIntentId, p_amount_cents: expectedAmount };
         const finalized = await admin.rpc(rpc, parameters);
         if (finalized.error) throw finalized.error;
-        console.info("commerce_payment_finalized", { purchaseKind, entityId, checkoutSessionId: session.id });
+        console.info("commerce_payment_finalized", { purchaseType, entityId, checkoutSessionId: session.id });
         return jsonResponse({ received: true });
       }
 
@@ -167,16 +186,19 @@ Deno.serve(async (request) => {
       });
     } else if (event.type === "checkout.session.async_payment_failed") {
       const session = event.data.object as Stripe.Checkout.Session;
-      const purchaseKind = session.metadata?.purchase_kind;
-      const entityId = session.metadata?.entity_id;
+      const purchaseType = purchaseTypeFromSession(session);
+      if (!purchaseType) return jsonResponse({ error: "Unknown purchase type" }, 400);
       const commerceOwnerId = session.metadata?.owner_id;
-      if (purchaseKind === "custom_invitation" && entityId && commerceOwnerId) {
-        const failed = await admin.from("custom_invitation_requests").update({ status: "draft", stripe_checkout_session_id: null }).eq("id", entityId).eq("owner_id", commerceOwnerId).eq("stripe_checkout_session_id", session.id);
+      const commerceEntityId = purchaseType === "custom_invitation"
+        ? session.metadata?.custom_request_id ?? session.metadata?.entity_id
+        : session.metadata?.project_id ?? session.metadata?.entity_id;
+      if (purchaseType === "custom_invitation" && commerceEntityId && commerceOwnerId) {
+        const failed = await admin.from("custom_invitation_requests").update({ status: "draft", stripe_checkout_session_id: null }).eq("id", commerceEntityId).eq("owner_id", commerceOwnerId).eq("stripe_checkout_session_id", session.id);
         if (failed.error) throw failed.error;
         return jsonResponse({ received: true });
       }
-      if (purchaseKind === "rsvp_addon" && entityId && commerceOwnerId) {
-        const failed = await admin.from("rsvp_addon_purchases").update({ status: "unpaid", stripe_checkout_session_id: null }).eq("project_id", entityId).eq("owner_id", commerceOwnerId).eq("stripe_checkout_session_id", session.id);
+      if (purchaseType === "rsvp_addon" && commerceEntityId && commerceOwnerId) {
+        const failed = await admin.from("rsvp_addon_purchases").update({ status: "unpaid", stripe_checkout_session_id: null }).eq("project_id", commerceEntityId).eq("owner_id", commerceOwnerId).eq("stripe_checkout_session_id", session.id);
         if (failed.error) throw failed.error;
         return jsonResponse({ received: true });
       }
@@ -207,14 +229,23 @@ Deno.serve(async (request) => {
         limit: 1,
       });
       const session = sessions.data[0];
-      const purchaseKind = session?.metadata?.purchase_kind;
-      const entityId = session?.metadata?.entity_id;
+      const purchaseType = session ? purchaseTypeFromSession(session) : null;
+      if (!session || !purchaseType) {
+        return jsonResponse({ error: "Refund purchase type is missing" }, 400);
+      }
       const commerceOwnerId = session?.metadata?.owner_id;
-      if (session && entityId && commerceOwnerId && (purchaseKind === "custom_invitation" || purchaseKind === "rsvp_addon")) {
-        const rpc = purchaseKind === "custom_invitation" ? "refund_custom_invitation_payment" : "refund_rsvp_addon_payment";
-        const parameters = purchaseKind === "custom_invitation"
-          ? { p_request_id: entityId, p_owner_id: commerceOwnerId, p_session_id: session.id, p_payment_intent_id: paymentIntentId }
-          : { p_project_id: entityId, p_owner_id: commerceOwnerId, p_session_id: session.id, p_payment_intent_id: paymentIntentId };
+      const commerceEntityId = purchaseType === "custom_invitation"
+        ? session.metadata?.custom_request_id ?? session.metadata?.entity_id
+        : session.metadata?.project_id ?? session.metadata?.entity_id;
+      if (commerceEntityId && commerceOwnerId && (purchaseType === "custom_invitation" || purchaseType === "rsvp_addon")) {
+        const expectedAmount = purchaseType === "custom_invitation" ? 5000 : Number(requireEnvironment("RSVP_ADDON_PRICE_CENTS"));
+        if (!Number.isSafeInteger(expectedAmount) || expectedAmount <= 0 || session.amount_total !== expectedAmount || session.currency !== CURRENCY) {
+          return jsonResponse({ error: "Refund commerce amount mismatch" }, 400);
+        }
+        const rpc = purchaseType === "custom_invitation" ? "refund_custom_invitation_payment" : "refund_rsvp_addon_payment";
+        const parameters = purchaseType === "custom_invitation"
+          ? { p_request_id: commerceEntityId, p_owner_id: commerceOwnerId, p_session_id: session.id, p_payment_intent_id: paymentIntentId }
+          : { p_project_id: commerceEntityId, p_owner_id: commerceOwnerId, p_session_id: session.id, p_payment_intent_id: paymentIntentId };
         const refunded = await admin.rpc(rpc, parameters);
         if (refunded.error) throw refunded.error;
         return jsonResponse({ received: true });

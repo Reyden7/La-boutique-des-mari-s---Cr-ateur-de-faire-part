@@ -1,19 +1,15 @@
 alter table public.projects
   add column if not exists payment_status text not null default 'unpaid';
-
 alter table public.projects
   drop constraint if exists projects_payment_status_check;
-
 alter table public.projects
   add constraint projects_payment_status_check
   check (payment_status in ('unpaid', 'pending', 'paid', 'refunded'));
-
 -- Legacy browser-published rows have no verifiable payment. They return to draft
 -- and can go through Checkout normally; their editor data is preserved.
 update public.projects
 set status = 'draft', public_id = null, published_at = null
 where payment_status = 'unpaid' and status = 'published';
-
 create table if not exists public.project_payments (
   id uuid primary key default gen_random_uuid(),
   project_id uuid not null unique references public.projects(id) on delete cascade,
@@ -27,10 +23,8 @@ create table if not exists public.project_payments (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-
 create unique index if not exists projects_id_owner_idx
   on public.projects (id, owner_id);
-
 alter table public.project_payments
   drop constraint if exists project_payments_project_owner_fkey;
 alter table public.project_payments
@@ -38,49 +32,30 @@ alter table public.project_payments
   foreign key (project_id, owner_id)
   references public.projects (id, owner_id)
   on delete cascade;
-
 create index if not exists project_payments_owner_idx
   on public.project_payments (owner_id, updated_at desc);
-
 alter table public.project_payments enable row level security;
-
 drop policy if exists "owners can read their project payments" on public.project_payments;
 create policy "owners can read their project payments" on public.project_payments
   for select to authenticated
   using (owner_id = auth.uid());
-
 revoke all on table public.project_payments from anon;
 revoke insert, update, delete on table public.project_payments from authenticated;
 grant select on table public.project_payments to authenticated;
-
 -- Public rows are exposed only through get_public_project(public_id). This prevents
 -- listing every published project through the projects REST endpoint.
 drop policy if exists "published projects are publicly readable" on public.projects;
-
-drop policy if exists "owners can create projects" on public.projects;
-create policy "owners can create draft unpaid projects" on public.projects
-  for insert to authenticated
-  with check (
-    owner_id = auth.uid()
-    and status = 'draft'
-    and payment_status = 'unpaid'
-    and public_id is null
-    and published_at is null
-  );
-
 drop policy if exists "owners can update projects" on public.projects;
 create policy "owners can update editable project fields" on public.projects
   for update to authenticated
   using (owner_id = auth.uid())
   with check (owner_id = auth.uid());
-
 revoke insert, update on table public.projects from anon;
 revoke insert, update on table public.projects from authenticated;
-grant insert (id, owner_id, name, project_data, status, payment_status, public_id, created_at, updated_at, published_at, expires_at)
+grant insert (id, owner_id, name, project_data, created_at, updated_at, expires_at)
   on table public.projects to authenticated;
 grant update (name, project_data, updated_at, expires_at)
   on table public.projects to authenticated;
-
 create or replace function public.reject_client_publication_changes()
 returns trigger
 language plpgsql
@@ -103,12 +78,10 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists protect_project_publication_fields on public.projects;
 create trigger protect_project_publication_fields
   before update on public.projects
   for each row execute function public.reject_client_publication_changes();
-
 create or replace function public.touch_project_payment_updated_at()
 returns trigger
 language plpgsql
@@ -119,12 +92,10 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists set_project_payment_updated_at on public.project_payments;
 create trigger set_project_payment_updated_at
   before update on public.project_payments
   for each row execute function public.touch_project_payment_updated_at();
-
 create or replace function public.get_public_project(p_public_id text)
 returns jsonb
 language sql
@@ -151,10 +122,8 @@ as $$
     and (p.expires_at is null or p.expires_at > now())
   limit 1;
 $$;
-
 revoke all on function public.get_public_project(text) from public;
 grant execute on function public.get_public_project(text) to anon, authenticated;
-
 create or replace function public.finalize_project_payment(
   p_project_id uuid,
   p_owner_id uuid,
@@ -203,7 +172,6 @@ begin
   end if;
 end;
 $$;
-
 create or replace function public.fail_project_payment(
   p_project_id uuid,
   p_owner_id uuid,
@@ -229,7 +197,6 @@ begin
     and payment_status = 'pending';
 end;
 $$;
-
 create or replace function public.refund_project_payment(
   p_project_id uuid,
   p_owner_id uuid,
@@ -268,14 +235,12 @@ begin
     and owner_id = p_owner_id;
 end;
 $$;
-
 revoke all on function public.finalize_project_payment(uuid, uuid, text, text) from public;
 revoke all on function public.fail_project_payment(uuid, uuid, text) from public;
 revoke all on function public.refund_project_payment(uuid, uuid, text, text) from public;
 grant execute on function public.finalize_project_payment(uuid, uuid, text, text) to service_role;
 grant execute on function public.fail_project_payment(uuid, uuid, text) to service_role;
 grant execute on function public.refund_project_payment(uuid, uuid, text, text) to service_role;
-
 drop policy if exists "published project assets are publicly readable" on public.assets;
 create policy "paid published project assets are publicly readable" on public.assets
   for select using (exists (

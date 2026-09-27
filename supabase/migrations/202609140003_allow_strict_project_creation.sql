@@ -2,7 +2,6 @@
 -- saveRemoteProject started inserting the protected initial values explicitly.
 drop policy if exists "owners can create projects" on public.projects;
 drop policy if exists "owners can create draft unpaid projects" on public.projects;
-
 create policy "owners can create draft unpaid projects" on public.projects
   for insert to authenticated
   with check (
@@ -12,10 +11,8 @@ create policy "owners can create draft unpaid projects" on public.projects
     and public_id is null
     and published_at is null
   );
-
 revoke insert on table public.projects from anon;
 revoke insert on table public.projects from authenticated;
-
 grant insert (
   id,
   owner_id,

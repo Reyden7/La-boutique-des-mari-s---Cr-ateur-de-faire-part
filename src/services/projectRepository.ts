@@ -19,6 +19,14 @@ interface CheckoutResponse {
   url: string;
 }
 
+interface PublicProjectRow {
+  id: string;
+  name: string;
+  project_data: Partial<WeddingProject>;
+  public_id: string;
+  expires_at: string | null;
+}
+
 const fromRow = (row: ProjectRow): WeddingProject => ({
   ...row.project_data,
   id: row.id,
@@ -147,5 +155,15 @@ export async function loadPublicProject(publicId: string) {
   if (!supabase) return null;
   const { data, error } = await supabase.rpc("get_public_project", { p_public_id: publicId });
   if (error) throw error;
-  return data ? fromRow(data as ProjectRow) : null;
+  if (!data) return null;
+  const row = data as PublicProjectRow;
+  return {
+    ...row.project_data,
+    id: row.id,
+    name: row.name,
+    status: "published",
+    paymentStatus: "paid",
+    publicId: row.public_id,
+    expiresAt: row.expires_at ?? undefined,
+  } as WeddingProject;
 }
