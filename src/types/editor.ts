@@ -67,11 +67,22 @@ export interface ShapeElement extends BaseElement {
   cornerRadius: number;
 }
 
+export type DecorativeHeartStyle =
+  | "filled"
+  | "outline"
+  | "double"
+  | "script"
+  | "thin"
+  | "wedding"
+  | "modern"
+  | "ornamental";
+
 export interface IconElement extends BaseElement {
   type: "icon";
   icon: string;
   color: string;
   fontSize: number;
+  heartStyle?: DecorativeHeartStyle;
 }
 
 export type EditorElement = TextElement | ImageElement | ShapeElement | IconElement;
@@ -122,6 +133,20 @@ export interface RsvpField {
   options?: string[];
 }
 
+export interface RsvpFormStyle {
+  backgroundColor: string;
+  textColor: string;
+  labelColor: string;
+  fieldBackgroundColor: string;
+  fieldTextColor: string;
+  fieldBorderColor: string;
+  buttonBackgroundColor: string;
+  buttonTextColor: string;
+  buttonHoverColor: string;
+  selectionColor: string;
+  errorColor: string;
+}
+
 export interface RsvpFormConfig {
   enabled: boolean;
   purchased: boolean;
@@ -129,6 +154,11 @@ export interface RsvpFormConfig {
   description?: string;
   submitLabel: string;
   fields: RsvpField[];
+  /** Mobile reference position. Undefined keeps the legacy automatic placement. */
+  positionY?: number;
+  /** Tablet and desktop reuse the same responsive override model as canvas elements. */
+  responsive?: ResponsiveLayouts;
+  style?: RsvpFormStyle;
 }
 
 export type OpeningAnimationType = "none" | "envelope" | "curtains" | "doors" | "scroll" | "book" | "veil" | "floral-gates";

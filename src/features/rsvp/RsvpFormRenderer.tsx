@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import type { RsvpField, RsvpFormConfig } from "../../types/editor";
 import { submitRsvpResponse } from "../../services/rsvpRepository";
+import { resolveRsvpStyle } from "../../config/rsvpStyle";
 
 export type RsvpRenderMode = "preview" | "public";
 
@@ -27,6 +28,20 @@ export function RsvpFormRenderer({ config, publicId, mode }: { config: RsvpFormC
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   if (!shouldRenderRsvp(config, mode)) return null;
+  const style = resolveRsvpStyle(config.style);
+  const styleVariables = {
+    "--rsvp-background": style.backgroundColor,
+    "--rsvp-text": style.textColor,
+    "--rsvp-label": style.labelColor,
+    "--rsvp-field-background": style.fieldBackgroundColor,
+    "--rsvp-field-text": style.fieldTextColor,
+    "--rsvp-field-border": style.fieldBorderColor,
+    "--rsvp-button-background": style.buttonBackgroundColor,
+    "--rsvp-button-text": style.buttonTextColor,
+    "--rsvp-button-hover": style.buttonHoverColor,
+    "--rsvp-selection": style.selectionColor,
+    "--rsvp-error": style.errorColor,
+  } as CSSProperties;
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -41,7 +56,7 @@ export function RsvpFormRenderer({ config, publicId, mode }: { config: RsvpFormC
     }
   };
 
-  return <section className="rsvp-public-section">
+  return <section className="rsvp-public-section" style={styleVariables}>
     <form className="rsvp-public-form" onSubmit={(event) => void submit(event)}>
       <p className="eyebrow">Formulaire</p><h2>{config.title}</h2>{config.description && <p>{config.description}</p>}
       <input className="rsvp-honeypot" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" />

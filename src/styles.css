@@ -192,7 +192,17 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .add-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
 .add-grid button { height: 64px; border: 1px solid var(--line); background: #fdfcfb; border-radius: 10px; color: #625b55; display: flex; flex-direction: column; gap: 5px; align-items: center; justify-content: center; font-size: 11px; }
 .add-grid button:hover { border-color: #c8a991; color: var(--accent-dark); background: #faf6f2; }
-.ornament-icon { font: 25px "Cormorant Garamond", serif; line-height: .7; }
+.add-grid button.active { border-color: #bd947a; color: var(--accent-dark); background: #faf4ef; }
+.add-elements-section { position: relative; }
+.heart-picker-anchor { min-width: 0; position: relative; }
+.heart-picker-anchor > button { width: 100%; }
+.heart-picker-popover { position: absolute; z-index: 30; top: calc(100% + 8px); right: 0; width: 238px; padding: 10px; border: 1px solid #ded3ca; border-radius: 12px; background: rgba(255,255,255,.98); box-shadow: 0 15px 38px rgba(55,44,37,.18); backdrop-filter: blur(12px); }
+.heart-picker-popover > strong { display: block; margin: 1px 2px 9px; color: #655c56; font: 600 13px "Cormorant Garamond", serif; }
+.heart-picker-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.heart-picker-grid button { width: 100%; height: 67px; padding: 6px 3px; border: 1px solid #eee6e0; border-radius: 8px; background: #fcfaf8; color: #805c55; gap: 3px; }
+.heart-picker-grid button:hover { border-color: #cba797; background: #f8f0eb; }
+.heart-picker-grid svg { width: 31px; height: 31px; overflow: visible; }
+.heart-picker-grid span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; font-size: 7px; white-space: nowrap; }
 .shape-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 7px; padding: 7px; border-radius: 9px; background: #f5f1ed; }
 .shape-picker button { border: 0; background: #fff; padding: 8px 3px; border-radius: 6px; color: #675f59; font-size: 10px; }
 .page-list { display: grid; gap: 7px; }
@@ -1090,22 +1100,39 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .rsvp-purchase-card strong { font: 500 24px "Cormorant Garamond", serif; }
 .rsvp-purchase-card p { margin: 5px 0 12px; color: rgba(255,255,255,.72); font-size: 9px; line-height: 1.5; }
 .rsvp-purchase-card button, .secondary-action { width: 100%; padding: 9px; border: 0; border-radius: 8px; background: #fff; color: #604737; font-size: 10px; font-weight: 700; }
+.rsvp-position-card { padding: 13px; border: 1px solid #dfd3ca; border-radius: 11px; background: #faf7f4; }
+.rsvp-position-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; }
+.rsvp-position-heading > div { display: flex; align-items: center; gap: 6px; color: #674c3c; font-size: 10px; font-weight: 700; }
+.rsvp-position-heading small { padding: 4px 7px; border-radius: 99px; background: #eee7e1; color: #806c5f; font-size: 7px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.rsvp-position-card > p { margin: 0 0 11px; color: #8c8179; font: 8px/1.5 Lora, serif; }
+.rsvp-position-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.rsvp-position-actions button, .rsvp-position-reset { min-height: 31px; border: 1px solid #ddcfc4; border-radius: 7px; background: #fff; color: #765746; display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 8px; font-weight: 700; }
+.rsvp-position-reset { width: 100%; margin-top: 6px; }
+.rsvp-style-card { padding: 13px; border: 1px solid #e2dad4; border-radius: 11px; background: #fff; }
+.rsvp-style-card > p { margin: 4px 0 13px; color: #938981; font: 8px/1.5 Lora, serif; }
+.rsvp-style-card .field { margin-bottom: 10px; }
+.rsvp-style-reset { width: 100%; min-height: 32px; border: 1px solid #ddcfc4; border-radius: 7px; background: #faf7f4; color: #765746; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 8px; font-weight: 700; }
 .rsvp-field-list { display: grid; gap: 8px; }
 .rsvp-field-card { position: relative; padding: 34px 9px 9px; border: 1px solid #e2dad4; border-radius: 9px; display: grid; gap: 6px; background: #fff; }
 .rsvp-field-card > input, .rsvp-field-card > select, .rsvp-field-card > textarea { width: 100%; border: 1px solid #e1d9d3; border-radius: 6px; padding: 7px; font-size: 10px; }
 .rsvp-field-actions { position: absolute; top: 6px; right: 6px; display: flex; gap: 3px; }
 .rsvp-field-actions button { width: 24px; height: 23px; border: 0; border-radius: 5px; display: grid; place-items: center; background: #f2ede9; color: #776b64; }
 .compact-check { display: flex; align-items: center; gap: 5px; color: #786e67; font-size: 9px; }
-.rsvp-public-section { width: 100%; height: 100%; padding: clamp(34px, 12cqw, 64px) clamp(20px, 7cqw, 48px) clamp(42px, 14cqw, 76px); overflow: hidden; background: #f8f2ed; }
-.rsvp-public-form { max-width: 620px; margin: auto; display: grid; gap: 18px; color: #4b413b; }
+.rsvp-public-section { width: 100%; height: 100%; padding: clamp(34px, 12cqw, 64px) clamp(20px, 7cqw, 48px) clamp(42px, 14cqw, 76px); overflow: hidden; background: var(--rsvp-background, #f8f2ed); }
+.rsvp-public-form { max-width: 620px; margin: auto; display: grid; gap: 18px; color: var(--rsvp-text, #4b413b); }
 .rsvp-public-form h2 { margin: -8px 0 0; font: 500 clamp(31px, 8cqw, 48px) "Cormorant Garamond", serif; text-align: center; }
-.rsvp-public-form > p { margin: 0; text-align: center; color: #7b6e66; font: 13px/1.6 Lora, serif; }
-.rsvp-public-field { display: grid; gap: 7px; font: 600 10px Montserrat, sans-serif; letter-spacing: .03em; }
-.rsvp-public-field b { color: #9f604f; }
-.rsvp-public-field > input, .rsvp-public-field > textarea, .rsvp-public-field > select { width: 100%; border: 1px solid #d9cec6; border-radius: 8px; padding: 11px; background: rgba(255,255,255,.78); color: #443c37; font: 13px Lora, serif; }
+.rsvp-public-form > .eyebrow { color: var(--rsvp-label, #5d514a); }
+.rsvp-public-form > p { margin: 0; text-align: center; color: var(--rsvp-text, #7b6e66); opacity: .78; font: 13px/1.6 Lora, serif; }
+.rsvp-public-field { display: grid; gap: 7px; color: var(--rsvp-label, #5d514a); font: 600 10px Montserrat, sans-serif; letter-spacing: .03em; }
+.rsvp-public-field b { color: var(--rsvp-selection, #9f604f); }
+.rsvp-public-field > input, .rsvp-public-field > textarea, .rsvp-public-field > select { width: 100%; border: 1px solid var(--rsvp-field-border, #d9cec6); border-radius: 8px; padding: 11px; background: var(--rsvp-field-background, rgba(255,255,255,.78)); color: var(--rsvp-field-text, #443c37); font: 13px Lora, serif; outline: none; }
+.rsvp-public-field > input:focus, .rsvp-public-field > textarea:focus, .rsvp-public-field > select:focus { border-color: var(--rsvp-selection, #9f604f); box-shadow: 0 0 0 2px color-mix(in srgb, var(--rsvp-selection, #9f604f), transparent 78%); }
 .rsvp-choice-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.rsvp-choice-row label { padding: 8px 10px; border: 1px solid #d9cec6; border-radius: 8px; background: rgba(255,255,255,.7); font-size: 10px; }
-.rsvp-public-form > button { min-height: 44px; border: 0; border-radius: 9px; background: #795746; color: #fff; font: 700 10px Montserrat, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+.rsvp-choice-row label { padding: 8px 10px; border: 1px solid var(--rsvp-field-border, #d9cec6); border-radius: 8px; background: var(--rsvp-field-background, rgba(255,255,255,.7)); color: var(--rsvp-field-text, #443c37); font-size: 10px; }
+.rsvp-choice-row input { accent-color: var(--rsvp-selection, #9f604f); }
+.rsvp-public-form > button { min-height: 44px; border: 0; border-radius: 9px; background: var(--rsvp-button-background, #795746); color: var(--rsvp-button-text, #fff); font: 700 10px Montserrat, sans-serif; letter-spacing: .08em; text-transform: uppercase; transition: background .18s ease; }
+.rsvp-public-form > button:hover:not(:disabled) { background: var(--rsvp-button-hover, #684737); }
+.rsvp-public-form .form-error { color: var(--rsvp-error, #9b4f4a); }
 .rsvp-honeypot { position: absolute !important; left: -10000px !important; opacity: 0 !important; }
 
 /* Pages commerciales */

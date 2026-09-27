@@ -4,9 +4,10 @@ import type { EditorElement, PageBackground, WeddingPage, WeddingProject } from 
 import { PREVIEW_DEVICES, type PreviewDevice } from "../../config/previewDevices";
 import { useResponsiveDevice } from "../../hooks/useResponsiveDevice";
 import { getElementLayout, type ResolvedElementLayout } from "../../utils/responsiveLayout";
-import { getDocumentContentHeight, getDocumentHeight, getRsvpBlockHeight } from "../../utils/documentLayout";
+import { getDocumentHeight, getRsvpBlockHeight, getRsvpPositionY } from "../../utils/documentLayout";
 import { ProjectFontLoader } from "../../features/fonts/ProjectFontLoader";
 import { RsvpFormRenderer, shouldRenderRsvp, type RsvpRenderMode } from "../../features/rsvp/RsvpFormRenderer";
+import { DecorativeHeartSvg } from "../../features/hearts/DecorativeHeartSvg";
 
 const backgroundStyle = (background: PageBackground): CSSProperties => {
   if (background.type === "image") return { backgroundImage: `url(${background.imageUrl})`, backgroundSize: "cover", backgroundPosition: "center" };
@@ -46,6 +47,7 @@ function RenderElement({ element, device, documentHeight }: { element: EditorEle
   const motionConfig = motionProps(element, layout);
   if (element.type === "text") return <motion.div {...motionConfig} style={{ ...style, color: element.color, fontFamily: element.fontFamily, fontSize: `${(layout.fontSize ?? element.fontSize) / viewport.width * 100}cqw`, fontWeight: element.fontWeight, fontStyle: element.italic ? "italic" : "normal", textDecoration: element.underline ? "underline" : "none", textAlign: element.textAlign, lineHeight: element.lineHeight, letterSpacing: element.letterSpacing, whiteSpace: "pre-wrap", justifyContent: element.textAlign === "center" ? "center" : element.textAlign === "right" ? "flex-end" : "flex-start" }}>{element.text}</motion.div>;
   if (element.type === "image") return <motion.img {...motionConfig} style={{ ...style, objectFit: "cover" }} src={element.src} alt={element.alt} />;
+  if (element.type === "icon" && element.heartStyle) return <motion.div {...motionConfig} style={{ ...style, color: element.color, justifyContent: "center" }}><DecorativeHeartSvg variant={element.heartStyle} style={{ width: "100%", height: "100%" }} /></motion.div>;
   if (element.type === "icon") return <motion.div {...motionConfig} style={{ ...style, color: element.color, fontSize: `${element.fontSize / viewport.width * 100}cqw`, justifyContent: "center" }}>{element.icon}</motion.div>;
   const radius = element.shape === "circle" ? "50%" : element.shape === "rounded-rectangle" ? element.cornerRadius : 0;
   return <motion.div {...motionConfig} style={{ ...style, background: element.shape === "line" ? element.stroke : element.fill, border: element.shape === "line" ? "none" : `${element.strokeWidth}px solid ${element.stroke}`, borderRadius: radius, height: element.shape === "line" ? `${Math.max(1, element.strokeWidth)}px` : style.height }} />;
@@ -65,8 +67,8 @@ export function WeddingRenderer({ project, device: forcedDevice, mode = "public"
   const viewport = PREVIEW_DEVICES[device];
   const page = project.pages[0];
   const visibleRsvp = shouldRenderRsvp(project.rsvp, mode) ? project.rsvp : undefined;
-  const documentContentHeight = page ? getDocumentContentHeight(page, device) : viewport.height;
   const rsvpHeight = getRsvpBlockHeight(visibleRsvp, device);
+  const rsvpPositionY = page && visibleRsvp ? getRsvpPositionY(page, visibleRsvp, device) : 0;
   const documentHeight = page ? getDocumentHeight(page, device, visibleRsvp) : viewport.height;
   const rendererStyle = {
     "--renderer-max-width": `${viewport.width}px`,
@@ -77,7 +79,7 @@ export function WeddingRenderer({ project, device: forcedDevice, mode = "public"
       <ProjectFontLoader project={project} />
       <div className="renderer-document" style={rendererStyle}>
         {page && <RenderPage key={`${page.id}-${device}`} page={page} device={device} documentHeight={documentHeight} />}
-        {visibleRsvp && <div className="render-rsvp-layer" style={{ top: `${documentContentHeight / documentHeight * 100}%`, height: `${rsvpHeight / documentHeight * 100}%` }}><RsvpFormRenderer config={visibleRsvp} publicId={project.publicId} mode={mode} /></div>}
+        {visibleRsvp && <div className="render-rsvp-layer" style={{ top: `${rsvpPositionY / documentHeight * 100}%`, height: `${rsvpHeight / documentHeight * 100}%` }}><RsvpFormRenderer config={visibleRsvp} publicId={project.publicId} mode={mode} /></div>}
       </div>
     </div>
   );

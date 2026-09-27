@@ -43,12 +43,89 @@ export const getDocumentContentHeight = (
   );
 };
 
+const normalizePosition = (value: number) => Math.max(0, Math.round(value));
+
+export const hasRsvpPositionOverride = (
+  config: RsvpFormConfig | null | undefined,
+  device: PreviewDevice,
+) => device === "mobile"
+  ? Number.isFinite(config?.positionY)
+  : Number.isFinite(config?.responsive?.[device]?.y);
+
+export const hasExplicitRsvpPosition = (
+  config: RsvpFormConfig | null | undefined,
+  device: PreviewDevice,
+) => Number.isFinite(config?.positionY) || hasRsvpPositionOverride(config, device);
+
+export const getRsvpPositionY = (
+  page: WeddingPage,
+  config: RsvpFormConfig | null | undefined,
+  device: PreviewDevice,
+) => {
+  const automaticPosition = getDocumentContentHeight(page, device);
+  const basePosition = Number.isFinite(config?.positionY)
+    ? config!.positionY!
+    : automaticPosition;
+  const responsivePosition = device === "mobile"
+    ? undefined
+    : config?.responsive?.[device]?.y;
+
+  return normalizePosition(Number.isFinite(responsivePosition) ? responsivePosition! : basePosition);
+};
+
+export const setRsvpPositionForDevice = (
+  config: RsvpFormConfig,
+  device: PreviewDevice,
+  positionY: number,
+): RsvpFormConfig => {
+  const y = normalizePosition(positionY);
+  if (device === "mobile") return { ...config, positionY: y };
+
+  return {
+    ...config,
+    responsive: {
+      ...config.responsive,
+      [device]: {
+        ...config.responsive?.[device],
+        y,
+      },
+    },
+  };
+};
+
+export const resetRsvpPositionForDevice = (
+  config: RsvpFormConfig,
+  device: PreviewDevice,
+): RsvpFormConfig => {
+  if (device === "mobile") {
+    const next = { ...config };
+    delete next.positionY;
+    return next;
+  }
+
+  if (!config.responsive) return config;
+  const responsive = { ...config.responsive };
+  delete responsive[device];
+  const next: RsvpFormConfig = { ...config, responsive };
+  if (!responsive.tablet && !responsive.desktop) delete next.responsive;
+  return next;
+};
+
 export const getDocumentHeight = (
   page: WeddingPage,
   device: PreviewDevice,
   rsvp?: RsvpFormConfig | null,
 ) => {
-  return getDocumentContentHeight(page, device) + getRsvpBlockHeight(rsvp, device);
+  const contentHeight = getDocumentContentHeight(page, device);
+  const rsvpHeight = getRsvpBlockHeight(rsvp, device);
+  if (!rsvpHeight) return contentHeight;
+
+  // A legacy project without an explicit position keeps the exact former
+  // behavior: the form starts after the content and extends the document.
+  if (!hasExplicitRsvpPosition(rsvp, device)) return contentHeight + rsvpHeight;
+
+  const formBottom = getRsvpPositionY(page, rsvp, device) + rsvpHeight;
+  return Math.max(contentHeight, formBottom + DOCUMENT_BOTTOM_MARGIN);
 };
 
 export const migratePagesToScrollableDocument = (pages: WeddingPage[]): WeddingPage[] => {

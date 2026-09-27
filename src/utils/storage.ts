@@ -1,6 +1,7 @@
 import type { OpeningAnimationType, ParticleConfig, ProjectAudioConfig, WeddingProject } from "../types/editor";
 import { deleteRemoteProject, isSupabaseConfigured, loadRemoteProjects, saveRemoteProject } from "../services/projectRepository";
 import { migratePagesToScrollableDocument } from "./documentLayout";
+import { DEFAULT_RSVP_STYLE, resolveRsvpStyle } from "../config/rsvpStyle";
 
 const STORAGE_KEY = "lbm-studio-projects-v1";
 
@@ -11,7 +12,7 @@ const defaultRsvp = () => ({ enabled: false, purchased: false, title: "Confirmez
   { id: crypto.randomUUID(), label: "Nombre de personnes", type: "number" as const, required: true },
   { id: crypto.randomUUID(), label: "Régime alimentaire", type: "select" as const, required: false, options: ["Aucun", "Végétarien", "Vegan", "Sans gluten", "Autre"] },
   { id: crypto.randomUUID(), label: "Enfants", type: "boolean" as const, required: false },
-] });
+], style: { ...DEFAULT_RSVP_STYLE } });
 const normalizeBackground = (background: WeddingProject["pages"][number]["background"]) => ({
   type: background.type,
   color: background.color ?? "#fffdf9",
@@ -29,6 +30,10 @@ export const normalizeProject = (value: unknown): WeddingProject | null => {
     background: normalizeBackground(page.background),
     backgroundSections: page.backgroundSections?.map((section) => ({ ...section, background: normalizeBackground(section.background) })),
   }));
+  const defaultRsvpConfig = defaultRsvp();
+  const rsvp = legacy.rsvp
+    ? { ...defaultRsvpConfig, ...legacy.rsvp, style: resolveRsvpStyle(legacy.rsvp.style) }
+    : defaultRsvpConfig;
   return {
     ...legacy,
     id: legacy.id,
@@ -40,7 +45,7 @@ export const normalizeProject = (value: unknown): WeddingProject | null => {
     audio: legacy.audio ?? defaultAudio(),
     particles: legacy.particles ?? defaultParticles(),
     customFonts: legacy.customFonts ?? [],
-    rsvp: legacy.rsvp ?? defaultRsvp(),
+    rsvp,
     status: legacy.status ?? (legacy.published ? "published" : "draft"),
     paymentStatus: legacy.paymentStatus ?? "unpaid",
   };

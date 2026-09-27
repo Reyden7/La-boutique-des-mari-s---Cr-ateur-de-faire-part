@@ -1,6 +1,6 @@
 import { AlignCenter, AlignLeft, AlignRight, Bold, Copy, Italic, Monitor, RotateCcw, Smartphone, Tablet, Trash2, Underline } from "lucide-react";
 import { useEditorStore } from "../../stores/editorStore";
-import { type AnimationType, type EditorElement } from "../../types/editor";
+import { type AnimationType, type DecorativeHeartStyle, type EditorElement } from "../../types/editor";
 import type { OpeningAnimationType } from "../../types/editor";
 import { OpeningProperties } from "../../features/openings/OpeningProperties";
 import { AudioProperties } from "../../features/music/AudioProperties";
@@ -8,6 +8,7 @@ import { PREVIEW_DEVICES } from "../../config/previewDevices";
 import { getElementLayout, hasElementLayoutOverride } from "../../utils/responsiveLayout";
 import { BackgroundPanel } from "../../features/backgrounds/BackgroundPanel";
 import { FontPicker } from "../../features/fonts/FontPicker";
+import { DECORATIVE_HEARTS, getDecorativeHeart } from "../../features/hearts/heartRegistry";
 
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => <label className="field"><span>{label}</span>{children}</label>;
 
@@ -75,7 +76,10 @@ export function PropertiesPanel({ onPreviewOpening }: { onPreviewOpening: (type:
         <Field label="Épaisseur"><input type="range" min="0" max="20" value={element.strokeWidth} onChange={(event) => update({ strokeWidth: Number(event.target.value) })} /><output>{element.strokeWidth}px</output></Field>
         {element.shape === "rounded-rectangle" && <Field label="Coins arrondis"><input type="range" min="0" max="80" value={element.cornerRadius} onChange={(event) => update({ cornerRadius: Number(event.target.value) })} /></Field>}
       </>}
-      {element.type === "icon" && <><Field label="Décoration"><input value={element.icon} maxLength={4} onChange={(event) => update({ icon: event.target.value })} /></Field><Field label="Couleur"><input type="color" value={element.color} onChange={(event) => update({ color: event.target.value })} /></Field></>}
+      {element.type === "icon" && <>{element.heartStyle
+        ? <Field label="Style de cœur"><select value={element.heartStyle} onChange={(event) => { const heart = getDecorativeHeart(event.target.value as DecorativeHeartStyle); update({ heartStyle: heart.id, name: `Cœur ${heart.label}` }); }}>{DECORATIVE_HEARTS.map((heart) => <option key={heart.id} value={heart.id}>{heart.label}</option>)}</select></Field>
+        : <Field label="Décoration historique"><input value={element.icon} maxLength={4} onChange={(event) => update({ icon: event.target.value })} /></Field>}
+        <Field label="Couleur"><input type="color" value={element.color} onChange={(event) => update({ color: event.target.value })} /></Field></>}
 
       <div className="properties-divider" />
       <Field label={`Opacité · ${Math.round(element.opacity * 100)} %`}><input type="range" min="0.05" max="1" step="0.05" value={element.opacity} onChange={(event) => update({ opacity: Number(event.target.value) })} /></Field>

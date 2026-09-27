@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Circle, Group, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Transformer } from "react-konva";
+import { Circle, Group, Image as KonvaImage, Layer, Line, Path, Rect, Stage, Text, Transformer } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { EditorElement, ImageElement, PageBackground } from "../../types/editor";
@@ -10,8 +10,10 @@ import {
   type PreviewDevice,
 } from "../../config/previewDevices";
 import { getElementLayout } from "../../utils/responsiveLayout";
-import { getDocumentContentHeight, getDocumentHeight, getRsvpBlockHeight } from "../../utils/documentLayout";
+import { getDocumentHeight, getRsvpBlockHeight, getRsvpPositionY, setRsvpPositionForDevice } from "../../utils/documentLayout";
 import { ProjectFontLoader } from "../../features/fonts/ProjectFontLoader";
+import { resolveRsvpStyle } from "../../config/rsvpStyle";
+import { getDecorativeHeart } from "../../features/hearts/heartRegistry";
 
 function useLoadedImage(src?: string) {
   const [image, setImage] = useState<HTMLImageElement>();
@@ -80,6 +82,13 @@ function CanvasElement({ element, device, selected, onSelect }: { element: Edito
 
   if (element.type === "text") return <Text {...common} text={element.text} fontFamily={element.fontFamily} fontSize={layout.fontSize ?? element.fontSize} fontStyle={`${element.italic ? "italic" : "normal"} ${element.fontWeight >= 600 ? "bold" : "normal"}`} fill={element.color} align={element.textAlign} lineHeight={element.lineHeight} letterSpacing={element.letterSpacing} textDecoration={element.underline ? "underline" : ""} verticalAlign="middle" />;
   if (element.type === "image") return <KonvaImage {...common} image={image} alt={(element as ImageElement).alt} />;
+  if (element.type === "icon" && element.heartStyle) {
+    const heart = getDecorativeHeart(element.heartStyle);
+    return <Group {...common} width={100} height={100} scaleX={layout.width / 100} scaleY={layout.height / 100}>
+      <Rect width={100} height={100} fill="rgba(0,0,0,0.001)" />
+      <Path data={heart.path} fill={heart.filled ? element.color : undefined} stroke={heart.filled ? undefined : element.color} strokeWidth={heart.strokeWidth} lineCap="round" lineJoin="round" />
+    </Group>;
+  }
   if (element.type === "icon") return <Text {...common} text={element.icon} fill={element.color} fontSize={element.fontSize} align="center" verticalAlign="middle" />;
   if (element.shape === "circle") return <Circle {...common} x={layout.x + layout.width / 2} y={layout.y + layout.height / 2} radius={Math.min(layout.width, layout.height) / 2} fill={element.fill} stroke={element.stroke} strokeWidth={element.strokeWidth} />;
   if (element.shape === "line") return <Line {...common} points={[0, 0, layout.width, 0]} stroke={element.stroke} strokeWidth={element.strokeWidth || 2} hitStrokeWidth={18} />;
@@ -87,7 +96,7 @@ function CanvasElement({ element, device, selected, onSelect }: { element: Edito
 }
 
 export function EditorCanvas() {
-  const { project, currentPageId, selectedElementId, selectElement, zoom, previewDevice, setFitZoom, setZoom } = useEditorStore();
+  const { project, currentPageId, selectedElementId, selectElement, zoom, previewDevice, setFitZoom, setZoom, setSidebarView, sidebarView, updateRsvp } = useEditorStore();
   const canvasAreaRef = useRef<HTMLDivElement>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
   const stageRef = useRef<Konva.Stage>(null);
@@ -96,8 +105,9 @@ export function EditorCanvas() {
   const page = project?.pages.find((item) => item.id === currentPageId);
   const elements = useMemo(() => [...(page?.elements ?? [])].sort((a, b) => a.zIndex - b.zIndex), [page?.elements]);
   const viewport = PREVIEW_DEVICES[previewDevice];
-  const documentContentHeight = page ? getDocumentContentHeight(page, previewDevice) : viewport.height;
   const rsvpHeight = getRsvpBlockHeight(project?.rsvp, previewDevice);
+  const rsvpStyle = resolveRsvpStyle(project?.rsvp?.style);
+  const rsvpPositionY = page && project?.rsvp ? getRsvpPositionY(page, project.rsvp, previewDevice) : 0;
   const documentHeight = page ? getDocumentHeight(page, previewDevice, project?.rsvp) : viewport.height;
   const selectedElement = elements.find((element) => element.id === selectedElementId);
 
@@ -205,15 +215,27 @@ export function EditorCanvas() {
                 rotateAnchorOffset={28 / zoom}
                 boundBoxFunc={(oldBox, newBox) => newBox.width < 12 || newBox.height < 12 ? oldBox : newBox}
               />
-              {project?.rsvp?.enabled && <Group y={documentContentHeight} listening={false}>
-                <Rect width={viewport.width} height={rsvpHeight} fill="#f8f2ed" />
-                <Text x={44} y={54} width={viewport.width - 88} text="FORMULAIRE" fontFamily="Montserrat" fontSize={11} letterSpacing={2} align="center" fill="#a9785b" />
-                <Text x={44} y={88} width={viewport.width - 88} text={project.rsvp.title} fontFamily="Cormorant Garamond" fontSize={34} align="center" fill="#493f39" />
-                {project.rsvp.description && <Text x={44} y={140} width={viewport.width - 88} text={project.rsvp.description} fontFamily="Lora" fontSize={13} lineHeight={1.5} align="center" fill="#776b64" />}
+              {project?.rsvp?.enabled && <Group
+                y={rsvpPositionY}
+                draggable
+                dragBoundFunc={(position) => ({ x: 0, y: Math.max(0, position.y) })}
+                onClick={(event) => { event.cancelBubble = true; selectElement(null); setSidebarView("rsvp"); }}
+                onTap={(event) => { event.cancelBubble = true; selectElement(null); setSidebarView("rsvp"); }}
+                onDragEnd={(event) => updateRsvp(setRsvpPositionForDevice(project.rsvp!, previewDevice, event.target.y()))}
+                onMouseEnter={(event) => { event.target.getStage()!.container().style.cursor = "ns-resize"; }}
+                onMouseLeave={(event) => { event.target.getStage()!.container().style.cursor = "default"; }}
+              >
+                <Rect width={viewport.width} height={rsvpHeight} fill={rsvpStyle.backgroundColor} stroke={sidebarView === "rsvp" ? rsvpStyle.selectionColor : undefined} strokeWidth={sidebarView === "rsvp" ? 3 / zoom : 0} />
+                <Text x={44} y={18} width={viewport.width - 88} text="↕ GLISSER POUR DÉPLACER" fontFamily="Montserrat" fontSize={9} letterSpacing={1.2} align="center" fill={rsvpStyle.labelColor} opacity={0.7} />
+                <Text x={44} y={54} width={viewport.width - 88} text="FORMULAIRE" fontFamily="Montserrat" fontSize={11} letterSpacing={2} align="center" fill={rsvpStyle.labelColor} />
+                <Text x={44} y={88} width={viewport.width - 88} text={project.rsvp.title} fontFamily="Cormorant Garamond" fontSize={34} align="center" fill={rsvpStyle.textColor} />
+                {project.rsvp.description && <Text x={44} y={140} width={viewport.width - 88} text={project.rsvp.description} fontFamily="Lora" fontSize={13} lineHeight={1.5} align="center" fill={rsvpStyle.textColor} opacity={0.8} />}
                 {project.rsvp.fields.map((field, index) => <Group key={field.id} y={205 + index * 82}>
-                  <Text x={44} width={viewport.width - 88} text={`${field.label}${field.required ? " *" : ""}`} fontFamily="Montserrat" fontSize={11} fill="#5d514a" />
-                  <Rect x={44} y={24} width={viewport.width - 88} height={42} cornerRadius={8} fill="rgba(255,255,255,.78)" stroke="#d9cec6" />
+                  <Text x={44} width={viewport.width - 88} text={`${field.label}${field.required ? " *" : ""}`} fontFamily="Montserrat" fontSize={11} fill={rsvpStyle.labelColor} />
+                  <Rect x={44} y={24} width={viewport.width - 88} height={42} cornerRadius={8} fill={rsvpStyle.fieldBackgroundColor} stroke={rsvpStyle.fieldBorderColor} />
                 </Group>)}
+                <Rect x={44} y={rsvpHeight - 86} width={viewport.width - 88} height={44} cornerRadius={9} fill={rsvpStyle.buttonBackgroundColor} />
+                <Text x={44} y={rsvpHeight - 72} width={viewport.width - 88} text={project.rsvp.submitLabel.toUpperCase()} fontFamily="Montserrat" fontSize={10} fontStyle="bold" letterSpacing={1} align="center" fill={rsvpStyle.buttonTextColor} />
               </Group>}
             </Layer>
           </Stage>
