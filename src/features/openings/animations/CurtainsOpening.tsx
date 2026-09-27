@@ -8,7 +8,7 @@ export function CurtainsOpening({ children, config, couple, onInteract }: Openin
   const [primary, accent] = config.colors ?? ["#7a2330", "#d5b46d"];
   const duration = reduceMotion ? .12 : Math.max(1.6, config.duration);
   const open = () => { if (opened) return; onInteract?.(); setOpened(true); };
-  return <div className="opening-stage curtains-theme" style={{ "--opening-primary": primary, "--opening-accent": accent } as React.CSSProperties}>
+  return <div className={`opening-stage curtains-theme ${opened ? "is-opened" : ""}`} style={{ "--opening-primary": primary, "--opening-accent": accent } as React.CSSProperties}>
     <motion.div className="opening-content-behind" initial={false} animate={opened ? { scale: [1.025, 1.012, 1], filter: ["brightness(.68)", "brightness(.88)", "brightness(1)"] } : { scale: 1.025, filter: "brightness(.68)" }} transition={{ duration: duration * .9, delay: duration * .08, ease: [0.22, 1, 0.36, 1] }}>{children}</motion.div>
     <motion.button className="curtains-scene" onClick={open} aria-label="Ouvrir les rideaux" animate={opened ? { pointerEvents: "none" } : {}}>
       <div className="curtain-valance" />

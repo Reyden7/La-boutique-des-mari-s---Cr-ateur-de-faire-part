@@ -9,7 +9,7 @@ export function PreviewMode({ project, device, onClose }: { project: WeddingProj
   return (
     <div className="preview-mode">
       <div className="preview-controls"><button onClick={onClose}><X size={17} /> Retour à l’éditeur</button><button onClick={() => setReplayKey((key) => key + 1)}><RotateCcw size={17} /> Rejouer</button></div>
-      <div key={replayKey} className="preview-content"><InvitationExperience project={project} device={device} /></div>
+      <div key={replayKey} className="preview-content"><InvitationExperience project={project} device={device} mode="preview" /></div>
     </div>
   );
 }

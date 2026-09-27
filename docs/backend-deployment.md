@@ -28,6 +28,7 @@ Le dry-run doit proposer, au minimum si elles ne sont pas déjà appliquées :
 
 - `202609270006_scrollable_fonts_commerce_rsvp.sql`
 - `202609270007_backend_security_hardening.sql`
+- `20260927135223_combined_publication_form.sql`
 
 Ne pas utiliser `migration repair` sauf si l’historique distant est réellement
 désynchronisé du schéma.
@@ -44,7 +45,7 @@ STRIPE_WEBHOOK_SECRET=whsec_...
 RSVP_ADDON_PRICE_CENTS=990
 RSVP_ABUSE_SALT=<secret-aleatoire-d-au-moins-32-caracteres>
 RESEND_API_KEY=re_...
-RSVP_EMAIL_FROM=RSVP <rsvp@laboutiquedesmaries.fr>
+RSVP_EMAIL_FROM=Formulaire <rsvp@laboutiquedesmaries.fr>
 ```
 
 `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY` sont injectées automatiquement
@@ -117,8 +118,11 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 VITE_RSVP_ADDON_PRICE_CENTS=990
 ```
 
-La valeur Vite du RSVP n’est qu’un affichage. La facturation utilise uniquement
-`RSVP_ADDON_PRICE_CENTS` dans les Edge Functions.
+La valeur Vite du formulaire n’est qu’un affichage. La facturation utilise
+uniquement `RSVP_ADDON_PRICE_CENTS` dans les Edge Functions. Pour un projet neuf,
+le supplément est ajouté au paiement de publication et finalisé dans la même
+transaction logique. `create-commerce-checkout` ne facture séparément le
+formulaire que pour un projet déjà payé et publié.
 
 ## 7. Resend
 
@@ -126,7 +130,7 @@ Ajouter et vérifier `laboutiquedesmaries.fr` dans Resend, publier les entrées 
 SPF/DKIM demandées, puis utiliser une adresse du domaine vérifié, par exemple :
 
 ```ini
-RSVP_EMAIL_FROM=RSVP <rsvp@laboutiquedesmaries.fr>
+RSVP_EMAIL_FROM=Formulaire <rsvp@laboutiquedesmaries.fr>
 ```
 
 L’adresse destinataire n’est jamais reçue du formulaire public : la fonction la

@@ -2,6 +2,11 @@ import { useMemo, useState } from "react";
 import type { RsvpField, RsvpFormConfig } from "../../types/editor";
 import { submitRsvpResponse } from "../../services/rsvpRepository";
 
+export type RsvpRenderMode = "preview" | "public";
+
+export const shouldRenderRsvp = (config: RsvpFormConfig | undefined, mode: RsvpRenderMode) =>
+  Boolean(config?.enabled && (mode === "preview" || config.purchased));
+
 function RsvpInput({ field, value, onChange }: { field: RsvpField; value: unknown; onChange: (value: unknown) => void }) {
   const common = { required: field.required, name: field.id };
   if (field.type === "long_text") return <textarea {...common} rows={4} value={String(value ?? "")} onChange={(event) => onChange(event.target.value)} />;
@@ -17,11 +22,11 @@ function RsvpInput({ field, value, onChange }: { field: RsvpField; value: unknow
   return <input {...common} type="text" value={String(value ?? "")} onChange={(event) => onChange(event.target.value)} />;
 }
 
-export function RsvpFormRenderer({ config, publicId }: { config: RsvpFormConfig; publicId?: string }) {
+export function RsvpFormRenderer({ config, publicId, mode }: { config: RsvpFormConfig; publicId?: string; mode: RsvpRenderMode }) {
   const startedAt = useMemo(() => Date.now(), []);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
-  if (!config.enabled || !config.purchased) return null;
+  if (!shouldRenderRsvp(config, mode)) return null;
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -38,11 +43,11 @@ export function RsvpFormRenderer({ config, publicId }: { config: RsvpFormConfig;
 
   return <section className="rsvp-public-section">
     <form className="rsvp-public-form" onSubmit={(event) => void submit(event)}>
-      <p className="eyebrow">RSVP</p><h2>{config.title}</h2>{config.description && <p>{config.description}</p>}
+      <p className="eyebrow">Formulaire</p><h2>{config.title}</h2>{config.description && <p>{config.description}</p>}
       <input className="rsvp-honeypot" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" />
       {config.fields.map((field) => <label className="rsvp-public-field" key={field.id}><span>{field.label}{field.required && <b> *</b>}</span><RsvpInput field={field} value={answers[field.id]} onChange={(value) => setAnswers((current) => ({ ...current, [field.id]: value }))} /></label>)}
-      <button type="submit" disabled={!publicId || status === "sending" || status === "sent"}>{status === "sending" ? "Envoi…" : status === "sent" ? "Réponse envoyée ✓" : config.submitLabel}</button>
-      {!publicId && <small>Le formulaire devient actif sur le lien public.</small>}{status === "error" && <small className="form-error">L’envoi a échoué. Merci de réessayer.</small>}
+      <button type="submit" disabled={mode === "preview" || !publicId || status === "sending" || status === "sent"}>{status === "sending" ? "Envoi…" : status === "sent" ? "Réponse envoyée ✓" : config.submitLabel}</button>
+      {mode === "preview" && <small>Aperçu de conception — l’envoi est désactivé.</small>}{status === "error" && <small className="form-error">L’envoi a échoué. Merci de réessayer.</small>}
     </form>
   </section>;
 }

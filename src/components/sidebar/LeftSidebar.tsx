@@ -34,7 +34,7 @@ const navItems: { id: SidebarView; label: string; icon: ComponentType<{ size?: n
   { id: "opening", label: "Ouverture", icon: Sparkles },
   { id: "music", label: "Musique", icon: Music2 },
   { id: "effects", label: "Effets", icon: WandSparkles,},
-  { id: "rsvp", label: "RSVP", icon: ClipboardCheck },
+  { id: "rsvp", label: "Formulaire", icon: ClipboardCheck },
 ];
 
 export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: OpeningAnimationType) => void }) {

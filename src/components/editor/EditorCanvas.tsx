@@ -10,7 +10,7 @@ import {
   type PreviewDevice,
 } from "../../config/previewDevices";
 import { getElementLayout } from "../../utils/responsiveLayout";
-import { getDocumentHeight } from "../../utils/documentLayout";
+import { getDocumentContentHeight, getDocumentHeight, getRsvpBlockHeight } from "../../utils/documentLayout";
 import { ProjectFontLoader } from "../../features/fonts/ProjectFontLoader";
 
 function useLoadedImage(src?: string) {
@@ -96,7 +96,9 @@ export function EditorCanvas() {
   const page = project?.pages.find((item) => item.id === currentPageId);
   const elements = useMemo(() => [...(page?.elements ?? [])].sort((a, b) => a.zIndex - b.zIndex), [page?.elements]);
   const viewport = PREVIEW_DEVICES[previewDevice];
-  const documentHeight = page ? getDocumentHeight(page, previewDevice, Boolean(project?.rsvp?.enabled)) : viewport.height;
+  const documentContentHeight = page ? getDocumentContentHeight(page, previewDevice) : viewport.height;
+  const rsvpHeight = getRsvpBlockHeight(project?.rsvp, previewDevice);
+  const documentHeight = page ? getDocumentHeight(page, previewDevice, project?.rsvp) : viewport.height;
   const selectedElement = elements.find((element) => element.id === selectedElementId);
 
   useEffect(() => {
@@ -203,7 +205,16 @@ export function EditorCanvas() {
                 rotateAnchorOffset={28 / zoom}
                 boundBoxFunc={(oldBox, newBox) => newBox.width < 12 || newBox.height < 12 ? oldBox : newBox}
               />
-              {project?.rsvp?.enabled && <Group y={documentHeight - 540} listening={false}><Rect x={24} width={viewport.width - 48} height={440} cornerRadius={18} fill="rgba(255,255,255,.86)" stroke="#d8c7bb" /><Text x={44} y={48} width={viewport.width - 88} text={project.rsvp.title} fontFamily="Cormorant Garamond" fontSize={32} align="center" fill="#493f39" /><Text x={44} y={105} width={viewport.width - 88} text="Aperçu du formulaire RSVP · les champs interactifs apparaissent dans l’aperçu et le faire-part public." fontFamily="Montserrat" fontSize={13} lineHeight={1.5} align="center" fill="#776b64" /></Group>}
+              {project?.rsvp?.enabled && <Group y={documentContentHeight} listening={false}>
+                <Rect width={viewport.width} height={rsvpHeight} fill="#f8f2ed" />
+                <Text x={44} y={54} width={viewport.width - 88} text="FORMULAIRE" fontFamily="Montserrat" fontSize={11} letterSpacing={2} align="center" fill="#a9785b" />
+                <Text x={44} y={88} width={viewport.width - 88} text={project.rsvp.title} fontFamily="Cormorant Garamond" fontSize={34} align="center" fill="#493f39" />
+                {project.rsvp.description && <Text x={44} y={140} width={viewport.width - 88} text={project.rsvp.description} fontFamily="Lora" fontSize={13} lineHeight={1.5} align="center" fill="#776b64" />}
+                {project.rsvp.fields.map((field, index) => <Group key={field.id} y={205 + index * 82}>
+                  <Text x={44} width={viewport.width - 88} text={`${field.label}${field.required ? " *" : ""}`} fontFamily="Montserrat" fontSize={11} fill="#5d514a" />
+                  <Rect x={44} y={24} width={viewport.width - 88} height={42} cornerRadius={8} fill="rgba(255,255,255,.78)" stroke="#d9cec6" />
+                </Group>)}
+              </Group>}
             </Layer>
           </Stage>
         </div>

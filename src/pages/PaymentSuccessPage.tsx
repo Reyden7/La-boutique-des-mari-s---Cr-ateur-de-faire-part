@@ -59,7 +59,7 @@ export function PaymentSuccessPage() {
   }, [projectId, purchaseKind]);
 
   if (purchaseKind === "custom_invitation" || purchaseKind === "rsvp_addon") {
-    return <main className="payment-result-page"><section className="payment-result-card success"><CheckCircle2 size={42} /><p className="eyebrow">Paiement reçu</p><h1>{purchaseKind === "custom_invitation" ? "Votre demande sur mesure est enregistrée" : "L’option RSVP est en cours d’activation"}</h1><p>La confirmation définitive est traitée par notre webhook Stripe sécurisé. Elle apparaîtra dans votre espace dans quelques instants.</p><div className="payment-result-actions">{projectId && <Link to={`/studio/${projectId}`}>Retourner au Studio</Link>}<Link to="/">Mes projets</Link></div></section></main>;
+    return <main className="payment-result-page"><section className="payment-result-card success"><CheckCircle2 size={42} /><p className="eyebrow">Paiement reçu</p><h1>{purchaseKind === "custom_invitation" ? "Votre demande sur mesure est enregistrée" : "Le formulaire est en cours d’activation"}</h1><p>La confirmation définitive est traitée par notre webhook Stripe sécurisé. Elle apparaîtra dans votre espace dans quelques instants.</p><div className="payment-result-actions">{projectId && <Link to={`/studio/${projectId}`}>Retourner au Studio</Link>}<Link to="/">Mes projets</Link></div></section></main>;
   }
 
   if (project?.publicId) {

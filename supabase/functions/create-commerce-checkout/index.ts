@@ -158,11 +158,11 @@ Deno.serve(async (request) => {
     } else {
       projectId = entityId;
       amount = rsvpPrice();
-      label = "Option formulaire RSVP personnalisable";
+      label = "Formulaire invité personnalisable";
 
       const { data: project, error } = await admin
         .from("projects")
-        .select("id, owner_id")
+        .select("id, owner_id, status, payment_status, project_data")
         .eq("id", projectId)
         .maybeSingle();
       if (error) throw error;
@@ -171,6 +171,14 @@ Deno.serve(async (request) => {
       }
       if (project.owner_id !== ownerId) {
         return jsonResponse({ error: "Forbidden" }, 403, true);
+      }
+      if (project.status !== "published" || project.payment_status !== "paid") {
+        return jsonResponse({
+          error: "Project must be paid and published before purchasing the form separately",
+        }, 409, true);
+      }
+      if (project.project_data?.rsvp?.enabled !== true) {
+        return jsonResponse({ error: "Form must be enabled before checkout" }, 409, true);
       }
 
       const { data: purchase, error: purchaseError } = await admin
@@ -184,7 +192,7 @@ Deno.serve(async (request) => {
       }
       if (purchase?.status === "refunded") {
         return jsonResponse({
-          error: "Refunded RSVP purchases require support before a new payment",
+          error: "Refunded form purchases require support before a new payment",
         }, 409, true);
       }
 
@@ -250,6 +258,7 @@ Deno.serve(async (request) => {
       };
       const session = await stripe.checkout.sessions.create({
         mode: "payment",
+        managed_payments: { enabled: false },
         integration_identifier: integrationIdentifier(purchaseType),
         client_reference_id: entityId,
         line_items: [{
@@ -314,7 +323,13 @@ Deno.serve(async (request) => {
           ? stripeError.message
           : "unknown_error",
       });
-      return jsonResponse({ error: "Checkout creation failed" }, 502, true);
+      const stripeMessage = stripeError instanceof Error ? stripeError.message : "";
+      return jsonResponse({
+        error: stripeMessage.includes("product tax code is missing")
+          ? "Stripe tax configuration is incomplete for this product"
+          : "Checkout creation failed",
+        code: "stripe_checkout_failed",
+      }, 502, true);
     }
   } catch (error) {
     console.error("commerce_checkout_server_error", {

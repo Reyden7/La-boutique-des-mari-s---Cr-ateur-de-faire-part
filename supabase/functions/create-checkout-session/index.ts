@@ -29,6 +29,14 @@ const requireStripeKey = () => {
   return key;
 };
 
+const rsvpPrice = () => {
+  const amount = Number(requireEnvironment("RSVP_ADDON_PRICE_CENTS"));
+  if (!Number.isSafeInteger(amount) || amount <= 0) {
+    throw new Error("RSVP_ADDON_PRICE_CENTS must be a positive integer");
+  }
+  return amount;
+};
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -79,7 +87,7 @@ Deno.serve(async (request) => {
 
     const { data: project, error: projectError } = await admin
       .from("projects")
-      .select("id, owner_id, status, payment_status")
+      .select("id, owner_id, status, payment_status, project_data")
       .eq("id", projectId)
       .maybeSingle();
     if (projectError) throw projectError;
@@ -110,9 +118,20 @@ Deno.serve(async (request) => {
     const stripe = new Stripe(stripeSecretKey, {
       httpClient: Stripe.createFetchHttpClient(),
     });
+    const { data: formPurchase, error: formPurchaseError } = await admin
+      .from("rsvp_addon_purchases")
+      .select("status")
+      .eq("project_id", projectId)
+      .maybeSingle();
+    if (formPurchaseError) throw formPurchaseError;
+    const formEnabled = project.project_data?.rsvp?.enabled === true;
+    const includesForm = formEnabled && formPurchase?.status !== "paid";
+    const formPriceCents = rsvpPrice();
+    const totalAmountCents = PRICE_CENTS + (includesForm ? formPriceCents : 0);
+
     const { data: currentPayment, error: paymentReadError } = await admin
       .from("project_payments")
-      .select("id, status, stripe_checkout_session_id, updated_at")
+      .select("id, status, amount_cents, includes_rsvp, stripe_checkout_session_id, updated_at")
       .eq("project_id", projectId)
       .maybeSingle();
     if (paymentReadError) throw paymentReadError;
@@ -131,7 +150,13 @@ Deno.serve(async (request) => {
       const existingSession = await stripe.checkout.sessions.retrieve(
         currentPayment.stripe_checkout_session_id,
       );
-      if (existingSession.status === "open" && existingSession.url) {
+      const existingIncludesForm = existingSession.metadata?.includes_form === "true";
+      if (
+        existingSession.status === "open" &&
+        existingSession.url &&
+        existingSession.amount_total === totalAmountCents &&
+        existingIncludesForm === includesForm
+      ) {
         console.info("checkout_reused", {
           projectId,
           checkoutSessionId: existingSession.id,
@@ -148,6 +173,9 @@ Deno.serve(async (request) => {
           true,
         );
       }
+      if (existingSession.status === "open") {
+        await stripe.checkout.sessions.expire(existingSession.id);
+      }
     }
 
     let payment: { id: string; updated_at: string } | null = null;
@@ -159,6 +187,8 @@ Deno.serve(async (request) => {
           stripe_checkout_session_id: null,
           stripe_payment_intent_id: null,
           paid_at: null,
+          amount_cents: totalAmountCents,
+          includes_rsvp: includesForm,
         })
         .eq("id", currentPayment.id)
         .in("status", ["unpaid", "pending"])
@@ -172,7 +202,8 @@ Deno.serve(async (request) => {
         .insert({
           project_id: projectId,
           owner_id: userData.user.id,
-          amount_cents: PRICE_CENTS,
+          amount_cents: totalAmountCents,
+          includes_rsvp: includesForm,
           currency: CURRENCY,
           status: "pending",
         })
@@ -191,30 +222,40 @@ Deno.serve(async (request) => {
     if (pendingError) throw pendingError;
 
     try {
-      const session = await stripe.checkout.sessions.create({
-        mode: "payment",
-        integration_identifier: integrationIdentifier(),
-        client_reference_id: projectId,
-        line_items: [{
+      const metadata = {
+        purchase_type: "publication",
+        project_id: projectId,
+        owner_id: userData.user.id,
+        includes_form: String(includesForm),
+        form_amount_cents: String(includesForm ? formPriceCents : 0),
+      };
+      const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [{
+        quantity: 1,
+        price_data: {
+          currency: CURRENCY,
+          unit_amount: PRICE_CENTS,
+          product_data: { name: "Publication d’un faire-part numérique" },
+        },
+      }];
+      if (includesForm) {
+        lineItems.push({
           quantity: 1,
           price_data: {
             currency: CURRENCY,
-            unit_amount: PRICE_CENTS,
-            product_data: { name: "Publication d’un faire-part numérique" },
+            unit_amount: formPriceCents,
+            product_data: { name: "Formulaire invité et collecte des réponses" },
           },
-        }],
-        metadata: {
-          purchase_type: "publication",
-          project_id: projectId,
-          owner_id: userData.user.id,
-        },
-        payment_intent_data: {
-          metadata: {
-            purchase_type: "publication",
-            project_id: projectId,
-            owner_id: userData.user.id,
-          },
-        },
+        });
+      }
+
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        managed_payments: { enabled: false },
+        integration_identifier: integrationIdentifier(),
+        client_reference_id: projectId,
+        line_items: lineItems,
+        metadata,
+        payment_intent_data: { metadata },
         success_url: `${siteUrl}/payment/success?projectId=${
           encodeURIComponent(projectId)
         }&session_id={CHECKOUT_SESSION_ID}`,
@@ -222,7 +263,7 @@ Deno.serve(async (request) => {
           encodeURIComponent(projectId)
         }`,
       }, {
-        idempotencyKey: `project-payment-${payment.id}-${
+        idempotencyKey: `project-payment-${payment.id}-${totalAmountCents}-${
           new Date(payment.updated_at).getTime()
         }`,
       });

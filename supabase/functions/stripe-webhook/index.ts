@@ -122,6 +122,12 @@ Deno.serve(async (request) => {
       const projectId = session.metadata?.project_id;
       const ownerId = session.metadata?.owner_id;
       const paymentIntentId = stripeId(session.payment_intent);
+      const includesForm = session.metadata?.includes_form === "true";
+      const formPriceCents = Number(requireEnvironment("RSVP_ADDON_PRICE_CENTS"));
+      if (!Number.isSafeInteger(formPriceCents) || formPriceCents <= 0) {
+        throw new Error("Invalid configured form amount");
+      }
+      const expectedPublicationAmount = PRICE_CENTS + (includesForm ? formPriceCents : 0);
       if (!projectId || !ownerId || !paymentIntentId) {
         console.error("checkout_metadata_missing", {
           checkoutSessionId: session.id,
@@ -130,7 +136,7 @@ Deno.serve(async (request) => {
         return jsonResponse({ error: "Missing Checkout metadata" }, 400);
       }
       if (
-        session.amount_total !== PRICE_CENTS || session.currency !== CURRENCY
+        session.amount_total !== expectedPublicationAmount || session.currency !== CURRENCY
       ) {
         console.error("checkout_amount_mismatch", {
           projectId,
@@ -148,7 +154,7 @@ Deno.serve(async (request) => {
         { data: project, error: projectError },
       ] = await Promise.all([
         admin.from("project_payments").select(
-          "project_id, owner_id, stripe_checkout_session_id, amount_cents, currency, status",
+          "project_id, owner_id, stripe_checkout_session_id, amount_cents, currency, status, includes_rsvp",
         ).eq("project_id", projectId).maybeSingle(),
         admin.from("projects").select("id, owner_id, payment_status, status")
           .eq("id", projectId).maybeSingle(),
@@ -159,7 +165,9 @@ Deno.serve(async (request) => {
         !payment || !project ||
         payment.owner_id !== ownerId || project.owner_id !== ownerId ||
         payment.stripe_checkout_session_id !== session.id ||
-        payment.amount_cents !== PRICE_CENTS || payment.currency !== CURRENCY
+        payment.amount_cents !== expectedPublicationAmount ||
+        payment.includes_rsvp !== includesForm ||
+        payment.currency !== CURRENCY
       ) {
         console.error("checkout_coherence_failed", {
           projectId,
@@ -258,8 +266,14 @@ Deno.serve(async (request) => {
           400,
         );
       }
+      const includesForm = session.metadata?.includes_form === "true";
+      const formPriceCents = Number(requireEnvironment("RSVP_ADDON_PRICE_CENTS"));
+      if (!Number.isSafeInteger(formPriceCents) || formPriceCents <= 0) {
+        throw new Error("Invalid configured form amount");
+      }
+      const expectedPublicationAmount = PRICE_CENTS + (includesForm ? formPriceCents : 0);
       if (
-        session.amount_total !== PRICE_CENTS || session.currency !== CURRENCY
+        session.amount_total !== expectedPublicationAmount || session.currency !== CURRENCY
       ) {
         return jsonResponse({
           error: "Refund Checkout amount or currency mismatch",

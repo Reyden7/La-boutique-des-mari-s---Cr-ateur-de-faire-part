@@ -347,14 +347,15 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .stacked-options small { color: #9a9189; font-size: 8px; }
 
 /* Renderer and opening */
-.preview-mode { min-height: 100vh; background: #242522; color: #fff; }
+.preview-mode { height: 100vh; height: 100dvh; overflow-y: auto; overscroll-behavior-y: contain; touch-action: pan-y; background: #242522; color: #fff; }
 .preview-controls { position: fixed; z-index: 20; top: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 7px; padding: 5px; border-radius: 11px; background: rgba(255,255,255,.11); backdrop-filter: blur(16px); }
 .preview-controls button { border: 0; color: #fff; background: transparent; border-radius: 7px; padding: 9px 12px; display: flex; align-items: center; gap: 7px; font-size: 11px; }
 .preview-controls button:hover { background: rgba(255,255,255,.12); }
-.preview-content { min-height: 100vh; display: grid; justify-items: center; align-items: start; padding: 84px 0 40px; }
+.preview-content { min-height: 100%; display: grid; justify-items: center; align-items: start; padding: 84px 0 40px; }
 .renderer-wrap { width: 100%; max-width: 100vw; display: grid; justify-items: center; gap: 0; }
-.renderer-document { width: min(var(--renderer-max-width, 390px), calc(100vw - 28px)); aspect-ratio: 1 / var(--renderer-document-ratio, 2.164); position: relative; overflow: hidden; border-radius: 24px 24px 0 0; box-shadow: 0 24px 70px rgba(0,0,0,.25); container-type: inline-size; background: #fff; }
+.renderer-document { width: min(var(--renderer-max-width, 390px), calc(100vw - 28px)); aspect-ratio: 1 / var(--renderer-document-ratio, 2.164); position: relative; overflow: hidden; border-radius: 24px; box-shadow: 0 24px 70px rgba(0,0,0,.25); container-type: inline-size; background: #fff; }
 .render-page { position: absolute; inset: 0; overflow: hidden; }
+.render-rsvp-layer { position: absolute; right: 0; left: 0; overflow: hidden; }
 .render-background-section { position: absolute; right: 0; left: 0; }
 .renderer-nav { display: flex; align-items: center; gap: 14px; color: rgba(255,255,255,.8); font-size: 11px; }
 .renderer-nav button { border: 1px solid rgba(255,255,255,.22); border-radius: 8px; background: rgba(255,255,255,.08); color: #fff; padding: 8px 11px; }
@@ -386,6 +387,8 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .vertical-open-hint { position: absolute; z-index: 11; top: calc(100% + 17px); right: 0; left: 0; color: color-mix(in srgb, var(--opening-primary), #000 42%); font-size: 11px; font-weight: 600; text-align: center; text-transform: uppercase; letter-spacing: .16em; pointer-events: none; }
 .sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0, 0, 0, 0) !important; white-space: nowrap !important; border: 0 !important; }
 .opening-content-behind { position: absolute; inset: 0; z-index: 0; display: grid; place-items: center; transform-origin: center center; }
+.opening-stage.is-opened { display: block; min-height: 100dvh; overflow: visible; }
+.opening-stage.is-opened .opening-content-behind { position: relative; inset: auto; display: block; }
 .curtains-scene, .doors-scene { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; overflow: hidden; border: 0; padding: 0; background: transparent; perspective: 1600px; }
 .curtain-panel { position: absolute; z-index: 2; top: 0; bottom: -3%; width: 52%; overflow: hidden; background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--opening-primary), #fff 13%) 0 7%, var(--opening-primary) 13% 17%, color-mix(in srgb, var(--opening-primary), #000 21%) 26% 34%, color-mix(in srgb, var(--opening-primary), #fff 6%) 43% 50%); box-shadow: inset -18px 0 34px rgba(0,0,0,.2), 0 0 36px rgba(0,0,0,.28); will-change: transform; }
 .curtain-panel::after { content: ""; position: absolute; inset: 0; opacity: .42; background: linear-gradient(to bottom, rgba(255,255,255,.11), transparent 18%, rgba(0,0,0,.1) 82%, rgba(0,0,0,.24)); }
@@ -419,7 +422,7 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .guest-audio-control button { width: 34px; height: 34px; border: 0; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.16); color: #fff; }
 .guest-audio-control span { font-size: 9px; letter-spacing: .04em; }
 .public-invite { min-height: 100vh; background: #d7c2ae; }
-.public-invite .invitation-experience { display: grid; place-items: center; overflow: hidden; }
+.public-invite .invitation-experience { display: block; overflow: visible; }
 .invite-not-found { min-height: 100vh; display: grid; place-content: center; justify-items: center; text-align: center; padding: 30px; }
 .invite-not-found .brand-mark { position: relative; }
 .invite-not-found h1 { font: 500 36px "Cormorant Garamond", serif; margin: 24px 0 7px; }
@@ -526,8 +529,8 @@ button:disabled { cursor: not-allowed; opacity: .38; }
   position: relative;
   isolation: isolate;
   min-height: 100dvh;
-  overflow: hidden;
-  container-type: size;
+  overflow: visible;
+  container-type: inline-size;
 }
 
 .invitation-content-layer {
@@ -560,6 +563,14 @@ button:disabled { cursor: not-allowed; opacity: .38; }
   container-type: size;
 
   z-index: 50;
+}
+
+.invitation-experience > .particle-layer {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
 }
 
 /* Particules derrière le faire-part */
@@ -1070,7 +1081,7 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .font-options button:hover, .font-options button.active { background: #f4ece6; color: var(--accent-dark); }
 .font-upload { width: 100%; padding: 9px; border: 1px dashed #cbb9ab; border-radius: 7px; background: #faf6f2; display: flex; align-items: center; justify-content: center; gap: 6px; color: #765d4c; font-size: 10px; }
 
-/* Document vertical et RSVP */
+/* Document vertical et formulaire */
 .scrollable-document-summary { padding: 12px; border: 1px solid #e1d8d1; border-radius: 10px; background: #fbf8f5; display: grid; gap: 5px; }
 .scrollable-document-summary strong { color: #514842; font-size: 11px; }
 .scrollable-document-summary small { color: #938880; font-size: 9px; line-height: 1.5; }
@@ -1085,7 +1096,7 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .rsvp-field-actions { position: absolute; top: 6px; right: 6px; display: flex; gap: 3px; }
 .rsvp-field-actions button { width: 24px; height: 23px; border: 0; border-radius: 5px; display: grid; place-items: center; background: #f2ede9; color: #776b64; }
 .compact-check { display: flex; align-items: center; gap: 5px; color: #786e67; font-size: 9px; }
-.rsvp-public-section { width: min(var(--renderer-max-width, 390px), calc(100vw - 28px)); padding: 48px 24px 70px; background: #f8f2ed; box-shadow: 0 24px 70px rgba(0,0,0,.18); }
+.rsvp-public-section { width: 100%; height: 100%; padding: clamp(34px, 12cqw, 64px) clamp(20px, 7cqw, 48px) clamp(42px, 14cqw, 76px); overflow: hidden; background: #f8f2ed; }
 .rsvp-public-form { max-width: 620px; margin: auto; display: grid; gap: 18px; color: #4b413b; }
 .rsvp-public-form h2 { margin: -8px 0 0; font: 500 clamp(31px, 8cqw, 48px) "Cormorant Garamond", serif; text-align: center; }
 .rsvp-public-form > p { margin: 0; text-align: center; color: #7b6e66; font: 13px/1.6 Lora, serif; }

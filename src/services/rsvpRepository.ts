@@ -8,7 +8,7 @@ export interface RsvpResponseRow {
 }
 
 export async function submitRsvpResponse(publicId: string, answers: Record<string, unknown>, startedAt: number, website = "") {
-  if (!supabase) throw new Error("Le service RSVP n’est pas configuré.");
+  if (!supabase) throw new Error("Le service de formulaire n’est pas configuré.");
   const { data, error } = await supabase.functions.invoke("submit-rsvp", {
     body: { publicId, answers, startedAt, website },
   });

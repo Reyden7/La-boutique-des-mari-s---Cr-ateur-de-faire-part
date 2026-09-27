@@ -7,8 +7,9 @@ import { WeddingRenderer } from "../../components/renderer/WeddingRenderer";
 import { OpeningRenderer } from "../openings/OpeningRenderer";
 import { ParticleRenderer } from "../particles/ParticleRenderer";
 import type { PreviewDevice } from "../../config/previewDevices";
+import type { RsvpRenderMode } from "../rsvp/RsvpFormRenderer";
 
-export function InvitationExperience({ project, device }: { project: WeddingProject; device?: PreviewDevice }) {
+export function InvitationExperience({ project, device, mode = "public" }: { project: WeddingProject; device?: PreviewDevice; mode?: RsvpRenderMode }) {
   const controllerRef = useRef<AudioController | null>(null);
   const [playing, setPlaying] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
@@ -56,6 +57,7 @@ export function InvitationExperience({ project, device }: { project: WeddingProj
         <WeddingRenderer
           project={project}
           device={device}
+          mode={mode}
         />
       </OpeningRenderer>
     </div>

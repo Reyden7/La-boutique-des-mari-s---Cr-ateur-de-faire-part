@@ -60,7 +60,7 @@ supabase secrets set SITE_URL=https://www.laboutiquedesmaries.fr
 supabase secrets set RSVP_ADDON_PRICE_CENTS=990
 supabase secrets set RSVP_ABUSE_SALT=<secret-aleatoire-de-32-caracteres-minimum>
 supabase secrets set RESEND_API_KEY=re_xxx
-supabase secrets set 'RSVP_EMAIL_FROM=RSVP <rsvp@laboutiquedesmaries.fr>'
+supabase secrets set 'RSVP_EMAIL_FROM=Formulaire <rsvp@laboutiquedesmaries.fr>'
 ```
 
 Appliquer puis déployer :
@@ -83,9 +83,11 @@ Dans Stripe en mode test, créer un endpoint webhook vers
 
 Les prix réellement facturés sont définis côté Edge Functions : 2 490 centimes
 pour la publication, 5 000 centimes pour la commande sur mesure et
-`RSVP_ADDON_PRICE_CENTS` pour l’option RSVP. La variable frontend du prix RSVP
-est uniquement informative. Le déblocage des achats dépend exclusivement du
-webhook Stripe signé.
+`RSVP_ADDON_PRICE_CENTS` pour l’option formulaire. Avant la première publication,
+le supplément est inclus dans la même Checkout Session. Le checkout séparé reste
+réservé à l’ajout du formulaire sur un projet déjà payé et publié. La variable
+frontend du prix est uniquement informative. Le déblocage des achats dépend
+exclusivement du webhook Stripe signé.
 
 La procédure complète de mise en production se trouve dans
 [`docs/backend-deployment.md`](docs/backend-deployment.md).

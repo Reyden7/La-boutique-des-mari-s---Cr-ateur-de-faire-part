@@ -8,7 +8,7 @@ export function DoorsOpening({ children, config, couple, onInteract }: OpeningAn
   const [primary, accent] = config.colors ?? ["#f4efe7", "#b2905d"];
   const duration = reduceMotion ? .12 : Math.max(1.6, config.duration);
   const open = () => { if (opened) return; onInteract?.(); setOpened(true); };
-  return <div className="opening-stage doors-theme" style={{ "--opening-primary": primary, "--opening-accent": accent } as React.CSSProperties}>
+  return <div className={`opening-stage doors-theme ${opened ? "is-opened" : ""}`} style={{ "--opening-primary": primary, "--opening-accent": accent } as React.CSSProperties}>
     <motion.div className="opening-content-behind" initial={false} animate={opened ? { scale: [1.035, 1.018, 1], filter: ["brightness(.62) blur(1px)", "brightness(.84) blur(0px)", "brightness(1) blur(0px)"] } : { scale: 1.035, filter: "brightness(.62) blur(1px)" }} transition={{ duration: duration * .92, delay: duration * .05, ease: [0.22, 1, 0.36, 1] }}>{children}</motion.div>
     <motion.button className="doors-scene" onClick={open} aria-label="Ouvrir les portes" animate={opened ? { pointerEvents: "none" } : {}}>
       <motion.div className="door-light" animate={opened ? { opacity: [0, .2, .82, 0] } : { opacity: 0 }} transition={{ duration: duration * .86, delay: duration * .12, times: [0, .2, .72, 1], ease: "easeOut" }} />

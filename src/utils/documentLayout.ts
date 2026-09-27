@@ -1,14 +1,31 @@
 import { PREVIEW_DEVICES, type PreviewDevice } from "../config/previewDevices";
-import type { BackgroundSection, WeddingPage } from "../types/editor";
+import type { BackgroundSection, RsvpField, RsvpFormConfig, WeddingPage } from "../types/editor";
 import { getElementLayout } from "./responsiveLayout";
 
 export const DOCUMENT_BOTTOM_MARGIN = 120;
-export const RSVP_BLOCK_HEIGHT = 620;
+export const RSVP_BLOCK_MIN_HEIGHT = 620;
 
-export const getDocumentHeight = (
+const getRsvpFieldHeight = (field: RsvpField) => {
+  if (field.type === "long_text") return 128;
+  if (field.type === "single_choice" || field.type === "multiple_choice") {
+    return 52 + Math.max(1, field.options?.length ?? 0) * 42;
+  }
+  return 84;
+};
+
+export const getRsvpBlockHeight = (config?: RsvpFormConfig | null, device: PreviewDevice = "mobile") => {
+  if (!config?.enabled) return 0;
+  const fieldsHeight = config.fields.reduce(
+    (height, field) => height + getRsvpFieldHeight(field),
+    0,
+  );
+  const deviceFactor = device === "desktop" ? 2.2 : device === "tablet" ? 1.35 : 1;
+  return Math.ceil(Math.max(RSVP_BLOCK_MIN_HEIGHT, 330 + fieldsHeight) * deviceFactor);
+};
+
+export const getDocumentContentHeight = (
   page: WeddingPage,
   device: PreviewDevice,
-  includeRsvp = false,
 ) => {
   const contentBottom = page.elements.reduce((maximum, element) => {
     if (!element.visible) return maximum;
@@ -19,12 +36,19 @@ export const getDocumentHeight = (
     (maximum, section) => Math.max(maximum, section.y + section.height),
     0,
   );
-  const base = Math.max(
+  return Math.max(
     PREVIEW_DEVICES[device].height,
     contentBottom + DOCUMENT_BOTTOM_MARGIN,
     sectionBottom,
   );
-  return base + (includeRsvp ? RSVP_BLOCK_HEIGHT : 0);
+};
+
+export const getDocumentHeight = (
+  page: WeddingPage,
+  device: PreviewDevice,
+  rsvp?: RsvpFormConfig | null,
+) => {
+  return getDocumentContentHeight(page, device) + getRsvpBlockHeight(rsvp, device);
 };
 
 export const migratePagesToScrollableDocument = (pages: WeddingPage[]): WeddingPage[] => {

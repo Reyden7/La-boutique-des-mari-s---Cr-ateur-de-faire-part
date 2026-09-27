@@ -122,10 +122,10 @@ Deno.serve(async (request) => {
       .maybeSingle();
     if (purchaseError) throw purchaseError;
     if (!rsvp?.enabled || !purchase || !Array.isArray(rsvp.fields)) {
-      return jsonResponse({ error: "RSVP unavailable" }, 404, true);
+      return jsonResponse({ error: "Form unavailable" }, 404, true);
     }
     if (rsvp.fields.length === 0 || rsvp.fields.length > 30) {
-      return jsonResponse({ error: "Invalid RSVP configuration" }, 409, true);
+      return jsonResponse({ error: "Invalid form configuration" }, 409, true);
     }
 
     const answers = body.answers as Record<string, unknown>;
@@ -144,14 +144,14 @@ Deno.serve(async (request) => {
         knownLabels.has(field.label) ||
         !ALLOWED_FIELD_TYPES.has(field.type)
       ) {
-        return jsonResponse({ error: "Invalid RSVP configuration" }, 409, true);
+        return jsonResponse({ error: "Invalid form configuration" }, 409, true);
       }
       knownIds.add(field.id);
       knownLabels.add(field.label);
     }
 
     if (Object.keys(answers).some((key) => !knownIds.has(key))) {
-      return jsonResponse({ error: "Unknown RSVP field" }, 400, true);
+      return jsonResponse({ error: "Unknown form field" }, 400, true);
     }
 
     const validated: Record<string, unknown> = Object.create(null);
@@ -189,7 +189,7 @@ Deno.serve(async (request) => {
           options.some((option: unknown) => typeof option !== "string" || !option || option.length > 100) ||
           new Set(options).size !== options.length
         ) {
-          return jsonResponse({ error: "Invalid RSVP configuration" }, 409, true);
+          return jsonResponse({ error: "Invalid form configuration" }, 409, true);
         }
         if (field.type === "multiple_choice") {
           if (
@@ -223,7 +223,7 @@ Deno.serve(async (request) => {
         return jsonResponse({ error: "Too many responses" }, 429, true);
       }
       if (inserted.error.message?.includes("RSVP_UNAVAILABLE")) {
-        return jsonResponse({ error: "RSVP unavailable" }, 404, true);
+        return jsonResponse({ error: "Form unavailable" }, 404, true);
       }
       throw inserted.error;
     }
@@ -251,8 +251,8 @@ Deno.serve(async (request) => {
         body: JSON.stringify({
           from,
           to: [destination],
-          subject: `Nouvelle réponse RSVP · ${project.name}`,
-          html: `<h1>Nouvelle réponse RSVP</h1><table>${rows}</table><p>Réponse reçue le ${
+          subject: `Nouvelle réponse au formulaire · ${project.name}`,
+          html: `<h1>Nouvelle réponse au formulaire</h1><table>${rows}</table><p>Réponse reçue le ${
             new Date().toLocaleString("fr-FR", { timeZone: "Europe/Paris" })
           }.</p>`,
         }),
