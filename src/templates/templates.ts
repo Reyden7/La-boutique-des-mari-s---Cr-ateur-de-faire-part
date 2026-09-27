@@ -151,25 +151,16 @@ const create = (
   pages: [
     {
       id: id(),
-      name: "Couverture",
-      background,
-      elements,
-    },
-
-    {
-      id: id(),
-
-      name: "Informations",
-
+      name: "Faire-part",
       background: {
-        type: "color",
-        color: "#fbf8f4",
+        color: "#fffdf9",
+        gradient: { type: "linear", color1: "#f5efe8", color2: "#d9c7b8", angle: 135 },
+        ...background,
       },
-
-      elements: [
+      elements: [...elements,
         text(
           "Nous avons la joie de vous inviter",
-          170,
+          1014,
           24,
           "Cormorant Garamond",
           "#473e38"
@@ -177,7 +168,7 @@ const create = (
 
         text(
           "Samedi 18 juin 2027",
-          300,
+          1144,
           34,
           "Playfair Display",
           "#815e4b",
@@ -186,7 +177,7 @@ const create = (
 
         text(
           "Domaine de la Roseraie · 16 h",
-          405,
+          1249,
           19,
           "Montserrat",
           "#6f655f",

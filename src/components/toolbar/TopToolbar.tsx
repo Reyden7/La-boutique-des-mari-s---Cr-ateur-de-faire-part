@@ -1,4 +1,4 @@
-import { Check, ChevronLeft, Copy, ExternalLink, Eye, LockKeyhole, Redo2, Save, Send, Undo2, X } from "lucide-react";
+import { Check, ChevronLeft, ClipboardList, Copy, ExternalLink, Eye, LockKeyhole, Redo2, Save, Send, Undo2, X } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useEditorStore } from "../../stores/editorStore";
@@ -54,6 +54,7 @@ export function TopToolbar({ onPreview }: { onPreview: () => void }) {
         <div className="undo-group"><button onClick={undo} disabled={!past.length} title="Annuler (Ctrl+Z)"><Undo2 size={18} /></button><button onClick={redo} disabled={!future.length} title="Rétablir (Ctrl+Y)"><Redo2 size={18} /></button></div>
         <button onClick={onPreview} aria-label="Aperçu"><Eye size={17} /> <span>Aperçu</span></button>
         <button onClick={save} aria-label="Sauvegarder"><Save size={17} /> <span>Sauvegarder</span></button>
+        {project.rsvp?.purchased && <Link className="toolbar-link-button" to={`/studio/${project.id}/rsvp/responses`}><ClipboardList size={16} /><span>Réponses</span></Link>}
         <button className="publish-button" disabled={publishing} onClick={isPublished ? showPublishedLink : () => setConfirming(true)} aria-label={isPublished ? "Faire-part publié" : "Publier le faire-part pour 24,90 euros"}><Send size={16} /> <span>{publishing ? "Redirection…" : isPublished ? "Faire-part publié ✓" : project.paymentStatus === "pending" ? "Reprendre le paiement" : "Publier — 24,90 €"}</span></button>
       </div>
 

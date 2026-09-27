@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Circle, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Transformer } from "react-konva";
+import { Circle, Group, Image as KonvaImage, Layer, Line, Rect, Stage, Text, Transformer } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { EditorElement, ImageElement, PageBackground } from "../../types/editor";
 import { useEditorStore } from "../../stores/editorStore";
 import { ParticleRenderer } from "../../features/particles/ParticleRenderer";
 import {
-  calculatePreviewFitZoom,
   PREVIEW_DEVICES,
   type PreviewDevice,
 } from "../../config/previewDevices";
 import { getElementLayout } from "../../utils/responsiveLayout";
+import { getDocumentHeight } from "../../utils/documentLayout";
+import { ProjectFontLoader } from "../../features/fonts/ProjectFontLoader";
 
 function useLoadedImage(src?: string) {
   const [image, setImage] = useState<HTMLImageElement>();
@@ -23,7 +24,7 @@ function useLoadedImage(src?: string) {
   return image;
 }
 
-function Background({ background, width, height }: { background: PageBackground; width: number; height: number }) {
+function Background({ background, width, height, y = 0 }: { background: PageBackground; width: number; height: number; y?: number }) {
   const image = useLoadedImage(background.imageUrl);
   const gradient = background.gradient;
   if (background.type === "image" && image) {
@@ -32,18 +33,18 @@ function Background({ background, width, height }: { background: PageBackground;
     const crop = imageRatio > viewportRatio
       ? { x: (image.width - image.height * viewportRatio) / 2, y: 0, width: image.height * viewportRatio, height: image.height }
       : { x: 0, y: (image.height - image.width / viewportRatio) / 2, width: image.width, height: image.width / viewportRatio };
-    return <KonvaImage image={image} width={width} height={height} crop={crop} listening={false} />;
+    return <Group y={y} listening={false}><KonvaImage image={image} width={width} height={height} crop={crop} listening={false} /></Group>;
   }
   if (background.type === "gradient" && gradient) {
     if (gradient.type === "radial") {
       const center = { x: width / 2, y: height / 2 };
-      return <Rect width={width} height={height} fillRadialGradientStartPoint={center} fillRadialGradientEndPoint={center} fillRadialGradientStartRadius={0} fillRadialGradientEndRadius={Math.hypot(width, height) / 2} fillRadialGradientColorStops={[0, gradient.color1, 1, gradient.color2]} listening={false} />;
+      return <Group y={y} listening={false}><Rect width={width} height={height} fillRadialGradientStartPoint={center} fillRadialGradientEndPoint={center} fillRadialGradientStartRadius={0} fillRadialGradientEndRadius={Math.hypot(width, height) / 2} fillRadialGradientColorStops={[0, gradient.color1, 1, gradient.color2]} listening={false} /></Group>;
     }
     const angle = ((gradient.angle ?? 135) * Math.PI) / 180;
     const gradientLength = Math.hypot(width, height) / 2;
-    return <Rect width={width} height={height} fillLinearGradientStartPoint={{ x: width / 2 - Math.cos(angle) * gradientLength, y: height / 2 - Math.sin(angle) * gradientLength }} fillLinearGradientEndPoint={{ x: width / 2 + Math.cos(angle) * gradientLength, y: height / 2 + Math.sin(angle) * gradientLength }} fillLinearGradientColorStops={[0, gradient.color1, 1, gradient.color2]} listening={false} />;
+    return <Group y={y} listening={false}><Rect width={width} height={height} fillLinearGradientStartPoint={{ x: width / 2 - Math.cos(angle) * gradientLength, y: height / 2 - Math.sin(angle) * gradientLength }} fillLinearGradientEndPoint={{ x: width / 2 + Math.cos(angle) * gradientLength, y: height / 2 + Math.sin(angle) * gradientLength }} fillLinearGradientColorStops={[0, gradient.color1, 1, gradient.color2]} listening={false} /></Group>;
   }
-  return <Rect width={width} height={height} fill={background.color ?? "#fffdf9"} listening={false} />;
+  return <Rect y={y} width={width} height={height} fill={background.color ?? "#fffdf9"} listening={false} />;
 }
 
 function CanvasElement({ element, device, selected, onSelect }: { element: EditorElement; device: PreviewDevice; selected: boolean; onSelect: () => void }) {
@@ -95,6 +96,7 @@ export function EditorCanvas() {
   const page = project?.pages.find((item) => item.id === currentPageId);
   const elements = useMemo(() => [...(page?.elements ?? [])].sort((a, b) => a.zIndex - b.zIndex), [page?.elements]);
   const viewport = PREVIEW_DEVICES[previewDevice];
+  const documentHeight = page ? getDocumentHeight(page, previewDevice, Boolean(project?.rsvp?.enabled)) : viewport.height;
   const selectedElement = elements.find((element) => element.id === selectedElementId);
 
   useEffect(() => {
@@ -104,8 +106,7 @@ export function EditorCanvas() {
     const updateFitZoom = () => {
       const compact = window.matchMedia("(max-width: 760px)").matches;
       const availableWidth = canvasArea.clientWidth - (compact ? 36 : 96);
-      const availableHeight = canvasArea.clientHeight - (compact ? 160 : 130);
-      const nextFit = calculatePreviewFitZoom(previewDevice, availableWidth, availableHeight);
+      const nextFit = Math.min(1, Math.max(0.1, (availableWidth - viewport.frameHorizontal) / viewport.width));
       const state = useEditorStore.getState();
       const deviceChanged = previousDeviceRef.current !== previewDevice;
       const wasFitted = previousFitRef.current === undefined || Math.abs(state.zoom - previousFitRef.current) < 0.011;
@@ -123,7 +124,7 @@ export function EditorCanvas() {
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", updateFitZoom);
     };
-  }, [previewDevice, setFitZoom, setZoom]);
+  }, [previewDevice, setFitZoom, setZoom, viewport.frameHorizontal, viewport.width]);
 
   useEffect(() => {
     const transformer = transformerRef.current;
@@ -153,16 +154,17 @@ export function EditorCanvas() {
         className="preview-device-screen"
         style={{
           width: viewport.width * zoom,
-          height: viewport.height * zoom,
+          height: documentHeight * zoom,
         }}
       >
+        {project && <ProjectFontLoader project={project} />}
         {project?.particles?.enabled && project.particles.layer === "behind" && <ParticleRenderer config={project.particles} />}
 
         <div className="preview-stage-layer">
           <Stage
             ref={stageRef}
             width={viewport.width * zoom}
-            height={viewport.height * zoom}
+            height={documentHeight * zoom}
             scaleX={zoom}
             scaleY={zoom}
             onMouseDown={(event) => {
@@ -173,7 +175,8 @@ export function EditorCanvas() {
             }}
           >
             <Layer>
-              <Background background={page.background} width={viewport.width} height={viewport.height} />
+              <Background background={page.background} width={viewport.width} height={documentHeight} />
+              {(page.backgroundSections ?? []).map((section) => <Background key={section.id} background={section.background} width={viewport.width} height={section.height} y={section.y} />)}
 
               {elements.map((element) => (
                 <CanvasElement
@@ -200,6 +203,7 @@ export function EditorCanvas() {
                 rotateAnchorOffset={28 / zoom}
                 boundBoxFunc={(oldBox, newBox) => newBox.width < 12 || newBox.height < 12 ? oldBox : newBox}
               />
+              {project?.rsvp?.enabled && <Group y={documentHeight - 540} listening={false}><Rect x={24} width={viewport.width - 48} height={440} cornerRadius={18} fill="rgba(255,255,255,.86)" stroke="#d8c7bb" /><Text x={44} y={48} width={viewport.width - 88} text={project.rsvp.title} fontFamily="Cormorant Garamond" fontSize={32} align="center" fill="#493f39" /><Text x={44} y={105} width={viewport.width - 88} text="Aperçu du formulaire RSVP · les champs interactifs apparaissent dans l’aperçu et le faire-part public." fontFamily="Montserrat" fontSize={13} lineHeight={1.5} align="center" fill="#776b64" /></Group>}
             </Layer>
           </Stage>
         </div>

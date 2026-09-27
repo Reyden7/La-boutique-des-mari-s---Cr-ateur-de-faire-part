@@ -10,10 +10,12 @@ const MAX_ATTEMPTS = 15;
 export function PaymentSuccessPage() {
   const [searchParams] = useSearchParams();
   const projectId = searchParams.get("projectId");
+  const purchaseKind = searchParams.get("kind");
   const [project, setProject] = useState<WeddingProject | null>(null);
   const [timedOut, setTimedOut] = useState(false);
 
   useEffect(() => {
+    if (purchaseKind === "custom_invitation" || purchaseKind === "rsvp_addon") return;
     if (!projectId) {
       setTimedOut(true);
       return;
@@ -54,7 +56,11 @@ export function PaymentSuccessPage() {
       active = false;
       if (timer) window.clearTimeout(timer);
     };
-  }, [projectId]);
+  }, [projectId, purchaseKind]);
+
+  if (purchaseKind === "custom_invitation" || purchaseKind === "rsvp_addon") {
+    return <main className="payment-result-page"><section className="payment-result-card success"><CheckCircle2 size={42} /><p className="eyebrow">Paiement reçu</p><h1>{purchaseKind === "custom_invitation" ? "Votre demande sur mesure est enregistrée" : "L’option RSVP est en cours d’activation"}</h1><p>La confirmation définitive est traitée par notre webhook Stripe sécurisé. Elle apparaîtra dans votre espace dans quelques instants.</p><div className="payment-result-actions">{projectId && <Link to={`/studio/${projectId}`}>Retourner au Studio</Link>}<Link to="/">Mes projets</Link></div></section></main>;
+  }
 
   if (project?.publicId) {
     return <main className="payment-result-page"><section className="payment-result-card success"><CheckCircle2 size={42} /><p className="eyebrow">Paiement confirmé</p><h1>Votre faire-part est publié</h1><p>Votre lien est actif et restera identique après vos prochaines modifications.</p><div className="payment-result-actions"><a href={`/i/${project.publicId}`} target="_blank" rel="noreferrer">Voir le faire-part <ExternalLink size={15} /></a><Link to={`/studio/${project.id}`}>Retourner au Studio</Link></div></section></main>;

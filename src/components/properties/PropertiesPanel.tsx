@@ -1,22 +1,24 @@
 import { AlignCenter, AlignLeft, AlignRight, Bold, Copy, Italic, Monitor, RotateCcw, Smartphone, Tablet, Trash2, Underline } from "lucide-react";
 import { useEditorStore } from "../../stores/editorStore";
-import { WEDDING_FONTS, type AnimationType, type EditorElement, type PageBackground } from "../../types/editor";
+import { type AnimationType, type EditorElement } from "../../types/editor";
 import type { OpeningAnimationType } from "../../types/editor";
 import { OpeningProperties } from "../../features/openings/OpeningProperties";
 import { AudioProperties } from "../../features/music/AudioProperties";
 import { PREVIEW_DEVICES } from "../../config/previewDevices";
 import { getElementLayout, hasElementLayoutOverride } from "../../utils/responsiveLayout";
+import { BackgroundPanel } from "../../features/backgrounds/BackgroundPanel";
+import { FontPicker } from "../../features/fonts/FontPicker";
 
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => <label className="field"><span>{label}</span>{children}</label>;
 
 export function PropertiesPanel({ onPreviewOpening }: { onPreviewOpening: (type: OpeningAnimationType) => void }) {
-  const { project, currentPageId, selectedElementId, sidebarView, previewDevice, updateElement, updateElementLayout, resetElementLayout, updateBackground, duplicateElement, removeElement } = useEditorStore();
+  const { project, currentPageId, selectedElementId, sidebarView, previewDevice, updateElement, updateElementLayout, resetElementLayout, duplicateElement, removeElement } = useEditorStore();
   const page = project?.pages.find((item) => item.id === currentPageId);
   const element = page?.elements.find((item) => item.id === selectedElementId);
 
   if (sidebarView === "opening") return <OpeningProperties onPreview={onPreviewOpening} />;
   if (sidebarView === "music") return <AudioProperties />;
-  if (!element) return <BackgroundProperties background={page?.background} update={updateBackground} />;
+  if (!element) return <BackgroundPanel background={page?.background} />;
   const update = (values: Partial<EditorElement>) => updateElement(element.id, values);
   const updateLayout = (values: Parameters<typeof updateElementLayout>[1]) => updateElementLayout(element.id, values);
   const layout = getElementLayout(element, previewDevice);
@@ -54,7 +56,7 @@ export function PropertiesPanel({ onPreviewOpening }: { onPreviewOpening: (type:
       </section>
       {element.type === "text" && <>
         <Field label="Contenu"><textarea rows={3} value={element.text} onChange={(event) => update({ text: event.target.value, name: event.target.value.slice(0, 28) || "Texte" })} /></Field>
-        <Field label="Police"><select value={element.fontFamily} onChange={(event) => update({ fontFamily: event.target.value })}>{WEDDING_FONTS.map((font) => <option key={font} style={{ fontFamily: font }}>{font}</option>)}</select></Field>
+        <Field label="Police"><FontPicker value={element.fontFamily} onChange={(fontFamily) => update({ fontFamily })} /></Field>
         <div className="field-row"><Field label="Taille"><input type="number" min="8" max="240" value={layout.fontSize ?? element.fontSize} onChange={(event) => updateLayout({ fontSize: Number(event.target.value) })} /></Field><Field label="Couleur"><input type="color" value={element.color} onChange={(event) => update({ color: event.target.value })} /></Field></div>
         <div className="format-row">
           <button aria-label="Gras" className={element.fontWeight >= 600 ? "active" : ""} onClick={() => update({ fontWeight: element.fontWeight >= 600 ? 400 : 700 })}><Bold size={16} /></button>
@@ -85,25 +87,6 @@ export function PropertiesPanel({ onPreviewOpening }: { onPreviewOpening: (type:
       </select></Field>
       <div className="field-row"><Field label="Durée (s)"><input type="number" min="0.1" max="5" step="0.1" value={element.animation?.duration ?? 0.8} onChange={(event) => update({ animation: { type: element.animation?.type ?? "none", duration: Number(event.target.value), delay: element.animation?.delay ?? 0 } })} /></Field><Field label="Délai (s)"><input type="number" min="0" max="5" step="0.1" value={element.animation?.delay ?? 0} onChange={(event) => update({ animation: { type: element.animation?.type ?? "none", duration: element.animation?.duration ?? 0.8, delay: Number(event.target.value) } })} /></Field></div>
       <div className="property-actions"><button onClick={() => duplicateElement(element.id)}><Copy size={15} /> Dupliquer</button><button className="danger" onClick={() => removeElement(element.id)}><Trash2 size={15} /> Supprimer</button></div>
-    </aside>
-  );
-}
-
-function BackgroundProperties({ background, update }: { background?: PageBackground; update: (background: PageBackground) => void }) {
-  if (!background) return <aside className="properties-panel" />;
-  const gradient = background.gradient ?? { type: "linear" as const, color1: "#f5efe8", color2: "#d9c7b8", angle: 135 };
-  return (
-    <aside className="properties-panel">
-      <div className="properties-heading"><div><small>Page actuelle</small><h2>Arrière-plan</h2></div></div>
-      <Field label="Type"><div className="segmented">{(["color", "gradient", "image"] as const).map((type) => <button key={type} className={background.type === type ? "active" : ""} onClick={() => update(type === "color" ? { type, color: background.color ?? "#fffdf9" } : type === "gradient" ? { type, gradient } : { type, imageUrl: background.imageUrl })}>{type === "color" ? "Couleur" : type === "gradient" ? "Dégradé" : "Image"}</button>)}</div></Field>
-      {background.type === "color" && <Field label="Couleur"><input type="color" value={background.color ?? "#fffdf9"} onChange={(event) => update({ type: "color", color: event.target.value })} /></Field>}
-      {background.type === "gradient" && <>
-        <div className="field-row"><Field label="Couleur 1"><input type="color" value={gradient.color1} onChange={(event) => update({ type: "gradient", gradient: { ...gradient, color1: event.target.value } })} /></Field><Field label="Couleur 2"><input type="color" value={gradient.color2} onChange={(event) => update({ type: "gradient", gradient: { ...gradient, color2: event.target.value } })} /></Field></div>
-        <Field label="Style"><select value={gradient.type} onChange={(event) => update({ type: "gradient", gradient: { ...gradient, type: event.target.value as "linear" | "radial" } })}><option value="linear">Linéaire</option><option value="radial">Radial</option></select></Field>
-        {gradient.type === "linear" && <Field label={`Angle · ${gradient.angle ?? 135}°`}><input type="range" min="0" max="360" value={gradient.angle ?? 135} onChange={(event) => update({ type: "gradient", gradient: { ...gradient, angle: Number(event.target.value) } })} /></Field>}
-      </>}
-      {background.type === "image" && <Field label="Image de fond"><input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => { const file = event.target.files?.[0]; if (!file || file.size > 10 * 1024 * 1024) return; const reader = new FileReader(); reader.onload = () => update({ type: "image", imageUrl: String(reader.result) }); reader.readAsDataURL(file); }} /></Field>}
-      <div className="background-tip"><span>Astuce</span><p>Cliquez dans une zone vide du faire-part pour retrouver les réglages de fond.</p></div>
     </aside>
   );
 }

@@ -8,9 +8,11 @@ import { HomePage } from "./pages/HomePage";
 import { PaymentCancelPage } from "./pages/PaymentCancelPage";
 import { PaymentSuccessPage } from "./pages/PaymentSuccessPage";
 import { PublicInvitePage } from "./pages/PublicInvitePage";
+import { CustomInvitationRequestPage } from "./pages/CustomInvitationRequestPage";
+import { RsvpResponsesPage } from "./pages/RsvpResponsesPage";
 
 const protectedPage = (page: ReactNode) => <ProtectedRoute>{page}</ProtectedRoute>;
 
 export default function App() {
-  return <BrowserRouter><AuthProvider><Routes><Route path="/auth" element={<AuthPage />} /><Route path="/" element={protectedPage(<HomePage />)} /><Route path="/studio/:projectId" element={protectedPage(<EditorPage />)} /><Route path="/payment/success" element={protectedPage(<PaymentSuccessPage />)} /><Route path="/payment/cancel" element={protectedPage(<PaymentCancelPage />)} /><Route path="/i/:publicId" element={<PublicInvitePage />} /><Route path="*" element={<Navigate to="/" replace />} /></Routes></AuthProvider></BrowserRouter>;
+  return <BrowserRouter><AuthProvider><Routes><Route path="/auth" element={<AuthPage />} /><Route path="/" element={protectedPage(<HomePage />)} /><Route path="/studio/:projectId" element={protectedPage(<EditorPage />)} /><Route path="/studio/:projectId/rsvp/responses" element={protectedPage(<RsvpResponsesPage />)} /><Route path="/custom-invitation" element={protectedPage(<CustomInvitationRequestPage />)} /><Route path="/payment/success" element={protectedPage(<PaymentSuccessPage />)} /><Route path="/payment/cancel" element={protectedPage(<PaymentCancelPage />)} /><Route path="/i/:publicId" element={<PublicInvitePage />} /><Route path="*" element={<Navigate to="/" replace />} /></Routes></AuthProvider></BrowserRouter>;
 }

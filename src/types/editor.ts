@@ -88,11 +88,47 @@ export interface PageBackground {
   imageUrl?: string;
 }
 
+export interface BackgroundSection {
+  id: string;
+  y: number;
+  height: number;
+  background: PageBackground;
+}
+
 export interface WeddingPage {
   id: string;
   name: string;
   background: PageBackground;
   elements: EditorElement[];
+  backgroundSections?: BackgroundSection[];
+}
+
+export interface CustomFontAsset {
+  id: string;
+  name: string;
+  family: string;
+  url: string;
+  format: "truetype" | "opentype" | "woff" | "woff2";
+  assetId?: string;
+}
+
+export type RsvpFieldType = "short_text" | "long_text" | "number" | "boolean" | "single_choice" | "multiple_choice" | "select" | "email";
+
+export interface RsvpField {
+  id: string;
+  label: string;
+  type: RsvpFieldType;
+  required: boolean;
+  options?: string[];
+}
+
+export interface RsvpFormConfig {
+  enabled: boolean;
+  purchased: boolean;
+  title: string;
+  description?: string;
+  submitLabel: string;
+  fields: RsvpField[];
 }
 
 export type OpeningAnimationType = "none" | "envelope" | "curtains" | "doors" | "scroll" | "book" | "veil" | "floral-gates";
@@ -193,10 +229,19 @@ export interface WeddingProject {
   audio: ProjectAudioConfig;
 
   particles: ParticleConfig;
+
+  customFonts?: CustomFontAsset[];
+
+  rsvp?: RsvpFormConfig;
 }
 
 export const WEDDING_FONTS = [
-  "Cormorant Garamond", "Playfair Display", "Great Vibes", "Parisienne",
-  "Montserrat", "Poppins", "Lora", "Libre Baskerville", "Dancing Script",
-  "Cinzel", "Georgia", "Garamond", "Palatino", "Times New Roman", "Arial"
+  "Cormorant Garamond", "Playfair Display", "DM Serif Display", "Libre Baskerville",
+  "Bodoni Moda", "Lora", "Cinzel", "Marcellus", "Prata", "Italiana",
+  "Montserrat", "Poppins", "Raleway", "Josefin Sans", "Manrope", "Inter",
+  "Quicksand", "Nunito Sans", "Source Sans 3", "Work Sans",
+  "Great Vibes", "Parisienne", "Dancing Script", "Allura", "Alex Brush",
+  "Sacramento", "Tangerine", "Petit Formal Script", "Italianno", "Pinyon Script",
+  "Caveat", "Satisfy", "Cormorant SC", "Poiret One", "Forum",
+  "Georgia", "Garamond", "Palatino", "Times New Roman", "Arial"
 ] as const;

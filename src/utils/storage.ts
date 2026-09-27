@@ -1,26 +1,46 @@
 import type { OpeningAnimationType, ParticleConfig, ProjectAudioConfig, WeddingProject } from "../types/editor";
 import { deleteRemoteProject, isSupabaseConfigured, loadRemoteProjects, saveRemoteProject } from "../services/projectRepository";
+import { migratePagesToScrollableDocument } from "./documentLayout";
 
 const STORAGE_KEY = "lbm-studio-projects-v1";
 
 const defaultAudio = (): ProjectAudioConfig => ({ enabled: false, source: null, volume: 0.7, loop: true, startMode: "opening-interaction", fadeInDuration: 2 });
 const defaultParticles = (): ParticleConfig => ({ enabled: false, shape: "heart", direction: "down", speed: 30, quantity: 25, colors: ["#FFFFFF", "#F0CACA"], minSize: 8, maxSize: 18, opacity: 0.8, layer: "front" });
+const defaultRsvp = () => ({ enabled: false, purchased: false, title: "Confirmez votre présence", description: "Merci de nous répondre avant la date indiquée.", submitLabel: "Envoyer ma réponse", fields: [
+  { id: crypto.randomUUID(), label: "Présence", type: "single_choice" as const, required: true, options: ["Présent", "Pas présent"] },
+  { id: crypto.randomUUID(), label: "Nombre de personnes", type: "number" as const, required: true },
+  { id: crypto.randomUUID(), label: "Régime alimentaire", type: "select" as const, required: false, options: ["Aucun", "Végétarien", "Vegan", "Sans gluten", "Autre"] },
+  { id: crypto.randomUUID(), label: "Enfants", type: "boolean" as const, required: false },
+] });
+const normalizeBackground = (background: WeddingProject["pages"][number]["background"]) => ({
+  type: background.type,
+  color: background.color ?? "#fffdf9",
+  gradient: background.gradient ?? { type: "linear" as const, color1: "#f5efe8", color2: "#d9c7b8", angle: 135 },
+  imageUrl: background.imageUrl,
+});
 
 export const normalizeProject = (value: unknown): WeddingProject | null => {
   if (!value || typeof value !== "object") return null;
   const legacy = value as Partial<WeddingProject> & { openingAnimation?: string; published?: boolean };
   if (!legacy.id || !legacy.name || !Array.isArray(legacy.pages)) return null;
   const legacyType: OpeningAnimationType = legacy.openingAnimation === "none" ? "none" : "envelope";
+  const pages = migratePagesToScrollableDocument(legacy.pages).map((page) => ({
+    ...page,
+    background: normalizeBackground(page.background),
+    backgroundSections: page.backgroundSections?.map((section) => ({ ...section, background: normalizeBackground(section.background) })),
+  }));
   return {
     ...legacy,
     id: legacy.id,
     name: legacy.name,
-    pages: legacy.pages,
+    pages,
     createdAt: legacy.createdAt ?? new Date().toISOString(),
     updatedAt: legacy.updatedAt ?? new Date().toISOString(),
     opening: legacy.opening ?? { type: legacyType, duration: 3.4, colors: ["#E7D2C3", "#F5E9DF", "#B58A62"], variant: "classic", customSettings: { flapColor: "#DFC4B1", backgroundColor: "#F5EFEA", hintText: "Touchez pour ouvrir" } },
     audio: legacy.audio ?? defaultAudio(),
     particles: legacy.particles ?? defaultParticles(),
+    customFonts: legacy.customFonts ?? [],
+    rsvp: legacy.rsvp ?? defaultRsvp(),
     status: legacy.status ?? (legacy.published ? "published" : "draft"),
     paymentStatus: legacy.paymentStatus ?? "unpaid",
   };

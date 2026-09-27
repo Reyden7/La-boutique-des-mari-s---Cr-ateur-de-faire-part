@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { InvitationExperience } from "../features/music/InvitationExperience";
 import { loadPublicProject } from "../services/projectRepository";
 import type { WeddingProject } from "../types/editor";
+import { normalizeProject } from "../utils/storage";
 
 export function PublicInvitePage() {
   const { publicId } = useParams();
@@ -13,7 +14,7 @@ export function PublicInvitePage() {
     if (!publicId) { setProject(null); return; }
     setProject(undefined);
     void loadPublicProject(publicId)
-      .then((value) => { if (active) setProject(value); })
+      .then((value) => { if (active) setProject(value ? normalizeProject(value) : null); })
       .catch(() => { if (active) setProject(null); });
     return () => { active = false; };
   }, [publicId]);

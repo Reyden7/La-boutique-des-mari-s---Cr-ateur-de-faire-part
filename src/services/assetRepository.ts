@@ -4,19 +4,30 @@ import { saveRemoteProject } from "./projectRepository";
 
 const safeFilename = (name: string) => name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase() || "fichier";
 
-const normalizedMimeType = (file: File, kind: "image" | "audio") => {
+export type ProjectAssetKind = "image" | "audio" | "font";
+
+const normalizedMimeType = (file: File, kind: ProjectAssetKind) => {
   const extension = file.name.split(".").pop()?.toLowerCase();
   if (kind === "audio" && extension === "m4a") return "audio/mp4";
   if (kind === "audio" && extension === "wav") return "audio/wav";
+  if (kind === "font") {
+    const fontTypes: Record<string, string> = {
+      ttf: "font/ttf",
+      otf: "font/otf",
+      woff: "font/woff",
+      woff2: "font/woff2",
+    };
+    return fontTypes[extension ?? ""] ?? file.type;
+  }
   return file.type || (kind === "image" ? "image/jpeg" : "audio/mpeg");
 };
 
-export async function uploadProjectAsset(project: WeddingProject, file: File, kind: "image" | "audio") {
+export async function uploadProjectAsset(project: WeddingProject, file: File, kind: ProjectAssetKind) {
   if (!supabase) throw new Error("Supabase n’est pas configuré.");
   const user = await requireSupabaseSession();
   if (!project.ownerId || project.ownerId !== user.id) throw new Error("Associez d’abord ce projet à votre compte.");
   const persistedProject = await saveRemoteProject(project);
-  const folder = kind === "image" ? "images" : "audio";
+  const folder = kind === "image" ? "images" : kind === "audio" ? "audio" : "fonts";
   const storagePath = `${user.id}/${persistedProject.id}/${folder}/${crypto.randomUUID()}-${safeFilename(file.name)}`;
   const mimeType = normalizedMimeType(file, kind);
   const { error: uploadError } = await supabase.storage.from("wedding-assets").upload(storagePath, file, { contentType: mimeType, upsert: false });

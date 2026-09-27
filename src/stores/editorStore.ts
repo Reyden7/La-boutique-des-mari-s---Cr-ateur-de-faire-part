@@ -6,6 +6,8 @@ import type {
   PageBackground,
   ParticleConfig,
   ProjectAudioConfig,
+  CustomFontAsset,
+  RsvpFormConfig,
   ResponsiveElementLayout,
   WeddingProject,
 } from "../types/editor";
@@ -26,7 +28,8 @@ export type SidebarView =
   | "elements"
   | "opening"
   | "music"
-  | "effects";
+  | "effects"
+  | "rsvp";
 
 interface EditorState {
   project: WeddingProject | null;
@@ -109,6 +112,10 @@ interface EditorState {
   updateParticles: (
     particles: ParticleConfig
   ) => void;
+
+  updateCustomFonts: (fonts: CustomFontAsset[]) => void;
+
+  updateRsvp: (rsvp: RsvpFormConfig) => void;
 
   setSidebarView: (
     view: SidebarView
@@ -665,8 +672,11 @@ export const useEditorStore =
                 );
 
               if (page) {
-                page.background =
-                  background;
+                page.background = {
+                  ...page.background,
+                  ...background,
+                };
+                page.backgroundSections = undefined;
               }
             }
           )
@@ -718,6 +728,20 @@ export const useEditorStore =
 
             null
           )
+        ),
+
+      updateCustomFonts: (customFonts) =>
+        set((state) =>
+          mutateProject(state, (project) => {
+            project.customFonts = customFonts;
+          }, null)
+        ),
+
+      updateRsvp: (rsvp) =>
+        set((state) =>
+          mutateProject(state, (project) => {
+            project.rsvp = rsvp;
+          }, null)
         ),
 
       setSidebarView: (
@@ -830,15 +854,8 @@ export const useEditorStore =
           project
         )
           .then(
-            (
-              syncedProject
-            ) =>
+            () =>
               set({
-                project:
-                  normalizeProject(
-                    syncedProject
-                  ),
-
                 saveStatus:
                   "saved",
               })

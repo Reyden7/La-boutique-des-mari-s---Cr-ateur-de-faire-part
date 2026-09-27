@@ -1,9 +1,10 @@
-import Stripe from "npm:stripe@18.5.0";
-import { createClient } from "npm:@supabase/supabase-js@2.57.4";
+import Stripe from "npm:stripe@22.6.0";
+import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 import { corsHeaders, jsonResponse } from "../_shared/http.ts";
 
 const PRICE_CENTS = 2490;
 const CURRENCY = "eur";
+const integrationIdentifier = () => `lbm-publication-${Array.from(crypto.getRandomValues(new Uint8Array(8)), (value) => String.fromCharCode(97 + value % 26)).join("")}`;
 
 const requireEnvironment = (name: string) => {
   const value = Deno.env.get(name)?.trim();
@@ -182,6 +183,7 @@ Deno.serve(async (request) => {
     try {
       const session = await stripe.checkout.sessions.create({
         mode: "payment",
+        integration_identifier: integrationIdentifier(),
         client_reference_id: projectId,
         line_items: [{
           quantity: 1,

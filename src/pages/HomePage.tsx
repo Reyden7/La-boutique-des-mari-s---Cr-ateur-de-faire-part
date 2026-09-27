@@ -50,6 +50,7 @@ export function HomePage() {
     copy.updatedAt = copy.createdAt;
     copy.status = "draft";
     copy.paymentStatus = "unpaid";
+    if (copy.rsvp) copy.rsvp = { ...copy.rsvp, purchased: false };
     delete copy.publicId;
     delete copy.publishedAt;
     delete copy.expiresAt;
@@ -75,7 +76,7 @@ export function HomePage() {
     <div className="home-page">
       <header className="home-header"><div className="home-brand"><div className="brand-mark">B</div><div><strong>Le Bureau des Mariés</strong><span>Studio</span></div></div><div className="home-account"><span>{user.email}</span><button className="help-button" onClick={() => void signOut()}><LogOut size={15} /> Déconnexion</button></div></header>
       <main className="home-main">
-        <section className="welcome-row"><div><p className="eyebrow"><Sparkles size={14} /> Votre atelier créatif</p><h1>Vos plus belles nouvelles<br /><em>prennent vie ici.</em></h1><p>Imaginez, personnalisez et partagez un faire-part qui vous ressemble.</p></div><button className="new-project-button" onClick={() => setCreating(true)}><Plus size={20} /> Nouveau faire-part</button></section>
+        <section className="welcome-row"><div><p className="eyebrow"><Sparkles size={14} /> Votre atelier créatif</p><h1>Vos plus belles nouvelles<br /><em>prennent vie ici.</em></h1><p>Imaginez, personnalisez et partagez un faire-part qui vous ressemble.</p></div><div className="welcome-actions"><button className="new-project-button" onClick={() => setCreating(true)}><Plus size={20} /> Nouveau faire-part</button><button className="custom-request-button" onClick={() => navigate("/custom-invitation")}><Sparkles size={18} /> Sur mesure — 50 €</button></div></section>
         {projectError && <div className="project-sync-message">{projectError}</div>}
         {loadingProjects && <div className="projects-loading">Chargement de vos projets…</div>}
         {!loadingProjects && projects.length > 0 && <section className="projects-section"><div className="section-heading"><div><p className="eyebrow">Mes créations</p><h2>Derniers projets</h2></div><span>{projects.length} projet{projects.length > 1 ? "s" : ""}</span></div><div className="project-grid">{projects.map((project) => {
