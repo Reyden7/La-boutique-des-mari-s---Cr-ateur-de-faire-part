@@ -4,6 +4,8 @@ export interface PreviewDeviceConfig {
   width: number;
   height: number;
   label: string;
+  /** Logical physical width used by editor measurement guides. */
+  physicalWidthMm: number;
   frameHorizontal: number;
   frameVertical: number;
 }
@@ -13,6 +15,7 @@ export const PREVIEW_DEVICES: Record<PreviewDevice, PreviewDeviceConfig> = {
     width: 390,
     height: 844,
     label: "Smartphone",
+    physicalWidthMm: 82.5,
     frameHorizontal: 20,
     frameVertical: 20,
   },
@@ -20,6 +23,7 @@ export const PREVIEW_DEVICES: Record<PreviewDevice, PreviewDeviceConfig> = {
     width: 768,
     height: 1024,
     label: "Tablette",
+    physicalWidthMm: 162.46,
     frameHorizontal: 24,
     frameVertical: 24,
   },
@@ -27,6 +31,7 @@ export const PREVIEW_DEVICES: Record<PreviewDevice, PreviewDeviceConfig> = {
     width: 1440,
     height: 900,
     label: "PC",
+    physicalWidthMm: 304.62,
     frameHorizontal: 16,
     frameVertical: 38,
   },

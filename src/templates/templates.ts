@@ -85,6 +85,8 @@ const create = (
   status: "draft",
   paymentStatus: "unpaid",
 
+  introductionMode: "classic",
+
   opening: {
     type: "envelope",
     duration: 3.4,

@@ -10,6 +10,15 @@ export interface ResolvedElementLayout {
   fontSize?: number;
 }
 
+export interface ElementRenderBox {
+  left: string;
+  top: string;
+  width: string;
+  height: string;
+  transform: string;
+  transformOrigin: "top left";
+}
+
 const getOverride = (element: EditorElement, device: PreviewDevice) => {
   if (device === "mobile") return undefined;
   return element.responsive?.[device];
@@ -30,6 +39,22 @@ export const getElementLayout = (
     fontSize: element.type === "text" ? override?.fontSize ?? element.fontSize : undefined,
   };
 };
+
+/** Shared pixel-to-renderer conversion used by Preview and Public.
+ * Editor uses the same resolved layout directly in the Konva reference space.
+ */
+export const getElementRenderBox = (
+  layout: ResolvedElementLayout,
+  viewportWidth: number,
+  documentHeight: number,
+): ElementRenderBox => ({
+  left: `${layout.x / viewportWidth * 100}%`,
+  top: `${layout.y / documentHeight * 100}%`,
+  width: `${layout.width / viewportWidth * 100}%`,
+  height: `${layout.height / documentHeight * 100}%`,
+  transform: `rotate(${layout.rotation}deg)`,
+  transformOrigin: "top left",
+});
 
 export const hasElementLayoutOverride = (
   element: EditorElement,

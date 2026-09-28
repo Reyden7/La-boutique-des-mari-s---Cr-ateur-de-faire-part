@@ -1,4 +1,4 @@
-export type ElementType = "text" | "image" | "shape" | "icon";
+export type ElementType = "text" | "image" | "shape" | "icon" | "scratch" | "carousel" | "location" | "schedule" | "button" | "section";
 export type AnimationType = "none" | "fade" | "slide-left" | "slide-right" | "slide-up" | "slide-down" | "zoom" | "rotate";
 
 export interface AnimationConfig {
@@ -21,9 +21,87 @@ export interface ResponsiveLayouts {
   desktop?: ResponsiveElementLayout;
 }
 
+export type WelcomeTransition = "fade" | "zoom" | "split";
+export type IntroductionMode = "none" | "welcome" | "classic";
+
+export interface WelcomeMediaTransform {
+  x: number;
+  y: number;
+  scale: number;
+}
+
+export interface WelcomeArchTransform {
+  x: number;
+  y: number;
+  width: number;
+}
+
+export type WelcomeTextKey = "message" | "firstName" | "separator" | "secondName" | "date" | "enterButton";
+
+export interface WelcomeTextAppearance {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color: string;
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: number;
+  textAlign: "left" | "center" | "right";
+  lineHeight: number;
+  letterSpacing: number;
+  italic: boolean;
+  underline: boolean;
+  rotation: number;
+  opacity: number;
+}
+
+export interface WelcomeResponsiveSettings {
+  background?: Partial<WelcomeMediaTransform>;
+  arch?: Partial<WelcomeArchTransform>;
+  text?: Partial<Record<WelcomeTextKey, Partial<Omit<WelcomeTextAppearance, "color">>>>;
+}
+
+export interface WelcomeTextStyle {
+  fontFamily: string;
+  color: string;
+  align: "left" | "center" | "right";
+  namesSize: number;
+  detailSize: number;
+  buttonSize: number;
+}
+
+export interface WelcomePageConfig {
+  enabled: boolean;
+  showArch: boolean;
+  archId?: string;
+  showBackground: boolean;
+  backgroundId?: string;
+  fallbackColor: string;
+  fallbackColor2: string;
+  background: WelcomeMediaTransform;
+  arch: WelcomeArchTransform;
+  responsive?: Partial<Record<"tablet" | "desktop", WelcomeResponsiveSettings>>;
+  names: string;
+  firstName?: string;
+  separator?: string;
+  secondName?: string;
+  date: string;
+  message: string;
+  enterLabel: string;
+  elements: EditorElement[];
+  /** Legacy bridge retained while old projects are normalized to elements. */
+  textElements: Record<WelcomeTextKey, WelcomeTextAppearance>;
+  textStyle: WelcomeTextStyle;
+  transition: WelcomeTransition;
+  transitionDuration: number;
+}
+
 export interface BaseElement {
   id: string;
   type: ElementType;
+  /** Parent section in the logical document. Coordinates remain document-based. */
+  sectionId?: string;
   name: string;
   x: number;
   y: number;
@@ -33,7 +111,8 @@ export interface BaseElement {
   opacity: number;
   zIndex: number;
   visible: boolean;
-  locked: boolean;
+  /** Editor-only geometry lock. Missing on legacy projects means false. */
+  locked?: boolean;
   animation?: AnimationConfig;
   responsive?: ResponsiveLayouts;
 }
@@ -85,7 +164,102 @@ export interface IconElement extends BaseElement {
   heartStyle?: DecorativeHeartStyle;
 }
 
-export type EditorElement = TextElement | ImageElement | ShapeElement | IconElement;
+export interface ScratchElement extends BaseElement {
+  type: "scratch";
+  content: string;
+  shape: "circle" | "rectangle" | "rounded-rectangle";
+  surfaceStyle: "gold" | "silver" | "champagne" | "beige" | "rose" | "custom";
+  surfaceColor: string;
+  revealedBackgroundColor?: string;
+  /** Legacy projects used contentColor; keep it as a read fallback. */
+  contentColor: string;
+  fontSize?: number;
+  fontFamily?: string;
+  fontWeight?: number;
+  textColor?: string;
+  textAlign?: "left" | "center" | "right";
+  /** Local offsets inside the scratch card, never document coordinates. */
+  textOffsetX?: number;
+  textOffsetY?: number;
+  hint: string;
+}
+
+export interface CarouselImage {
+  id: string;
+  url: string;
+  alt: string;
+  assetId?: string;
+}
+
+export interface CarouselElement extends BaseElement {
+  type: "carousel";
+  images: CarouselImage[];
+  showArrows: boolean;
+  showDots: boolean;
+  autoplay: boolean;
+  interval: number;
+  transition: "slide" | "fade";
+  cornerRadius: number;
+  imageFit: "cover" | "contain";
+}
+
+export interface LocationElement extends BaseElement {
+  type: "location";
+  venueName: string;
+  address: string;
+  details: string;
+  latitude?: number;
+  longitude?: number;
+  buttonLabel: string;
+  backgroundColor: string;
+  textColor: string;
+  accentColor: string;
+}
+
+export interface ScheduleItem {
+  id: string;
+  time: string;
+  title: string;
+  description?: string;
+  icon?: string;
+}
+
+export interface ScheduleElement extends BaseElement {
+  type: "schedule";
+  items: ScheduleItem[];
+  displayStyle: "list" | "timeline" | "elegant";
+  backgroundColor: string;
+  textColor: string;
+  timeColor: string;
+  lineColor: string;
+  accentColor: string;
+}
+
+export interface ButtonElement extends BaseElement {
+  type: "button";
+  label: string;
+  url: string;
+  target: "same" | "new";
+  backgroundColor: string;
+  textColor: string;
+  borderColor: string;
+  borderWidth: number;
+  borderRadius: number;
+  textAlign: "left" | "center" | "right";
+  fontFamily?: string;
+  fontSize?: number;
+  fontWeight?: number;
+  welcomeAction?: "enter";
+}
+
+export interface SectionElement extends BaseElement {
+  type: "section";
+  background: PageBackground;
+  padding: number;
+  cornerRadius: number;
+}
+
+export type EditorElement = TextElement | ImageElement | ShapeElement | IconElement | ScratchElement | CarouselElement | LocationElement | ScheduleElement | ButtonElement | SectionElement;
 
 export interface PageBackground {
   type: "color" | "gradient" | "image";
@@ -150,6 +324,8 @@ export interface RsvpFormStyle {
 export interface RsvpFormConfig {
   enabled: boolean;
   purchased: boolean;
+  /** The RSVP block is positionable in the editor, so its geometry can be locked too. */
+  locked?: boolean;
   title: string;
   description?: string;
   submitLabel: string;
@@ -260,9 +436,14 @@ export interface WeddingProject {
 
   particles: ParticleConfig;
 
+  introductionMode: IntroductionMode;
+
   customFonts?: CustomFontAsset[];
 
   rsvp?: RsvpFormConfig;
+
+  /** Optional full-screen introduction shown before the scrollable document. */
+  welcomePage?: WelcomePageConfig;
 }
 
 export const WEDDING_FONTS = [

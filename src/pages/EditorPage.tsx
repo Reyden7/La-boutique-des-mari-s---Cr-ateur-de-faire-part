@@ -46,7 +46,7 @@ export function EditorPage() {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "c" && !typing) { event.preventDefault(); state.copyElement(); }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "v" && !typing) { event.preventDefault(); state.pasteElement(); }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "d" && state.selectedElementId && !typing) { event.preventDefault(); state.duplicateElement(state.selectedElementId); }
-      if ((event.key === "Delete" || event.key === "Backspace") && state.selectedElementId && !typing) { event.preventDefault(); state.removeElement(state.selectedElementId); }
+      if ((event.key === "Delete" || event.key === "Backspace") && state.selectedElementIds.length > 0 && !typing) { event.preventDefault(); state.removeSelectedElements(); }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);

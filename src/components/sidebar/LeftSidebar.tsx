@@ -3,16 +3,20 @@ import {
   ChevronDown,
   ChevronUp,
   ClipboardCheck,
+  CalendarClock,
+  CircleDashed,
   Eye,
   EyeOff,
   Heart,
+  GalleryHorizontal,
   ImagePlus,
   Layers3,
-  Lock,
-  LockOpen,
+  Link,
+  MapPin,
   Music2,
   Palette,
   Plus,
+  PanelsTopLeft,
   Shapes,
   Sparkles,
   Trash2,
@@ -21,7 +25,6 @@ import {
 } from "lucide-react";
 import { makeShapeElement, makeTextElement, useEditorStore, type SidebarView } from "../../stores/editorStore";
 import type { EditorElement, OpeningAnimationType } from "../../types/editor";
-import { OpeningSelector } from "../../features/openings/OpeningSelector";
 import { MusicPanel } from "../../features/music/MusicPanel";
 import { ParticlePanel } from "../../features/particles/ParticlePanel";
 import { isSupabaseConfigured } from "../../lib/supabase";
@@ -29,12 +32,14 @@ import { uploadProjectAsset } from "../../services/assetRepository";
 import { RsvpFormEditor } from "../../features/rsvp/RsvpFormEditor";
 import { DecorativeHeartSvg } from "../../features/hearts/DecorativeHeartSvg";
 import { DECORATIVE_HEARTS, makeDecorativeHeartElement } from "../../features/hearts/heartRegistry";
+import { makeButtonElement, makeCarouselElement, makeLocationElement, makeScheduleElement, makeScratchElement, makeSectionElement } from "../../features/elements/elementFactories";
+import { IntroductionPanel } from "../../features/introduction/IntroductionPanel";
 
 const uid = () => crypto.randomUUID();
 const navItems: { id: SidebarView; label: string; icon: ComponentType<{ size?: number }> }[] = [
-  { id: "design", label: "Design", icon: Palette },
-  { id: "elements", label: "Éléments", icon: Shapes },
-  { id: "opening", label: "Ouverture", icon: Sparkles },
+  { id: "design", label: "Arrière-plan", icon: Palette },
+  { id: "introduction", label: "Introduction", icon: Sparkles },
+  { id: "elements", label: "Contenu", icon: Shapes },
   { id: "music", label: "Musique", icon: Music2 },
   { id: "effects", label: "Effets", icon: WandSparkles,},
   { id: "rsvp", label: "Formulaire", icon: ClipboardCheck },
@@ -45,7 +50,7 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
   const [heartMenu, setHeartMenu] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const heartMenuRef = useRef<HTMLDivElement>(null);
-  const { project, currentPageId, selectedElementId, sidebarView, setSidebarView, addElement, selectElement, updateElement, removeElement, moveLayer } = useEditorStore();
+  const { project, currentPageId, selectedElementIds, sidebarView, setSidebarView, addElement, selectElement, updateElement, removeElement, moveLayer } = useEditorStore();
   const page = project?.pages.find((item) => item.id === currentPageId);
 
   useEffect(() => {
@@ -80,7 +85,8 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
   const documentSummary = <section className="scrollable-document-summary"><div className="panel-title">Document</div><strong>Page verticale scrollable</strong><small>{page?.elements.length ?? 0} élément{(page?.elements.length ?? 0) > 1 ? "s" : ""} · hauteur adaptée au contenu</small></section>;
 
   return <aside className="left-sidebar"><nav className="studio-sections" aria-label="Sections de création">{navItems.map(({ id, label, icon: Icon }) => <button key={id} className={sidebarView === id ? "active" : ""} onClick={() => setSidebarView(id)}><Icon size={16} /><span>{label}</span></button>)}</nav>
-    {sidebarView === "design" && <div className="sidebar-view"><div className="view-intro"><span>Design</span><h2>Votre faire-part</h2><p>Le document forme maintenant une seule page verticale qui s’allonge avec son contenu.</p></div>{documentSummary}<div className="separation-note"><Sparkles size={16} /><p>Le design, l’ouverture et la musique sont enregistrés séparément.</p></div></div>}
+    {sidebarView === "design" && <div className="sidebar-view"><div className="view-intro"><span>Arrière-plan</span><h2>Fond du document</h2><p>Personnalisez uniquement la couleur, le dégradé ou l’image de fond du faire-part.</p></div>{documentSummary}</div>}
+    {sidebarView === "introduction" && <IntroductionPanel onPreview={onPreviewOpening} />}
     {sidebarView === "elements" && (
       <div className="sidebar-view">
         <section className="add-elements-section">
@@ -105,6 +111,12 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
                 </div>
               )}
             </div>
+            <button onClick={() => addElement(makeCarouselElement())}><GalleryHorizontal size={20} /><span>Carrousel</span></button>
+            <button onClick={() => addElement(makeLocationElement())}><MapPin size={20} /><span>Lieu / Carte</span></button>
+            <button onClick={() => addElement(makeScheduleElement())}><CalendarClock size={20} /><span>Programme</span></button>
+            <button onClick={() => addElement(makeScratchElement())}><CircleDashed size={20} /><span>À gratter</span></button>
+            <button onClick={() => addElement(makeButtonElement())}><Link size={20} /><span>Bouton</span></button>
+            <button onClick={() => page && addElement(makeSectionElement(page))}><PanelsTopLeft size={20} /><span>Section</span></button>
           </div>
           <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={(event) => { void addImage(event.target.files?.[0]); event.currentTarget.value = ""; }} />
           {shapeMenu && <div className="shape-picker">{(["rectangle", "rounded-rectangle", "circle", "line"] as const).map((shape) => <button key={shape} onClick={() => { addElement(makeShapeElement(shape)); setShapeMenu(false); }}>{shape === "rounded-rectangle" ? "Arrondi" : shape === "circle" ? "Cercle" : shape === "line" ? "Ligne" : "Rectangle"}</button>)}</div>}
@@ -114,11 +126,10 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
           <div className="panel-title"><Layers3 size={15} /> Calques</div>
           <div className="layers-list">
             {[...(page?.elements ?? [])].sort((a, b) => b.zIndex - a.zIndex).map((element) => (
-              <div className={`layer-row ${element.id === selectedElementId ? "active" : ""}`} key={element.id} onClick={() => selectElement(element.id)}>
+              <div className={`layer-row ${selectedElementIds.includes(element.id) ? "active" : ""}`} key={element.id} onClick={(event) => selectElement(element.id, event.ctrlKey || event.metaKey)}>
                 <span className="layer-kind">{element.type === "text" ? "T" : element.type === "image" ? "▧" : element.type === "icon" && element.heartStyle ? <Heart size={12} /> : element.type === "icon" ? "❦" : "▱"}</span>
                 <span className="layer-name">{element.name}</span>
                 <button title={element.visible ? "Masquer" : "Afficher"} onClick={(event) => { event.stopPropagation(); updateElement(element.id, { visible: !element.visible }); }}>{element.visible ? <Eye size={14} /> : <EyeOff size={14} />}</button>
-                <button title={element.locked ? "Déverrouiller" : "Verrouiller"} onClick={(event) => { event.stopPropagation(); updateElement(element.id, { locked: !element.locked }); }}>{element.locked ? <Lock size={14} /> : <LockOpen size={14} />}</button>
                 <button title="Avancer" onClick={(event) => { event.stopPropagation(); moveLayer(element.id, "forward"); }}><ChevronUp size={14} /></button>
                 <button title="Reculer" onClick={(event) => { event.stopPropagation(); moveLayer(element.id, "backward"); }}><ChevronDown size={14} /></button>
                 <button title="Supprimer" onClick={(event) => { event.stopPropagation(); removeElement(element.id); }}><Trash2 size={14} /></button>
@@ -128,7 +139,6 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
         </section>
       </div>
     )}
-    {sidebarView === "opening" && <OpeningSelector onPreview={onPreviewOpening} />}
     {sidebarView === "music" && <MusicPanel />}
     {sidebarView === "effects" && (<ParticlePanel />)}
     {sidebarView === "rsvp" && <RsvpFormEditor />}

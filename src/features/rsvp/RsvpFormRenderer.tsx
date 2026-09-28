@@ -58,7 +58,7 @@ export function RsvpFormRenderer({ config, publicId, mode }: { config: RsvpFormC
 
   return <section className="rsvp-public-section" style={styleVariables}>
     <form className="rsvp-public-form" onSubmit={(event) => void submit(event)}>
-      <p className="eyebrow">Formulaire</p><h2>{config.title}</h2>{config.description && <p>{config.description}</p>}
+      <h2>{config.title}</h2>{config.description && <p>{config.description}</p>}
       <input className="rsvp-honeypot" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" />
       {config.fields.map((field) => <label className="rsvp-public-field" key={field.id}><span>{field.label}{field.required && <b> *</b>}</span><RsvpInput field={field} value={answers[field.id]} onChange={(value) => setAnswers((current) => ({ ...current, [field.id]: value }))} /></label>)}
       <button type="submit" disabled={mode === "preview" || !publicId || status === "sending" || status === "sent"}>{status === "sending" ? "Envoi…" : status === "sent" ? "Réponse envoyée ✓" : config.submitLabel}</button>

@@ -1,13 +1,16 @@
-import type { OpeningAnimationType, ParticleConfig, ProjectAudioConfig, WeddingProject } from "../types/editor";
+import type { IntroductionMode, OpeningAnimationType, ParticleConfig, ProjectAudioConfig, WeddingProject } from "../types/editor";
 import { deleteRemoteProject, isSupabaseConfigured, loadRemoteProjects, saveRemoteProject } from "../services/projectRepository";
 import { migratePagesToScrollableDocument } from "./documentLayout";
 import { DEFAULT_RSVP_STYLE, resolveRsvpStyle } from "../config/rsvpStyle";
+import { resolveWelcomePage } from "../features/welcome/welcomeDefaults";
+import { normalizeSectionMembership } from "./sectionLayout";
+import { normalizeElementLocks } from "./elementLocking";
 
 const STORAGE_KEY = "lbm-studio-projects-v1";
 
 const defaultAudio = (): ProjectAudioConfig => ({ enabled: false, source: null, volume: 0.7, loop: true, startMode: "opening-interaction", fadeInDuration: 2 });
 const defaultParticles = (): ParticleConfig => ({ enabled: false, shape: "heart", direction: "down", speed: 30, quantity: 25, colors: ["#FFFFFF", "#F0CACA"], minSize: 8, maxSize: 18, opacity: 0.8, layer: "front" });
-const defaultRsvp = () => ({ enabled: false, purchased: false, title: "Confirmez votre présence", description: "Merci de nous répondre avant la date indiquée.", submitLabel: "Envoyer ma réponse", fields: [
+const defaultRsvp = () => ({ enabled: false, purchased: false, locked: false, title: "Confirmez votre présence", description: "Merci de nous répondre avant la date indiquée.", submitLabel: "Envoyer ma réponse", fields: [
   { id: crypto.randomUUID(), label: "Présence", type: "single_choice" as const, required: true, options: ["Présent", "Pas présent"] },
   { id: crypto.randomUUID(), label: "Nombre de personnes", type: "number" as const, required: true },
   { id: crypto.randomUUID(), label: "Régime alimentaire", type: "select" as const, required: false, options: ["Aucun", "Végétarien", "Vegan", "Sans gluten", "Autre"] },
@@ -27,13 +30,17 @@ export const normalizeProject = (value: unknown): WeddingProject | null => {
   const legacyType: OpeningAnimationType = legacy.openingAnimation === "none" ? "none" : "envelope";
   const pages = migratePagesToScrollableDocument(legacy.pages).map((page) => ({
     ...page,
+    elements: normalizeElementLocks(normalizeSectionMembership(page.elements)),
     background: normalizeBackground(page.background),
     backgroundSections: page.backgroundSections?.map((section) => ({ ...section, background: normalizeBackground(section.background) })),
   }));
   const defaultRsvpConfig = defaultRsvp();
   const rsvp = legacy.rsvp
-    ? { ...defaultRsvpConfig, ...legacy.rsvp, style: resolveRsvpStyle(legacy.rsvp.style) }
+    ? { ...defaultRsvpConfig, ...legacy.rsvp, locked: legacy.rsvp.locked ?? false, style: resolveRsvpStyle(legacy.rsvp.style) }
     : defaultRsvpConfig;
+  const resolvedWelcomePage = resolveWelcomePage(legacy.welcomePage);
+  const introductionMode: IntroductionMode = legacy.introductionMode
+    ?? (resolvedWelcomePage.enabled ? "welcome" : (legacy.opening?.type ?? legacyType) !== "none" ? "classic" : "none");
   return {
     ...legacy,
     id: legacy.id,
@@ -46,6 +53,8 @@ export const normalizeProject = (value: unknown): WeddingProject | null => {
     particles: legacy.particles ?? defaultParticles(),
     customFonts: legacy.customFonts ?? [],
     rsvp,
+    introductionMode,
+    welcomePage: { ...resolvedWelcomePage, enabled: introductionMode === "welcome" },
     status: legacy.status ?? (legacy.published ? "published" : "draft"),
     paymentStatus: legacy.paymentStatus ?? "unpaid",
   };
@@ -84,7 +93,7 @@ export const hydrateProjects = async (ownerId: string) => {
   const allLocalProjects = loadProjects();
   const visibleLocalProjects = allLocalProjects.filter((project) => !project.ownerId || project.ownerId === ownerId);
   if (!isSupabaseConfigured) return visibleLocalProjects;
-  const remoteProjects = await loadRemoteProjects();
+  const remoteProjects = (await loadRemoteProjects()).map(normalizeProject).filter((project): project is WeddingProject => project !== null);
   const merged = new Map(visibleLocalProjects.map((project) => [project.id, project]));
   for (const project of remoteProjects) {
     const localProject = merged.get(project.id);

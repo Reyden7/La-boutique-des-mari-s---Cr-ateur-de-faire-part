@@ -3,11 +3,12 @@ import { type CSSProperties } from "react";
 import type { EditorElement, PageBackground, WeddingPage, WeddingProject } from "../../types/editor";
 import { PREVIEW_DEVICES, type PreviewDevice } from "../../config/previewDevices";
 import { useResponsiveDevice } from "../../hooks/useResponsiveDevice";
-import { getElementLayout, type ResolvedElementLayout } from "../../utils/responsiveLayout";
+import { getElementLayout, getElementRenderBox, type ResolvedElementLayout } from "../../utils/responsiveLayout";
 import { getDocumentHeight, getRsvpBlockHeight, getRsvpPositionY } from "../../utils/documentLayout";
 import { ProjectFontLoader } from "../../features/fonts/ProjectFontLoader";
 import { RsvpFormRenderer, shouldRenderRsvp, type RsvpRenderMode } from "../../features/rsvp/RsvpFormRenderer";
 import { DecorativeHeartSvg } from "../../features/hearts/DecorativeHeartSvg";
+import { RichElementRenderer } from "../../features/elements/RichElementRenderer";
 
 const backgroundStyle = (background: PageBackground): CSSProperties => {
   if (background.type === "image") return { backgroundImage: `url(${background.imageUrl})`, backgroundSize: "cover", backgroundPosition: "center" };
@@ -35,13 +36,12 @@ const motionProps = (element: EditorElement, layout: ResolvedElementLayout) => {
   }
 };
 
-function RenderElement({ element, device, documentHeight }: { element: EditorElement; device: PreviewDevice; documentHeight: number }) {
+export function RenderElement({ element, device, documentHeight }: { element: EditorElement; device: PreviewDevice; documentHeight: number }) {
   const layout = getElementLayout(element, device);
   const viewport = PREVIEW_DEVICES[device];
+  const renderBox = getElementRenderBox(layout, viewport.width, documentHeight);
   const style: CSSProperties = {
-    position: "absolute", left: `${layout.x / viewport.width * 100}%`, top: `${layout.y / documentHeight * 100}%`,
-    width: `${layout.width / viewport.width * 100}%`, height: `${layout.height / documentHeight * 100}%`,
-    transform: `rotate(${layout.rotation}deg)`, opacity: element.opacity, zIndex: element.zIndex,
+    position: "absolute", ...renderBox, opacity: element.opacity, zIndex: element.zIndex,
     display: element.visible ? "flex" : "none", alignItems: "center",
   };
   const motionConfig = motionProps(element, layout);
@@ -49,6 +49,7 @@ function RenderElement({ element, device, documentHeight }: { element: EditorEle
   if (element.type === "image") return <motion.img {...motionConfig} style={{ ...style, objectFit: "cover" }} src={element.src} alt={element.alt} />;
   if (element.type === "icon" && element.heartStyle) return <motion.div {...motionConfig} style={{ ...style, color: element.color, justifyContent: "center" }}><DecorativeHeartSvg variant={element.heartStyle} style={{ width: "100%", height: "100%" }} /></motion.div>;
   if (element.type === "icon") return <motion.div {...motionConfig} style={{ ...style, color: element.color, fontSize: `${element.fontSize / viewport.width * 100}cqw`, justifyContent: "center" }}>{element.icon}</motion.div>;
+  if (element.type === "scratch" || element.type === "carousel" || element.type === "location" || element.type === "schedule" || element.type === "button" || element.type === "section") return <motion.div {...motionConfig} className={`rich-render-element rich-render-${element.type}`} style={style}><RichElementRenderer element={element} /></motion.div>;
   const radius = element.shape === "circle" ? "50%" : element.shape === "rounded-rectangle" ? element.cornerRadius : 0;
   return <motion.div {...motionConfig} style={{ ...style, background: element.shape === "line" ? element.stroke : element.fill, border: element.shape === "line" ? "none" : `${element.strokeWidth}px solid ${element.stroke}`, borderRadius: radius, height: element.shape === "line" ? `${Math.max(1, element.strokeWidth)}px` : style.height }} />;
 }

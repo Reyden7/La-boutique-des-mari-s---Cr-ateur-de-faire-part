@@ -1,4 +1,5 @@
 import { Music2, Pause, Play, Volume2 } from "lucide-react";
+import { AnimatePresence } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
 import type { AudioController } from "./audioEngine";
 import { createAudioController } from "./audioEngine";
@@ -8,11 +9,18 @@ import { OpeningRenderer } from "../openings/OpeningRenderer";
 import { ParticleRenderer } from "../particles/ParticleRenderer";
 import type { PreviewDevice } from "../../config/previewDevices";
 import type { RsvpRenderMode } from "../rsvp/RsvpFormRenderer";
+import { useResponsiveDevice } from "../../hooks/useResponsiveDevice";
+import { WelcomePageRenderer } from "../welcome/WelcomePageRenderer";
+import { resolveWelcomePage } from "../welcome/welcomeDefaults";
 
 export function InvitationExperience({ project, device, mode = "public" }: { project: WeddingProject; device?: PreviewDevice; mode?: RsvpRenderMode }) {
   const controllerRef = useRef<AudioController | null>(null);
   const [playing, setPlaying] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
+  const welcomePage = resolveWelcomePage(project.welcomePage);
+  const introductionMode = project.introductionMode ?? (welcomePage.enabled ? "welcome" : project.opening.type === "none" ? "none" : "classic");
+  const activeDevice = useResponsiveDevice(device);
+  const [welcomeVisible, setWelcomeVisible] = useState(introductionMode === "welcome");
   useEffect(() => () => controllerRef.current?.stop(), []);
 
   const start = async () => {
@@ -31,6 +39,7 @@ export function InvitationExperience({ project, device, mode = "public" }: { pro
     else { await controller.resume(); setPlaying(true); }
   };
   const onInteract = () => { if (project.audio.startMode === "opening-interaction") void start(); };
+  const enterWelcome = () => { onInteract(); setWelcomeVisible(false); };
   const couple = project.name.match(/—\s*(.*)/)?.[1] ?? project.name;
 
  return (
@@ -45,7 +54,11 @@ export function InvitationExperience({ project, device, mode = "public" }: { pro
     )}
 
     <div className="invitation-content-layer">
-      <OpeningRenderer
+      {introductionMode !== "classic" ? <WeddingRenderer
+          project={project}
+          device={device}
+          mode={mode}
+        /> : <OpeningRenderer
         config={
           project.opening
         }
@@ -59,8 +72,12 @@ export function InvitationExperience({ project, device, mode = "public" }: { pro
           device={device}
           mode={mode}
         />
-      </OpeningRenderer>
+      </OpeningRenderer>}
     </div>
+
+    <AnimatePresence>
+      {introductionMode === "welcome" && welcomeVisible && <WelcomePageRenderer config={welcomePage} device={activeDevice} onEnter={enterWelcome} />}
+    </AnimatePresence>
 
     {project.particles?.layer ===
       "front" && (

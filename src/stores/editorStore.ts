@@ -10,8 +10,11 @@ import type {
   RsvpFormConfig,
   ResponsiveElementLayout,
   WeddingProject,
+  WelcomePageConfig,
+  IntroductionMode,
 } from "../types/editor";
 import type { PreviewDevice } from "../config/previewDevices";
+import { PREVIEW_DEVICES } from "../config/previewDevices";
 
 import { startProjectCheckout } from "../services/projectRepository";
 import { getProject, remoteErrorSummary, syncProject, upsertProject } from "../utils/storage";
@@ -20,13 +23,22 @@ import {
   resetElementLayoutForDevice,
   setElementLayoutForDevice,
 } from "../utils/responsiveLayout";
+import {
+  findContainingSectionId,
+  getSelectedTargetSection,
+  insertElementInSection,
+  normalizeSectionMembership,
+  reorderSections,
+} from "../utils/sectionLayout";
+import { resolveWelcomePage } from "../features/welcome/welcomeDefaults";
+import { isElementLocked, isLockableElement, normalizeElementLocks } from "../utils/elementLocking";
 
 type SaveStatus = "idle" | "saving" | "saved";
 
 export type SidebarView =
   | "design"
+  | "introduction"
   | "elements"
-  | "opening"
   | "music"
   | "effects"
   | "rsvp";
@@ -37,6 +49,8 @@ interface EditorState {
   currentPageId: string | null;
 
   selectedElementId: string | null;
+
+  selectedElementIds: string[];
 
   zoom: number;
 
@@ -62,7 +76,7 @@ interface EditorState {
 
   setCurrentPage: (id: string) => void;
 
-  selectElement: (id: string | null) => void;
+  selectElement: (id: string | null, additive?: boolean) => void;
 
   setZoom: (zoom: number) => void;
 
@@ -77,10 +91,16 @@ interface EditorState {
     updates: Partial<EditorElement>
   ) => void;
 
+  setElementsLocked: (ids: string[], locked: boolean) => void;
+
   updateElementLayout: (
     id: string,
     updates: ResponsiveElementLayout
   ) => void;
+
+  moveElements: (ids: string[], deltaX: number, deltaY: number) => void;
+
+  removeSelectedElements: () => void;
 
   resetElementLayout: (id: string) => void;
 
@@ -96,6 +116,8 @@ interface EditorState {
     id: string,
     direction: "forward" | "backward"
   ) => void;
+
+  reorderSection: (id: string, direction: -1 | 1) => void;
 
   updateBackground: (
     background: PageBackground
@@ -116,6 +138,10 @@ interface EditorState {
   updateCustomFonts: (fonts: CustomFontAsset[]) => void;
 
   updateRsvp: (rsvp: RsvpFormConfig) => void;
+
+  updateWelcomePage: (welcomePage: WelcomePageConfig) => void;
+
+  updateIntroductionMode: (mode: IntroductionMode) => void;
 
   setSidebarView: (
     view: SidebarView
@@ -168,6 +194,15 @@ const normalizeProject = (
 ): WeddingProject => ({
   ...project,
 
+  pages: project.pages.map((page) => ({
+    ...page,
+    elements: normalizeElementLocks(normalizeSectionMembership(page.elements)),
+  })),
+
+  welcomePage: resolveWelcomePage(project.welcomePage),
+
+  rsvp: project.rsvp ? { ...project.rsvp, locked: project.rsvp.locked ?? false } : undefined,
+
   particles:
     project.particles ??
     structuredClone(defaultParticles),
@@ -175,6 +210,22 @@ const normalizeProject = (
 
 const uid = () =>
   crypto.randomUUID();
+
+const isWelcomeContext = (project: WeddingProject, state: Pick<EditorState, "sidebarView">) =>
+  state.sidebarView === "introduction" && project.introductionMode === "welcome" && Boolean(project.welcomePage);
+
+const getEditableElements = (project: WeddingProject, state: Pick<EditorState, "sidebarView" | "currentPageId">) =>
+  isWelcomeContext(project, state)
+    ? project.welcomePage!.elements
+    : project.pages.find((page) => page.id === state.currentPageId)?.elements;
+
+const setEditableElements = (project: WeddingProject, state: Pick<EditorState, "sidebarView" | "currentPageId">, elements: EditorElement[]) => {
+  if (isWelcomeContext(project, state)) project.welcomePage!.elements = elements;
+  else {
+    const page = project.pages.find((item) => item.id === state.currentPageId);
+    if (page) page.elements = elements;
+  }
+};
 
 const mutateProject = (
   state: EditorState,
@@ -185,6 +236,10 @@ const mutateProject = (
 
   selectedElementId =
     state.selectedElementId,
+
+  selectedElementIds = selectedElementId === state.selectedElementId
+    ? state.selectedElementIds
+    : selectedElementId ? [selectedElementId] : [],
 ) => {
   if (!state.project) {
     return {};
@@ -206,6 +261,8 @@ const mutateProject = (
 
     selectedElementId,
 
+    selectedElementIds,
+
     past: [
       ...state.past,
       previous,
@@ -226,6 +283,8 @@ export const useEditorStore =
       currentPageId: null,
 
       selectedElementId: null,
+
+      selectedElementIds: [],
 
       zoom: 0.72,
 
@@ -256,6 +315,8 @@ export const useEditorStore =
             null,
 
           selectedElementId: null,
+
+          selectedElementIds: [],
 
           past: [],
 
@@ -294,11 +355,25 @@ export const useEditorStore =
           currentPageId: id,
 
           selectedElementId: null,
+
+          selectedElementIds: [],
+
         }),
 
-      selectElement: (id) =>
-        set({
-          selectedElementId: id,
+      selectElement: (id, additive = false) =>
+        set((state) => {
+          if (!id) return { selectedElementId: null, selectedElementIds: [] };
+          if (!additive) return { selectedElementId: id, selectedElementIds: [id] };
+          const alreadySelected = state.selectedElementIds.includes(id);
+          const selectedElementIds = alreadySelected
+            ? state.selectedElementIds.filter((selectedId) => selectedId !== id)
+            : [...state.selectedElementIds, id];
+          return {
+            selectedElementIds,
+            selectedElementId: alreadySelected
+              ? selectedElementIds.at(-1) ?? null
+              : id,
+          };
         }),
 
       setZoom: (zoom) =>
@@ -324,6 +399,17 @@ export const useEditorStore =
             state,
 
             (project) => {
+              const normalizedElement = { ...element, locked: element.locked ?? false } as EditorElement;
+              if (isWelcomeContext(project, state)) {
+                const layout = getElementLayout(normalizedElement, state.previewDevice);
+                const viewport = PREVIEW_DEVICES[state.previewDevice];
+                const placed = setElementLayoutForDevice(normalizedElement, state.previewDevice, {
+                  x: Math.max(20, (viewport.width - layout.width) / 2),
+                  y: Math.max(70, Math.min(layout.y, viewport.height - layout.height - 40)),
+                });
+                project.welcomePage!.elements.push({ ...placed, sectionId: undefined } as EditorElement);
+                return;
+              }
               const page =
                 project.pages.find(
                   (item) =>
@@ -331,9 +417,40 @@ export const useEditorStore =
                     state.currentPageId
                 );
 
-              page?.elements.push(
-                element
-              );
+              if (page) {
+                if (normalizedElement.type === "section") {
+                  page.elements.push(normalizedElement);
+                  page.elements = page.elements.map((candidate) => {
+                    if (candidate.type === "section" || candidate.sectionId) return candidate;
+                    const sectionId = findContainingSectionId(page.elements, candidate, state.previewDevice);
+                    return sectionId ? { ...candidate, sectionId } as EditorElement : candidate;
+                  });
+                } else {
+                  const selectedSections = page.elements.filter(
+                    (candidate) => candidate.type === "section" && state.selectedElementIds.includes(candidate.id),
+                  );
+                  const targetSection = getSelectedTargetSection(page.elements, state.selectedElementIds);
+                  if (targetSection) {
+                    const insertion = insertElementInSection(
+                      page.elements,
+                      normalizedElement,
+                      targetSection,
+                      state.previewDevice,
+                    );
+                    page.elements = page.elements.map((candidate) =>
+                      candidate.id === targetSection.id ? insertion.section : candidate
+                    );
+                    page.elements.push(insertion.element);
+                  } else if (selectedSections.length > 1) {
+                    const ungroupedElement = { ...normalizedElement };
+                    delete ungroupedElement.sectionId;
+                    page.elements.push(ungroupedElement as EditorElement);
+                  } else {
+                    const sectionId = findContainingSectionId(page.elements, normalizedElement, state.previewDevice);
+                    page.elements.push({ ...normalizedElement, sectionId } as EditorElement);
+                  }
+                }
+              }
             },
 
             element.id
@@ -349,34 +466,44 @@ export const useEditorStore =
             state,
 
             (project) => {
-              const page =
-                project.pages.find(
-                  (item) =>
-                    item.id ===
-                    state.currentPageId
-                );
-
+              const editableElements = getEditableElements(project, state);
               const index =
-                page?.elements.findIndex(
+                editableElements?.findIndex(
                   (element) =>
                     element.id === id
                 ) ?? -1;
 
               if (
-                page &&
+                editableElements &&
                 index >= 0
               ) {
-                page.elements[index] = {
-                  ...page.elements[
-                    index
-                  ],
-
-                  ...updates,
+                const current = editableElements[index];
+                const safeUpdates = isElementLocked(current)
+                  ? Object.fromEntries(Object.entries(updates).filter(([key]) => !["x", "y", "width", "height", "rotation", "responsive"].includes(key)))
+                  : updates;
+                editableElements[index] = {
+                  ...current,
+                  ...safeUpdates,
                 } as EditorElement;
               }
             }
           )
         ),
+
+      setElementsLocked: (ids, locked) =>
+        set((state) => {
+          if (ids.length === 0) return state;
+          const selectedIds = new Set(ids);
+          return mutateProject(state, (project) => {
+            const editableElements = getEditableElements(project, state);
+            if (!editableElements) return;
+            setEditableElements(project, state, editableElements.map((element) =>
+              selectedIds.has(element.id) && isLockableElement(element)
+                ? { ...element, locked } as EditorElement
+                : element
+            ));
+          });
+        }),
 
       updateElementLayout: (
         id,
@@ -386,39 +513,115 @@ export const useEditorStore =
           mutateProject(
             state,
             (project) => {
-              const page = project.pages.find(
-                (item) => item.id === state.currentPageId
-              );
-              const index = page?.elements.findIndex(
+              const editableElements = getEditableElements(project, state);
+              const index = editableElements?.findIndex(
                 (element) => element.id === id
               ) ?? -1;
 
-              if (page && index >= 0) {
-                page.elements[index] = setElementLayoutForDevice(
-                  page.elements[index],
+              if (editableElements && index >= 0) {
+                const previousElement = editableElements[index];
+                if (isElementLocked(previousElement)) {
+                  if (previousElement.type === "text" && updates.fontSize !== undefined) {
+                    editableElements[index] = setElementLayoutForDevice(
+                      previousElement,
+                      state.previewDevice,
+                      { fontSize: updates.fontSize },
+                    );
+                  }
+                  return;
+                }
+                const previousLayout = getElementLayout(previousElement, state.previewDevice);
+                const nextElement = setElementLayoutForDevice(
+                  previousElement,
                   state.previewDevice,
                   updates,
                 );
+                editableElements[index] = nextElement;
+
+                if (isWelcomeContext(project, state)) return;
+
+                const page = project.pages.find((item) => item.id === state.currentPageId)!;
+
+                if (previousElement.type === "section") {
+                  const nextLayout = getElementLayout(nextElement, state.previewDevice);
+                  const deltaX = nextLayout.x - previousLayout.x;
+                  const deltaY = nextLayout.y - previousLayout.y;
+                  if (deltaX || deltaY) {
+                    page.elements = page.elements.map((element) => {
+                      if (element.sectionId !== id) return element;
+                      const layout = getElementLayout(element, state.previewDevice);
+                      return setElementLayoutForDevice(element, state.previewDevice, {
+                        x: layout.x + deltaX,
+                        y: layout.y + deltaY,
+                      });
+                    });
+                  }
+                } else if (updates.x !== undefined || updates.y !== undefined) {
+                  const sectionId = findContainingSectionId(page.elements, nextElement, state.previewDevice);
+                  page.elements[index] = { ...nextElement, sectionId } as EditorElement;
+                }
               }
             }
           )
         ),
+
+      moveElements: (ids, deltaX, deltaY) => {
+        if ((!deltaX && !deltaY) || ids.length === 0) return;
+        set((state) =>
+          mutateProject(state, (project) => {
+            let editableElements = getEditableElements(project, state);
+            if (!editableElements) return;
+            const welcomeContext = isWelcomeContext(project, state);
+
+            const movedIds = new Set<string>();
+            for (const id of ids) {
+              const element = editableElements.find((item) => item.id === id);
+              if (!element || isElementLocked(element)) continue;
+              movedIds.add(id);
+              if (!welcomeContext && element.type === "section") {
+                editableElements.forEach((candidate) => {
+                  if (candidate.sectionId === id) movedIds.add(candidate.id);
+                });
+              }
+            }
+
+            if (movedIds.size === 0) return;
+
+            editableElements = editableElements.map((element) => {
+              if (!movedIds.has(element.id)) return element;
+              const layout = getElementLayout(element, state.previewDevice);
+              return setElementLayoutForDevice(element, state.previewDevice, {
+                x: layout.x + deltaX,
+                y: layout.y + deltaY,
+              });
+            });
+
+            if (!welcomeContext) editableElements = editableElements.map((element) => {
+              if (!movedIds.has(element.id) || element.type === "section") return element;
+              const parentMoved = element.sectionId ? movedIds.has(element.sectionId) : false;
+              if (parentMoved) return element;
+              const sectionId = findContainingSectionId(editableElements!, element, state.previewDevice);
+              return { ...element, sectionId } as EditorElement;
+            });
+            setEditableElements(project, state, editableElements);
+          })
+        );
+      },
 
       resetElementLayout: (id) =>
         set((state) =>
           mutateProject(
             state,
             (project) => {
-              const page = project.pages.find(
-                (item) => item.id === state.currentPageId
-              );
-              const index = page?.elements.findIndex(
+              const editableElements = getEditableElements(project, state);
+              const index = editableElements?.findIndex(
                 (element) => element.id === id
               ) ?? -1;
 
-              if (page && index >= 0) {
-                page.elements[index] = resetElementLayoutForDevice(
-                  page.elements[index],
+              if (editableElements && index >= 0) {
+                if (isElementLocked(editableElements[index])) return;
+                editableElements[index] = resetElementLayoutForDevice(
+                  editableElements[index],
                   state.previewDevice,
                 );
               }
@@ -432,25 +635,34 @@ export const useEditorStore =
             state,
 
             (project) => {
-              const page =
-                project.pages.find(
-                  (item) =>
-                    item.id ===
-                    state.currentPageId
-                );
-
-              if (page) {
-                page.elements =
-                  page.elements.filter(
-                    (element) =>
-                      element.id !== id
-                  );
+              const editableElements = getEditableElements(project, state);
+              if (editableElements) {
+                setEditableElements(project, state, editableElements
+                  .filter((element) => element.id !== id)
+                  .map((element) => element.sectionId === id
+                    ? { ...element, sectionId: undefined } as EditorElement
+                    : element));
               }
             },
 
             null
           )
         ),
+
+      removeSelectedElements: () =>
+        set((state) => {
+          if (state.selectedElementIds.length === 0) return state;
+          const removedIds = new Set(state.selectedElementIds);
+          return mutateProject(state, (project) => {
+            const editableElements = getEditableElements(project, state);
+            if (!editableElements) return;
+            setEditableElements(project, state, editableElements
+              .filter((element) => !removedIds.has(element.id))
+              .map((element) => element.sectionId && removedIds.has(element.sectionId)
+                ? { ...element, sectionId: undefined } as EditorElement
+                : element));
+          }, null, []);
+        }),
 
       duplicateElement: (id) =>
         set((state) => {
@@ -463,21 +675,15 @@ export const useEditorStore =
               state,
 
               (project) => {
-                const page =
-                  project.pages.find(
-                    (item) =>
-                      item.id ===
-                      state.currentPageId
-                  );
-
+                const editableElements = getEditableElements(project, state);
                 const element =
-                  page?.elements.find(
+                  editableElements?.find(
                     (item) =>
                       item.id === id
                   );
 
                 if (
-                  page &&
+                  editableElements &&
                   element
                 ) {
                   duplicatedId =
@@ -495,7 +701,7 @@ export const useEditorStore =
                       `${element.name} copie`,
 
                     zIndex:
-                      page.elements.length +
+                      editableElements.length +
                       1,
                   } as EditorElement;
 
@@ -509,7 +715,12 @@ export const useEditorStore =
                     { x: layout.x + 18, y: layout.y + 18 },
                   );
 
-                  page.elements.push(duplicated);
+                  if (!isWelcomeContext(project, state) && duplicated.type !== "section") {
+                    const sectionId = findContainingSectionId(editableElements, duplicated, state.previewDevice);
+                    duplicated = { ...duplicated, sectionId } as EditorElement;
+                  }
+
+                  editableElements.push(duplicated);
                 }
               },
 
@@ -521,6 +732,9 @@ export const useEditorStore =
 
             selectedElementId:
               duplicatedId,
+
+            selectedElementIds:
+              duplicatedId ? [duplicatedId] : [],
           };
         }),
 
@@ -531,18 +745,13 @@ export const useEditorStore =
           selectedElementId,
         } = get();
 
-        const element =
-          project?.pages
-            .find(
-              (page) =>
-                page.id ===
-                currentPageId
-            )
-            ?.elements.find(
+        const element = project
+          ? getEditableElements(project, { currentPageId, sidebarView: get().sidebarView })?.find(
               (item) =>
                 item.id ===
                 selectedElementId
-            );
+            )
+          : undefined;
 
         if (element) {
           set({
@@ -592,20 +801,23 @@ export const useEditorStore =
             state,
 
             (project) => {
-              const page =
-                project.pages.find(
-                  (item) =>
-                    item.id ===
-                    state.currentPageId
-                );
-
-              if (!page) {
+              const editableElements = getEditableElements(project, state);
+              if (!editableElements) {
                 return;
               }
 
+              const welcomeContext = isWelcomeContext(project, state);
+              const selectedElement = editableElements.find((element) => element.id === id);
+              const isInteractionElement = (element: EditorElement) =>
+                element.type === "button" && element.welcomeAction === "enter";
+              const selectedIsInteraction = selectedElement
+                ? isInteractionElement(selectedElement)
+                : false;
               const ordered = [
-                ...page.elements,
-              ].sort(
+                ...editableElements,
+              ].filter((element) =>
+                !welcomeContext || isInteractionElement(element) === selectedIsInteraction
+              ).sort(
                 (a, b) =>
                   a.zIndex -
                   b.zIndex
@@ -650,10 +862,25 @@ export const useEditorStore =
                 }
               );
 
-              page.elements =
-                ordered;
+              setEditableElements(
+                project,
+                state,
+                welcomeContext ? editableElements : ordered
+              );
             }
           )
+        ),
+
+      reorderSection: (id, direction) =>
+        set((state) =>
+          mutateProject(state, (project) => {
+            if (isWelcomeContext(project, state)) return;
+            const page = project.pages.find((item) => item.id === state.currentPageId);
+            if (!page) return;
+            const section = page.elements.find((element) => element.id === id);
+            if (!section || isElementLocked(section)) return;
+            page.elements = reorderSections(page.elements, id, direction, state.previewDevice);
+          })
         ),
 
       updateBackground: (
@@ -690,8 +917,9 @@ export const useEditorStore =
             state,
 
             (project) => {
-              project.opening =
-                opening;
+              project.opening = opening;
+              project.introductionMode = opening.type === "none" ? "none" : "classic";
+              if (project.welcomePage) project.welcomePage.enabled = false;
             },
 
             null
@@ -744,18 +972,34 @@ export const useEditorStore =
           }, null)
         ),
 
+      updateWelcomePage: (welcomePage) =>
+        set((state) =>
+          mutateProject(state, (project) => {
+            project.welcomePage = { ...welcomePage, enabled: true };
+            project.introductionMode = "welcome";
+          }, null)
+        ),
+
+      updateIntroductionMode: (introductionMode) =>
+        set((state) =>
+          mutateProject(state, (project) => {
+            project.introductionMode = introductionMode;
+            if (project.welcomePage) {
+              project.welcomePage.enabled = introductionMode === "welcome";
+            }
+          }, null)
+        ),
+
       setSidebarView: (
         sidebarView
       ) =>
         set({
           sidebarView,
 
-          selectedElementId:
-            sidebarView ===
-            "elements"
-              ? get()
-                  .selectedElementId
-              : null,
+          selectedElementId: sidebarView === "elements" ? get().selectedElementId : null,
+
+          selectedElementIds: sidebarView === "elements" ? get().selectedElementIds : [],
+
         }),
 
       undo: () =>
@@ -790,6 +1034,8 @@ export const useEditorStore =
 
             selectedElementId:
               null,
+
+            selectedElementIds: [],
 
             saveStatus:
               "idle",
@@ -827,6 +1073,8 @@ export const useEditorStore =
 
             selectedElementId:
               null,
+
+            selectedElementIds: [],
 
             saveStatus:
               "idle",

@@ -9,20 +9,26 @@ import { getElementLayout, hasElementLayoutOverride } from "../../utils/responsi
 import { BackgroundPanel } from "../../features/backgrounds/BackgroundPanel";
 import { FontPicker } from "../../features/fonts/FontPicker";
 import { DECORATIVE_HEARTS, getDecorativeHeart } from "../../features/hearts/heartRegistry";
+import { RichElementProperties } from "../../features/elements/RichElementProperties";
+import { resolveWelcomePage } from "../../features/welcome/welcomeDefaults";
+import { ColorAlphaInput } from "../ui/ColorAlphaInput";
 
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => <label className="field"><span>{label}</span>{children}</label>;
 
 export function PropertiesPanel({ onPreviewOpening }: { onPreviewOpening: (type: OpeningAnimationType) => void }) {
   const { project, currentPageId, selectedElementId, sidebarView, previewDevice, updateElement, updateElementLayout, resetElementLayout, duplicateElement, removeElement } = useEditorStore();
   const page = project?.pages.find((item) => item.id === currentPageId);
-  const element = page?.elements.find((item) => item.id === selectedElementId);
+  const editableElements = sidebarView === "introduction" && project?.introductionMode === "welcome" ? resolveWelcomePage(project.welcomePage).elements : page?.elements;
+  const element = editableElements?.find((item) => item.id === selectedElementId);
 
-  if (sidebarView === "opening") return <OpeningProperties onPreview={onPreviewOpening} />;
+  if (sidebarView === "introduction" && project?.introductionMode === "classic") return <OpeningProperties onPreview={onPreviewOpening} />;
   if (sidebarView === "music") return <AudioProperties />;
+  if (sidebarView === "introduction" && !element) return <aside className="properties-panel"><div className="properties-heading"><div><small>Expérience invité</small><h2>{project?.introductionMode === "welcome" ? "Page d’accueil" : "Aucune introduction"}</h2></div><span className="type-pill">intro</span></div><div className="background-tip"><span>{project?.introductionMode === "welcome" ? "Canvas libre" : "Accès direct"}</span><p>{project?.introductionMode === "welcome" ? "Ajoutez puis sélectionnez un élément dans la Page d’accueil pour modifier ses propriétés." : "Les invités arrivent directement sur le document principal."}</p></div></aside>;
   if (!element) return <BackgroundPanel background={page?.background} />;
   const update = (values: Partial<EditorElement>) => updateElement(element.id, values);
   const updateLayout = (values: Parameters<typeof updateElementLayout>[1]) => updateElementLayout(element.id, values);
   const layout = getElementLayout(element, previewDevice);
+  const geometryLocked = element.locked ?? false;
   const hasOverride = hasElementLayoutOverride(element, previewDevice);
   const DeviceIcon = previewDevice === "mobile" ? Smartphone : previewDevice === "tablet" ? Tablet : Monitor;
   const deviceLabel = PREVIEW_DEVICES[previewDevice].label;
@@ -51,14 +57,14 @@ export function PropertiesPanel({ onPreviewOpening }: { onPreviewOpening: (type:
           <div><small>Disposition</small><strong><DeviceIcon size={14} /> {deviceLabel}</strong></div>
           {previewDevice !== "mobile" && <span className={hasOverride ? "active" : "inherited"}>{hasOverride ? "Personnalisation active" : "Disposition smartphone"}</span>}
         </div>
-        <div className="field-row"><Field label="Position X"><input type="number" value={Math.round(layout.x)} onChange={(event) => updateLayout({ x: Number(event.target.value) })} /></Field><Field label="Position Y"><input type="number" value={Math.round(layout.y)} onChange={(event) => updateLayout({ y: Number(event.target.value) })} /></Field></div>
-        <div className="field-row"><Field label="Largeur"><input type="number" min="12" value={Math.round(layout.width)} onChange={(event) => updateWidth(Number(event.target.value))} /></Field><Field label="Hauteur"><input type="number" min="12" value={Math.round(layout.height)} onChange={(event) => updateHeight(Number(event.target.value))} /></Field></div>
-        {previewDevice !== "mobile" && <button className="reset-responsive-layout" disabled={!hasOverride} onClick={() => resetElementLayout(element.id)}><RotateCcw size={13} /> Réinitialiser pour ce support</button>}
+        <div className="field-row"><Field label="Position X"><input type="number" disabled={geometryLocked} value={Math.round(layout.x)} onChange={(event) => updateLayout({ x: Number(event.target.value) })} /></Field><Field label="Position Y"><input type="number" disabled={geometryLocked} value={Math.round(layout.y)} onChange={(event) => updateLayout({ y: Number(event.target.value) })} /></Field></div>
+        <div className="field-row"><Field label="Largeur"><input type="number" disabled={geometryLocked} min="12" value={Math.round(layout.width)} onChange={(event) => updateWidth(Number(event.target.value))} /></Field><Field label="Hauteur"><input type="number" disabled={geometryLocked} min="12" value={Math.round(layout.height)} onChange={(event) => updateHeight(Number(event.target.value))} /></Field></div>
+        {previewDevice !== "mobile" && <button className="reset-responsive-layout" disabled={geometryLocked || !hasOverride} onClick={() => resetElementLayout(element.id)}><RotateCcw size={13} /> Réinitialiser pour ce support</button>}
       </section>
       {element.type === "text" && <>
         <Field label="Contenu"><textarea rows={3} value={element.text} onChange={(event) => update({ text: event.target.value, name: event.target.value.slice(0, 28) || "Texte" })} /></Field>
         <Field label="Police"><FontPicker value={element.fontFamily} onChange={(fontFamily) => update({ fontFamily })} /></Field>
-        <div className="field-row"><Field label="Taille"><input type="number" min="8" max="240" value={layout.fontSize ?? element.fontSize} onChange={(event) => updateLayout({ fontSize: Number(event.target.value) })} /></Field><Field label="Couleur"><input type="color" value={element.color} onChange={(event) => update({ color: event.target.value })} /></Field></div>
+        <div className="field-row"><Field label="Taille"><input type="number" min="8" max="240" value={layout.fontSize ?? element.fontSize} onChange={(event) => updateLayout({ fontSize: Number(event.target.value) })} /></Field><Field label="Couleur"><ColorAlphaInput value={element.color} onChange={(color) => update({ color })} /></Field></div>
         <div className="format-row">
           <button aria-label="Gras" className={element.fontWeight >= 600 ? "active" : ""} onClick={() => update({ fontWeight: element.fontWeight >= 600 ? 400 : 700 })}><Bold size={16} /></button>
           <button aria-label="Italique" className={element.italic ? "active" : ""} onClick={() => update({ italic: !element.italic })}><Italic size={16} /></button>
@@ -71,19 +77,20 @@ export function PropertiesPanel({ onPreviewOpening }: { onPreviewOpening: (type:
       </>}
       {element.type === "image" && <div className="image-summary"><img src={element.src} alt="Aperçu" /><p>{element.alt}</p><small>Le recadrage et les filtres seront ajoutés dans une prochaine version.</small></div>}
       {element.type === "shape" && <>
-        {element.shape !== "line" && <Field label="Remplissage"><input type="color" value={element.fill} onChange={(event) => update({ fill: event.target.value })} /></Field>}
-        <Field label="Bordure"><input type="color" value={element.stroke} onChange={(event) => update({ stroke: event.target.value })} /></Field>
+        {element.shape !== "line" && <Field label="Remplissage"><ColorAlphaInput value={element.fill} onChange={(fill) => update({ fill })} /></Field>}
+        <Field label="Bordure"><ColorAlphaInput value={element.stroke} onChange={(stroke) => update({ stroke })} /></Field>
         <Field label="Épaisseur"><input type="range" min="0" max="20" value={element.strokeWidth} onChange={(event) => update({ strokeWidth: Number(event.target.value) })} /><output>{element.strokeWidth}px</output></Field>
         {element.shape === "rounded-rectangle" && <Field label="Coins arrondis"><input type="range" min="0" max="80" value={element.cornerRadius} onChange={(event) => update({ cornerRadius: Number(event.target.value) })} /></Field>}
       </>}
       {element.type === "icon" && <>{element.heartStyle
         ? <Field label="Style de cœur"><select value={element.heartStyle} onChange={(event) => { const heart = getDecorativeHeart(event.target.value as DecorativeHeartStyle); update({ heartStyle: heart.id, name: `Cœur ${heart.label}` }); }}>{DECORATIVE_HEARTS.map((heart) => <option key={heart.id} value={heart.id}>{heart.label}</option>)}</select></Field>
         : <Field label="Décoration historique"><input value={element.icon} maxLength={4} onChange={(event) => update({ icon: event.target.value })} /></Field>}
-        <Field label="Couleur"><input type="color" value={element.color} onChange={(event) => update({ color: event.target.value })} /></Field></>}
+        <Field label="Couleur"><ColorAlphaInput value={element.color} onChange={(color) => update({ color })} /></Field></>}
+      {(element.type === "scratch" || element.type === "carousel" || element.type === "location" || element.type === "schedule" || element.type === "button" || element.type === "section") && <RichElementProperties element={element} />}
 
       <div className="properties-divider" />
       <Field label={`Opacité · ${Math.round(element.opacity * 100)} %`}><input type="range" min="0.05" max="1" step="0.05" value={element.opacity} onChange={(event) => update({ opacity: Number(event.target.value) })} /></Field>
-      <Field label="Rotation"><div className="input-suffix"><input type="number" min="-360" max="360" value={Math.round(layout.rotation)} onChange={(event) => updateLayout({ rotation: Number(event.target.value) })} /><span>°</span></div></Field>
+      <Field label="Rotation"><div className="input-suffix"><input type="number" disabled={geometryLocked} min="-360" max="360" value={Math.round(layout.rotation)} onChange={(event) => updateLayout({ rotation: Number(event.target.value) })} /><span>°</span></div></Field>
       <div className="properties-divider" />
       <h3>Animation</h3>
       <Field label="Effet"><select value={element.animation?.type ?? "none"} onChange={(event) => update({ animation: { type: event.target.value as AnimationType, duration: element.animation?.duration ?? 0.8, delay: element.animation?.delay ?? 0 } })}>
