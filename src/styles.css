@@ -556,8 +556,8 @@ button:disabled { cursor: not-allowed; opacity: .38; }
   .project-name-wrap input { width: 100%; max-width: 230px; min-width: 0; padding-inline: 4px; font-size: 14px; }
   .save-state { font-size: 8px; white-space: nowrap; }
   .toolbar-actions { padding-right: 8px; }
-  .toolbar-actions .undo-group, .toolbar-actions > button:not(.publish-button) { display: none; }
-  .toolbar-actions .publish-button { width: 38px; min-height: 38px; justify-content: center; padding: 0; border-radius: 10px; }
+  .toolbar-actions .undo-group, .toolbar-actions > button:not(.publish-button):not(.admin-template-button) { display: none; }
+  .toolbar-actions .publish-button, .toolbar-actions .admin-template-button { width: 38px; min-height: 38px; justify-content: center; padding: 0; border-radius: 10px; }
   .publish-popover { top: 64px; right: 10px; left: 10px; width: auto; }
 
   .editor-main { grid-column: 1; grid-row: 2; overscroll-behavior: contain; }
