@@ -10,13 +10,13 @@ import {
   type PreviewDevice,
 } from "../../config/previewDevices";
 import { getElementLayout } from "../../utils/responsiveLayout";
-import { getDocumentHeight, getRsvpBlockHeight, getRsvpPositionY, setRsvpPositionForDevice } from "../../utils/documentLayout";
+import { getDocumentHeight, getRsvpBlockHeight, getRsvpPositionX, getRsvpPositionY, getRsvpWidth, setRsvpLayoutForDevice } from "../../utils/documentLayout";
 import { ProjectFontLoader } from "../../features/fonts/ProjectFontLoader";
 import { resolveRsvpStyle } from "../../config/rsvpStyle";
 import { getDecorativeHeart } from "../../features/hearts/heartRegistry";
 import { WelcomePageRenderer } from "../../features/welcome/WelcomePageRenderer";
 import { resolveWelcomePage } from "../../features/welcome/welcomeDefaults";
-import { getScratchTextStyle } from "../../features/elements/scratchDefaults";
+import { getScratchSurfacePalette, getScratchTextStyle, resolveScratchIndicator } from "../../features/elements/scratchDefaults";
 import {
   ALIGNMENT_THRESHOLD,
   calculateSnap,
@@ -36,6 +36,9 @@ import {
   positionSelectionLockControl,
 } from "./SelectionLockControl";
 import { isElementLocked, isLockableElement } from "../../utils/elementLocking";
+import { DEFAULT_SCHEDULE_STYLE, resolveScheduleTypography } from "../../config/scheduleStyle";
+import { getImageFrameMetrics, getImageFramePalette, resolveImageFrame } from "../../config/imageFrames";
+import { RSVP_EDITOR_ELEMENT_ID } from "../../features/rsvp/rsvpEditorElement";
 
 function useLoadedImage(src?: string) {
   const [image, setImage] = useState<HTMLImageElement>();
@@ -58,6 +61,46 @@ const getCoverCrop = (image: HTMLImageElement, width: number, height: number) =>
   const cropHeight = image.naturalWidth / targetRatio;
   return { x: 0, y: (image.naturalHeight - cropHeight) / 2, width: image.naturalWidth, height: cropHeight };
 };
+
+const HAND_POINTER_PATH = "M12 22c-3 0-5-2-6-5l-2-4c-.4-1 .1-2 1-2 .6 0 1 .3 1.5 1l1 1V5c0-1.1.9-2 2-2s2 .9 2 2v5c.3-.6 1-1 1.8-1 1 0 1.8.8 1.8 1.8v.2c.3-.7 1-1.2 1.9-1.2 1 0 1.8.8 1.8 1.8v.3c.3-.7 1-1.1 1.8-1.1 1.1 0 2 .9 2 2v5c0 4-3 7-7 7Z";
+const OPEN_HAND_PATH = "M6.5 13V8.5a1.7 1.7 0 0 1 3.4 0V12 6a1.7 1.7 0 0 1 3.4 0v6-4.5a1.7 1.7 0 0 1 3.4 0V12 9.5a1.7 1.7 0 0 1 3.4 0V15c0 4-2.8 7-7 7h-1c-3 0-5-1.5-6.5-4L3.8 15a1.8 1.8 0 0 1 .7-2.5c.7-.4 1.5-.2 2 .5Z";
+
+function ScratchIndicatorCanvas({ element, width, height }: { element: Extract<EditorElement, { type: "scratch" }>; width: number; height: number }) {
+  const indicator = resolveScratchIndicator(element.scratchIndicator);
+  if (!indicator.enabled) return null;
+  const showsText = indicator.type === "text" || indicator.type === "finger-text";
+  const showsIcon = indicator.type !== "text";
+  const iconSize = indicator.size;
+  const textSize = Math.max(9, indicator.size * .38);
+  const combined = showsText && showsIcon;
+
+  return <Group x={width / 2 + indicator.x} y={height / 2 + indicator.y} opacity={indicator.opacity} listening={false}>
+    {showsIcon && <Path
+      x={-iconSize / 2}
+      y={combined ? -iconSize * .82 : -iconSize / 2}
+      data={indicator.type === "hand" ? OPEN_HAND_PATH : HAND_POINTER_PATH}
+      scaleX={iconSize / 24}
+      scaleY={iconSize / 24}
+      stroke={indicator.color}
+      strokeWidth={1.65}
+      lineCap="round"
+      lineJoin="round"
+      listening={false}
+    />}
+    {showsText && <Text
+      x={-width / 2}
+      y={combined ? iconSize * .24 : -textSize * .58}
+      width={width}
+      text={indicator.text}
+      fill={indicator.color}
+      fontFamily={indicator.fontFamily ?? "Montserrat"}
+      fontSize={textSize}
+      fontStyle={(indicator.fontWeight ?? 600) >= 600 ? "bold" : "normal"}
+      align="center"
+      listening={false}
+    />}
+  </Group>;
+}
 
 function Background({ background, width, height, y = 0 }: { background: PageBackground; width: number; height: number; y?: number }) {
   const image = useLoadedImage(background.imageUrl);
@@ -131,7 +174,40 @@ function CanvasElement({
 
   if (element.type === "text") return <Text {...common} text={element.text} fontFamily={element.fontFamily} fontSize={layout.fontSize ?? element.fontSize} fontStyle={`${element.italic ? "italic" : "normal"} ${element.fontWeight >= 600 ? "bold" : "normal"}`} fill={element.color} align={element.textAlign} lineHeight={element.lineHeight} letterSpacing={element.letterSpacing} textDecoration={element.underline ? "underline" : ""} verticalAlign="middle" />;
   if (element.type === "image") return image
-    ? <KonvaImage {...common} image={image} crop={getCoverCrop(image, layout.width, layout.height)} alt={(element as ImageElement).alt} />
+    ? (() => {
+        const imageElement = element as ImageElement;
+        const frame = resolveImageFrame(imageElement.imageStyle?.frame);
+        if (!frame.enabled) return <KonvaImage {...common} image={image} crop={getCoverCrop(image, layout.width, layout.height)} alt={imageElement.alt} />;
+        const metrics = getImageFrameMetrics(frame, layout.width, layout.height);
+        const innerWidth = Math.max(1, layout.width - metrics.left - metrics.right);
+        const innerHeight = Math.max(1, layout.height - metrics.top - metrics.bottom);
+        const palette = getImageFramePalette(frame);
+        const gradientStops = palette.stops.flatMap(([position, color]) => [position, color]);
+        const angle = palette.angle * Math.PI / 180;
+        const gradientLength = Math.hypot(layout.width, layout.height) / 2;
+        const outlineWidth = Math.max(1, Math.min(frame.width, 6));
+        const dash = frame.borderStyle === "dotted" ? [outlineWidth, outlineWidth * 1.5] : frame.borderStyle === "dashed" ? [outlineWidth * 3, outlineWidth * 2] : undefined;
+        return <Group {...common}>
+          <Rect
+            width={layout.width}
+            height={layout.height}
+            cornerRadius={metrics.outerRadius}
+            fillLinearGradientStartPoint={{ x: layout.width / 2 - Math.cos(angle) * gradientLength, y: layout.height / 2 - Math.sin(angle) * gradientLength }}
+            fillLinearGradientEndPoint={{ x: layout.width / 2 + Math.cos(angle) * gradientLength, y: layout.height / 2 + Math.sin(angle) * gradientLength }}
+            fillLinearGradientColorStops={gradientStops}
+            opacity={frame.opacity}
+            shadowEnabled={frame.shadowEnabled}
+            shadowColor="#2d221b"
+            shadowBlur={frame.shadowBlur}
+            shadowOpacity={frame.shadowOpacity}
+            shadowOffsetY={frame.shadowDistance}
+          />
+          <KonvaImage x={metrics.left} y={metrics.top} width={innerWidth} height={innerHeight} image={image} crop={getCoverCrop(image, innerWidth, innerHeight)} cornerRadius={metrics.innerRadius} alt={imageElement.alt} />
+          {(frame.borderStyle === "dotted" || frame.borderStyle === "dashed") && <Rect width={layout.width} height={layout.height} cornerRadius={metrics.outerRadius} stroke={frame.color} strokeWidth={outlineWidth} dash={dash} opacity={frame.opacity} listening={false} />}
+          {(frame.type === "double" || frame.borderStyle === "double" || frame.type === "vintage") && <><Rect x={outlineWidth} y={outlineWidth} width={layout.width - outlineWidth * 2} height={layout.height - outlineWidth * 2} cornerRadius={Math.max(0, metrics.outerRadius - outlineWidth)} stroke={frame.color} strokeWidth={Math.max(1, outlineWidth * .45)} opacity={frame.opacity} listening={false} /><Rect x={metrics.left - outlineWidth * .7} y={metrics.top - outlineWidth * .7} width={innerWidth + outlineWidth * 1.4} height={innerHeight + outlineWidth * 1.4} cornerRadius={metrics.innerRadius} stroke={frame.color} strokeWidth={Math.max(1, outlineWidth * .35)} opacity={frame.opacity} listening={false} /></>}
+          {frame.type === "wedding-floral" && <Group opacity={frame.opacity} listening={false}><Line points={[4, metrics.top + 8, 8, 10, metrics.left + 14, 4]} stroke="#7d9a72" strokeWidth={1.5} tension={.45} /><Circle x={8} y={12} radius={3} fill="#d8a3a2" /><Circle x={16} y={7} radius={2.5} fill="#f2d4c8" /><Group x={layout.width} y={layout.height} rotation={180}><Line points={[4, metrics.top + 8, 8, 10, metrics.left + 14, 4]} stroke="#7d9a72" strokeWidth={1.5} tension={.45} /><Circle x={8} y={12} radius={3} fill="#d8a3a2" /><Circle x={16} y={7} radius={2.5} fill="#f2d4c8" /></Group></Group>}
+        </Group>;
+      })()
     : <Rect {...common} fill="#eee8e2" />;
   if (element.type === "icon" && element.heartStyle) {
     const heart = getDecorativeHeart(element.heartStyle);
@@ -143,22 +219,50 @@ function CanvasElement({
   if (element.type === "icon") return <Text {...common} text={element.icon} fill={element.color} fontSize={element.fontSize} align="center" verticalAlign="middle" />;
   if (element.type === "scratch") {
     const scratchText = getScratchTextStyle(element);
+    const surface = getScratchSurfacePalette(element);
+    const cornerRadius = element.shape === "circle" ? Math.min(layout.width, layout.height) / 2 : element.shape === "rounded-rectangle" ? 18 : 0;
     return <Group {...common}>
-      <Rect width={layout.width} height={layout.height} fill={element.revealedBackgroundColor ?? "#fffaf5"} cornerRadius={element.shape === "circle" ? Math.min(layout.width, layout.height) / 2 : element.shape === "rounded-rectangle" ? 18 : 0} />
+      <Rect width={layout.width} height={layout.height} fill={element.revealedBackgroundColor ?? "#fffaf5"} cornerRadius={cornerRadius} />
       <Text x={scratchText.textOffsetX} y={scratchText.textOffsetY} width={layout.width} height={layout.height} text={element.content} fill={scratchText.textColor} fontFamily={scratchText.fontFamily} fontSize={scratchText.fontSize} fontStyle={scratchText.fontWeight >= 600 ? "bold" : "normal"} align={scratchText.textAlign} verticalAlign="middle" padding={8} />
+      <Rect
+        width={layout.width}
+        height={layout.height}
+        cornerRadius={cornerRadius}
+        fillRadialGradientStartPoint={{ x: layout.width * .3, y: layout.height * .24 }}
+        fillRadialGradientEndPoint={{ x: layout.width * .52, y: layout.height * .55 }}
+        fillRadialGradientStartRadius={0}
+        fillRadialGradientEndRadius={Math.max(layout.width, layout.height) * .82}
+        fillRadialGradientColorStops={[0, surface.light, .48, surface.base, 1, surface.dark]}
+        listening={false}
+      />
+      <ScratchIndicatorCanvas element={element} width={layout.width} height={layout.height} />
     </Group>;
   }
   if (element.type === "carousel") return <Group {...common}><Rect width={layout.width} height={layout.height} fill="#eee8e2" cornerRadius={element.cornerRadius} />{image ? <KonvaImage image={image} width={layout.width} height={layout.height} cornerRadius={element.cornerRadius} /> : <Text width={layout.width} height={layout.height} text="CARROUSEL\nAjoutez des photos" fill="#8a7c72" fontFamily="Montserrat" fontSize={12} align="center" verticalAlign="middle" lineHeight={1.6} />}</Group>;
   if (element.type === "location") return <Group {...common}><Rect width={layout.width} height={layout.height} fill={element.backgroundColor} cornerRadius={16} /><Rect x={12} y={12} width={layout.width - 24} height={layout.height * .48} fill="#e5ded6" cornerRadius={11} /><Text x={24} y={layout.height * .54} width={layout.width - 48} text={`${element.venueName}\n${element.address}`} fill={element.textColor} fontFamily="Cormorant Garamond" fontSize={20} lineHeight={1.4} /><Rect x={24} y={layout.height - 52} width={layout.width - 48} height={34} fill={element.accentColor} cornerRadius={8} /><Text x={24} y={layout.height - 43} width={layout.width - 48} text={element.buttonLabel} fill="#fff" fontFamily="Montserrat" fontSize={10} align="center" /></Group>;
   if (element.type === "schedule") {
-    const step = Math.max(54, (layout.height - 42) / Math.max(1, element.items.length));
+    const typography = resolveScheduleTypography(element, layout);
+    const padding = DEFAULT_SCHEDULE_STYLE.contentPadding;
+    const hasDescriptions = element.items.some((item) => Boolean(item.description));
+    const contentHeight = Math.max(
+      typography.timeFontSize * 1.3,
+      typography.titleFontSize * 1.15 + (hasDescriptions ? 4 + typography.descriptionFontSize * 1.4 : 0),
+    );
+    const availableTravel = Math.max(0, layout.height - padding * 2 - contentHeight);
+    const step = element.items.length > 1 ? availableTravel / (element.items.length - 1) : 0;
+    const titleColor = element.titleColor ?? element.textColor;
+    const descriptionColor = element.descriptionColor ?? element.textColor;
+    const copy = (item: (typeof element.items)[number], x: number, width: number) => <>
+      <Text x={x} width={width} text={item.title} fill={titleColor} fontFamily="Cormorant Garamond" fontSize={typography.titleFontSize} fontStyle={element.displayStyle === "elegant" ? "normal" : "bold"} lineHeight={1.05} />
+      {item.description && <Text x={x} y={typography.titleFontSize * 1.15 + 4} width={width} text={item.description} fill={descriptionColor} fontFamily="Lora" fontSize={typography.descriptionFontSize} lineHeight={1.35} opacity={0.72} />}
+    </>;
     return <Group {...common}><Rect width={layout.width} height={layout.height} fill={element.backgroundColor} cornerRadius={14} />
-      {element.displayStyle !== "list" && <Line points={element.displayStyle === "elegant" ? [layout.width * .38, 24, layout.width * .38, layout.height - 24] : [30, 24, 30, layout.height - 24]} stroke={element.lineColor} strokeWidth={element.displayStyle === "elegant" ? 1 : 2} />}
+      {element.displayStyle !== "list" && <Line points={element.displayStyle === "elegant" ? [layout.width * .38, padding, layout.width * .38, layout.height - padding] : [30, padding, 30, layout.height - padding]} stroke={element.lineColor} strokeWidth={element.displayStyle === "elegant" ? 1 : 2} />}
       {element.items.map((item, index) => {
-        const y = 24 + index * step;
-        if (element.displayStyle === "list") return <Group key={item.id} x={24} y={y}><Text width={58} text={item.time} fill={element.timeColor} fontFamily="Montserrat" fontSize={11} fontStyle="bold" /><Text x={66} width={layout.width - 114} text={`${item.title}${item.description ? `\n${item.description}` : ""}`} fill={element.textColor} fontFamily="Cormorant Garamond" fontSize={16} lineHeight={1.25} /></Group>;
-        if (element.displayStyle === "elegant") return <Group key={item.id} y={y}><Text x={20} width={layout.width * .28} text={item.time} fill={element.timeColor} fontFamily="Cormorant Garamond" fontSize={15} align="right" /><Rect x={layout.width * .38} y={7} width={10} height={10} rotation={45} offsetX={5} offsetY={5} fill={element.backgroundColor} stroke={element.accentColor} strokeWidth={1.5} /><Text x={layout.width * .44} width={layout.width * .48} text={`${item.title}${item.description ? `\n${item.description}` : ""}`} fill={element.textColor} fontFamily="Cormorant Garamond" fontSize={17} lineHeight={1.25} /></Group>;
-        return <Group key={item.id} x={24} y={y}><Circle x={6} y={7} radius={5} fill={element.backgroundColor} stroke={element.accentColor} strokeWidth={2} /><Text x={22} width={54} text={item.time} fill={element.timeColor} fontFamily="Montserrat" fontSize={11} /><Text x={82} width={layout.width - 116} text={`${item.title}${item.description ? `\n${item.description}` : ""}`} fill={element.textColor} fontFamily="Cormorant Garamond" fontSize={15} lineHeight={1.2} /></Group>;
+        const y = padding + index * step;
+        if (element.displayStyle === "list") return <Group key={item.id} x={padding} y={y}><Text width={62} text={item.time} fill={element.timeColor} fontFamily="Montserrat" fontSize={typography.timeFontSize} fontStyle="bold" />{copy(item, 70, layout.width - padding * 2 - 70)}</Group>;
+        if (element.displayStyle === "elegant") return <Group key={item.id} y={y}><Text x={20} width={layout.width * .28} text={item.time} fill={element.timeColor} fontFamily="Cormorant Garamond" fontSize={typography.timeFontSize} align="right" /><Rect x={layout.width * .38} y={7} width={10} height={10} rotation={45} offsetX={5} offsetY={5} fill={element.backgroundColor} stroke={element.accentColor} strokeWidth={1.5} />{copy(item, layout.width * .44, layout.width * .48)}</Group>;
+        return <Group key={item.id} x={padding} y={y}><Circle x={6} y={7} radius={5} fill={element.backgroundColor} stroke={element.accentColor} strokeWidth={2} /><Text x={22} width={58} text={item.time} fill={element.timeColor} fontFamily="Montserrat" fontSize={typography.timeFontSize} />{copy(item, 86, layout.width - padding * 2 - 86)}</Group>;
       })}
     </Group>;
   }
@@ -170,7 +274,7 @@ function CanvasElement({
 }
 
 export function EditorCanvas() {
-  const { project, currentPageId, selectedElementId, selectedElementIds, selectElement, moveElements, setElementsLocked, zoom, previewDevice, setFitZoom, setZoom, setSidebarView, sidebarView, updateRsvp } = useEditorStore();
+  const { project, currentPageId, selectedElementId, selectedElementIds, selectElement, moveElements, setElementsLocked, toggleElementLocked, zoom, previewDevice, setFitZoom, setZoom, setSidebarView, sidebarView, updateRsvp } = useEditorStore();
   const canvasAreaRef = useRef<HTMLDivElement>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
   const stageRef = useRef<Konva.Stage>(null);
@@ -199,12 +303,14 @@ export function EditorCanvas() {
   const viewport = PREVIEW_DEVICES[previewDevice];
   const rsvpHeight = getRsvpBlockHeight(project?.rsvp, previewDevice);
   const rsvpStyle = resolveRsvpStyle(project?.rsvp?.style);
+  const rsvpPositionX = project?.rsvp ? getRsvpPositionX(project.rsvp, previewDevice) : 0;
   const rsvpPositionY = page && project?.rsvp ? getRsvpPositionY(page, project.rsvp, previewDevice) : 0;
+  const rsvpWidth = project?.rsvp ? Math.min(viewport.width, getRsvpWidth(project.rsvp, previewDevice)) : viewport.width;
   const documentHeight = page ? getDocumentHeight(page, previewDevice, project?.rsvp) : viewport.height;
-  const rsvpSelected = Boolean(project?.rsvp?.enabled && sidebarView === "rsvp");
+  const rsvpSelected = Boolean(project?.rsvp?.enabled && selectedElementId === RSVP_EDITOR_ELEMENT_ID);
   const rsvpLocked = project?.rsvp?.locked ?? false;
   const rsvpSelectionBounds = rsvpSelected
-    ? { x: 0, y: rsvpPositionY, width: viewport.width, height: rsvpHeight }
+    ? { x: rsvpPositionX, y: rsvpPositionY, width: rsvpWidth, height: rsvpHeight }
     : null;
   const selectedElement = elements.find((element) => element.id === selectedElementId);
   const selectedElements = elements.filter((element) => selectedElementIds.includes(element.id));
@@ -228,6 +334,10 @@ export function EditorCanvas() {
 
   const toggleSelectionLock = () => {
     if (selectedElementIds.length === 0) return;
+    if (selectedElementIds.length === 1) {
+      toggleElementLocked(selectedElementIds[0]);
+      return;
+    }
     setElementsLocked(selectedElementIds, !selectionFullyLocked);
   };
 
@@ -250,6 +360,7 @@ export function EditorCanvas() {
       return selected && !isElementLocked(selected);
     });
     const ids = expandSectionSelection(directIds);
+    if (project?.rsvp?.enabled && project.rsvp.sectionId && directIds.includes(project.rsvp.sectionId)) ids.push(RSVP_EDITOR_ELEMENT_ID);
     const stage = event.target.getStage();
     const nodes = new Map<string, { node: Konva.Node; x: number; y: number }>();
     ids.forEach((id) => {
@@ -363,7 +474,7 @@ export function EditorCanvas() {
     const transformer = transformerRef.current;
     const stage = stageRef.current;
     if (!transformer || !stage) return;
-    const selectedNodes = selectedElementIds.map((id) => stage.findOne(`#${id}`)).filter((node): node is Konva.Node => Boolean(node));
+    const selectedNodes = selectedElementIds.filter((id) => id !== RSVP_EDITOR_ELEMENT_ID).map((id) => stage.findOne(`#${id}`)).filter((node): node is Konva.Node => Boolean(node));
     transformer.nodes(selectedNodes);
     transformer.getLayer()?.batchDraw();
     const bounds = selectedNodes.length > 0
@@ -479,31 +590,45 @@ export function EditorCanvas() {
                 boundBoxFunc={(oldBox, newBox) => newBox.width < 12 || newBox.height < 12 ? oldBox : newBox}
               />
               {project?.rsvp?.enabled && <Group
+                id={RSVP_EDITOR_ELEMENT_ID}
+                x={rsvpPositionX}
                 y={rsvpPositionY}
                 draggable={!rsvpLocked}
-                dragBoundFunc={(position) => ({ x: 0, y: Math.max(0, position.y) })}
-                onClick={(event) => { event.cancelBubble = true; selectElement(null); setSidebarView("rsvp"); }}
-                onTap={(event) => { event.cancelBubble = true; selectElement(null); setSidebarView("rsvp"); }}
-                onDragEnd={(event) => { if (!rsvpLocked) updateRsvp(setRsvpPositionForDevice(project.rsvp!, previewDevice, event.target.y())); }}
-                onMouseEnter={(event) => { event.target.getStage()!.container().style.cursor = "ns-resize"; }}
+                dragBoundFunc={(position) => ({ x: Math.max(0, Math.min(viewport.width - rsvpWidth, position.x)), y: Math.max(0, position.y) })}
+                onClick={(event) => { event.cancelBubble = true; setSidebarView("elements"); selectElement(RSVP_EDITOR_ELEMENT_ID); }}
+                onTap={(event) => { event.cancelBubble = true; setSidebarView("elements"); selectElement(RSVP_EDITOR_ELEMENT_ID); }}
+                onDragEnd={(event) => {
+                  if (rsvpLocked) return;
+                  const x = Math.max(0, event.target.x());
+                  const y = Math.max(0, event.target.y());
+                  const centerX = x + rsvpWidth / 2;
+                  const centerY = y + rsvpHeight / 2;
+                  const section = elements.find((candidate) => {
+                    if (candidate.type !== "section") return false;
+                    const layout = getElementLayout(candidate, previewDevice);
+                    return centerX >= layout.x && centerX <= layout.x + layout.width && centerY >= layout.y && centerY <= layout.y + layout.height;
+                  });
+                  updateRsvp({ ...setRsvpLayoutForDevice(project.rsvp!, previewDevice, { x, y, width: rsvpWidth }), sectionId: section?.id });
+                }}
+                onMouseEnter={(event) => { event.target.getStage()!.container().style.cursor = "move"; }}
                 onMouseLeave={(event) => { event.target.getStage()!.container().style.cursor = "default"; }}
               >
-                <Rect width={viewport.width} height={rsvpHeight} fill={rsvpStyle.backgroundColor} stroke={sidebarView === "rsvp" ? rsvpStyle.selectionColor : undefined} strokeWidth={sidebarView === "rsvp" ? 3 / zoom : 0} />
-                <Text x={44} y={18} width={viewport.width - 88} text="↕ GLISSER POUR DÉPLACER" fontFamily="Montserrat" fontSize={9} letterSpacing={1.2} align="center" fill={rsvpStyle.labelColor} opacity={0.7} />
-                <Text x={44} y={58} width={viewport.width - 88} height={76} text={project.rsvp.title} fontFamily="Cormorant Garamond" fontSize={34} lineHeight={1.05} align="center" verticalAlign="top" fill={rsvpStyle.textColor} />
-                {project.rsvp.description && <Text x={44} y={146} width={viewport.width - 88} height={44} text={project.rsvp.description} fontFamily="Lora" fontSize={13} lineHeight={1.5} align="center" verticalAlign="top" fill={rsvpStyle.textColor} opacity={0.8} />}
+                <Rect width={rsvpWidth} height={rsvpHeight} fill={rsvpStyle.backgroundColor} stroke={rsvpSelected ? rsvpStyle.selectionColor : undefined} strokeWidth={rsvpSelected ? 3 / zoom : 0} />
+                <Text x={44} y={18} width={rsvpWidth - 88} text="↕ GLISSER POUR DÉPLACER" fontFamily="Montserrat" fontSize={9} letterSpacing={1.2} align="center" fill={rsvpStyle.labelColor} opacity={0.7} />
+                <Text x={44} y={58} width={rsvpWidth - 88} height={76} text={project.rsvp.title} fontFamily="Cormorant Garamond" fontSize={34} lineHeight={1.05} align="center" verticalAlign="top" fill={rsvpStyle.textColor} />
+                {project.rsvp.description && <Text x={44} y={146} width={rsvpWidth - 88} height={44} text={project.rsvp.description} fontFamily="Lora" fontSize={13} lineHeight={1.5} align="center" verticalAlign="top" fill={rsvpStyle.textColor} opacity={0.8} />}
                 {project.rsvp.fields.map((field, index) => <Group key={field.id} y={205 + index * 82}>
-                  <Text x={44} width={viewport.width - 88} text={`${field.label}${field.required ? " *" : ""}`} fontFamily="Montserrat" fontSize={11} fill={rsvpStyle.labelColor} />
-                  <Rect x={44} y={24} width={viewport.width - 88} height={42} cornerRadius={8} fill={rsvpStyle.fieldBackgroundColor} stroke={rsvpStyle.fieldBorderColor} />
+                  <Text x={44} width={rsvpWidth - 88} text={`${field.label}${field.required ? " *" : ""}`} fontFamily="Montserrat" fontSize={11} fill={rsvpStyle.labelColor} />
+                  <Rect x={44} y={24} width={rsvpWidth - 88} height={42} cornerRadius={8} fill={rsvpStyle.fieldBackgroundColor} stroke={rsvpStyle.fieldBorderColor} />
                 </Group>)}
-                <Rect x={44} y={rsvpHeight - 86} width={viewport.width - 88} height={44} cornerRadius={9} fill={rsvpStyle.buttonBackgroundColor} />
-                <Text x={44} y={rsvpHeight - 72} width={viewport.width - 88} text={project.rsvp.submitLabel.toUpperCase()} fontFamily="Montserrat" fontSize={10} fontStyle="bold" letterSpacing={1} align="center" fill={rsvpStyle.buttonTextColor} />
+                <Rect x={44} y={rsvpHeight - 86} width={rsvpWidth - 88} height={44} cornerRadius={9} fill={rsvpStyle.buttonBackgroundColor} />
+                <Text x={44} y={rsvpHeight - 72} width={rsvpWidth - 88} text={project.rsvp.submitLabel.toUpperCase()} fontFamily="Montserrat" fontSize={10} fontStyle="bold" letterSpacing={1} align="center" fill={rsvpStyle.buttonTextColor} />
               </Group>}
             </Layer>
             <Layer ref={guideLayerRef} listening={false} />
             <Layer>
               {selectionBounds && <SelectionLockControl ref={lockControlRef} bounds={selectionBounds} locked={selectionFullyLocked} zoom={zoom} onToggle={toggleSelectionLock} />}
-              {rsvpSelectionBounds && <SelectionLockControl bounds={rsvpSelectionBounds} locked={rsvpLocked} zoom={zoom} onToggle={() => updateRsvp({ ...project!.rsvp!, locked: !rsvpLocked })} />}
+              {rsvpSelectionBounds && <SelectionLockControl bounds={rsvpSelectionBounds} locked={rsvpLocked} zoom={zoom} onToggle={() => toggleElementLocked(RSVP_EDITOR_ELEMENT_ID)} />}
             </Layer>
           </Stage>
         </div>

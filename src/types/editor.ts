@@ -14,6 +14,10 @@ export interface ResponsiveElementLayout {
   height?: number;
   rotation?: number;
   fontSize?: number;
+  /** Programme typography overrides in the same device layout as its geometry. */
+  timeFontSize?: number;
+  titleFontSize?: number;
+  descriptionFontSize?: number;
 }
 
 export interface ResponsiveLayouts {
@@ -131,10 +135,47 @@ export interface TextElement extends BaseElement {
   underline: boolean;
 }
 
+export type ImageFrameType =
+  | "simple"
+  | "thin"
+  | "thick"
+  | "double"
+  | "rounded"
+  | "polaroid"
+  | "classic"
+  | "gold"
+  | "silver"
+  | "wood-light"
+  | "wood-dark"
+  | "vintage"
+  | "wedding-floral";
+
+export type ImageFrameBorderStyle = "solid" | "double" | "dotted" | "dashed";
+
+export interface ImageFrameConfig {
+  enabled: boolean;
+  type: ImageFrameType;
+  color: string;
+  width: number;
+  radius: number;
+  opacity: number;
+  borderStyle: ImageFrameBorderStyle;
+  shadowEnabled: boolean;
+  shadowBlur: number;
+  shadowOpacity: number;
+  shadowDistance: number;
+}
+
+export interface ImageStyleConfig {
+  frame?: ImageFrameConfig;
+}
+
 export interface ImageElement extends BaseElement {
   type: "image";
   src: string;
   alt: string;
+  /** Optional for backward compatibility. Absence keeps the historical image renderer. */
+  imageStyle?: ImageStyleConfig;
 }
 
 export interface ShapeElement extends BaseElement {
@@ -164,6 +205,23 @@ export interface IconElement extends BaseElement {
   heartStyle?: DecorativeHeartStyle;
 }
 
+export type ScratchIndicatorType = "finger" | "hand" | "text" | "finger-text";
+
+export interface ScratchIndicatorConfig {
+  enabled: boolean;
+  type: ScratchIndicatorType;
+  text: string;
+  color: string;
+  opacity: number;
+  size: number;
+  /** Offsets from the center of the scratch surface, in local logical pixels. */
+  x: number;
+  y: number;
+  animated: boolean;
+  fontFamily?: string;
+  fontWeight?: number;
+}
+
 export interface ScratchElement extends BaseElement {
   type: "scratch";
   content: string;
@@ -181,6 +239,8 @@ export interface ScratchElement extends BaseElement {
   /** Local offsets inside the scratch card, never document coordinates. */
   textOffsetX?: number;
   textOffsetY?: number;
+  /** Optional on legacy projects; absence intentionally means disabled. */
+  scratchIndicator?: ScratchIndicatorConfig;
   hint: string;
 }
 
@@ -233,6 +293,12 @@ export interface ScheduleElement extends BaseElement {
   timeColor: string;
   lineColor: string;
   accentColor: string;
+  /** Optional for backward compatibility; renderers apply shared defaults. */
+  timeFontSize?: number;
+  titleFontSize?: number;
+  descriptionFontSize?: number;
+  titleColor?: string;
+  descriptionColor?: string;
 }
 
 export interface ButtonElement extends BaseElement {
@@ -324,12 +390,17 @@ export interface RsvpFormStyle {
 export interface RsvpFormConfig {
   enabled: boolean;
   purchased: boolean;
+  /** Optional parent section in the editor; commercial entitlement remains independent. */
+  sectionId?: string;
   /** The RSVP block is positionable in the editor, so its geometry can be locked too. */
   locked?: boolean;
   title: string;
   description?: string;
   submitLabel: string;
   fields: RsvpField[];
+  /** Mobile reference horizontal geometry. Undefined keeps the legacy full width. */
+  positionX?: number;
+  width?: number;
   /** Mobile reference position. Undefined keeps the legacy automatic placement. */
   positionY?: number;
   /** Tablet and desktop reuse the same responsive override model as canvas elements. */

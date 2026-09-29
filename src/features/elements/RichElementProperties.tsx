@@ -4,9 +4,10 @@ import { useEditorStore } from "../../stores/editorStore";
 import { isSupabaseConfigured } from "../../lib/supabase";
 import { uploadProjectAsset } from "../../services/assetRepository";
 import { FontPicker } from "../fonts/FontPicker";
-import { getScratchTextStyle } from "./scratchDefaults";
+import { getScratchTextStyle, resolveScratchIndicator } from "./scratchDefaults";
 import { ColorAlphaInput } from "../../components/ui/ColorAlphaInput";
 import { getElementLayout } from "../../utils/responsiveLayout";
+import { resolveScheduleTypography } from "../../config/scheduleStyle";
 
 type RichElement = ScratchElement | CarouselElement | LocationElement | ScheduleElement | ButtonElement | SectionElement;
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => <label className="field"><span>{label}</span>{children}</label>;
@@ -18,10 +19,16 @@ export function RichElementProperties({ element }: { element: RichElement }) {
   const previewDevice = useEditorStore((state) => state.previewDevice);
   const reorderSection = useEditorStore((state) => state.reorderSection);
   const updateElement = useEditorStore((state) => state.updateElement);
+  const updateElementLayout = useEditorStore((state) => state.updateElementLayout);
   const update = (changes: object) => updateElement(element.id, changes as Partial<EditorElement>);
 
   if (element.type === "scratch") {
     const text = getScratchTextStyle(element);
+    const indicator = resolveScratchIndicator(element.scratchIndicator);
+    const updateIndicator = (changes: Partial<typeof indicator>) => update({
+      scratchIndicator: { ...indicator, ...changes },
+    });
+    const indicatorHasText = indicator.type === "text" || indicator.type === "finger-text";
     return <div className="rich-properties"><h3>Zone à gratter</h3>
       <Field label="Contenu révélé"><textarea rows={2} value={element.content} onChange={(e) => update({ content: e.target.value })} /></Field>
       <Field label="Police"><FontPicker value={text.fontFamily} onChange={(fontFamily) => update({ fontFamily })} /></Field>
@@ -30,6 +37,18 @@ export function RichElementProperties({ element }: { element: RichElement }) {
       <div className="field-row"><Field label="Position X locale"><input type="number" min="-500" max="500" value={text.textOffsetX} onChange={(e) => update({ textOffsetX: Number(e.target.value) })} /></Field><Field label="Position Y locale"><input type="number" min="-500" max="500" value={text.textOffsetY} onChange={(e) => update({ textOffsetY: Number(e.target.value) })} /></Field></div>
       <div className="field-row"><Field label="Forme"><select value={element.shape} onChange={(e) => update({ shape: e.target.value })}><option value="circle">Cercle</option><option value="rectangle">Rectangle</option><option value="rounded-rectangle">Arrondi</option></select></Field><Field label="Matière"><select value={element.surfaceStyle} onChange={(e) => update({ surfaceStyle: e.target.value })}><option value="gold">Or</option><option value="silver">Argent</option><option value="champagne">Champagne</option><option value="beige">Beige</option><option value="rose">Rose</option><option value="custom">Personnalisée</option></select></Field></div>
       <div className="field-row"><Field label="Couleur de surface"><ColorAlphaInput value={element.surfaceColor} onChange={(value) => update({ surfaceColor: value, surfaceStyle: "custom" })} /></Field><Field label="Fond révélé"><ColorAlphaInput value={element.revealedBackgroundColor ?? "#fffaf5"} onChange={(value) => update({ revealedBackgroundColor: value })} /></Field></div>
+      <div className="scratch-indicator-properties">
+        <h4>Indicateur de grattage</h4>
+        <label className="compact-check"><input type="checkbox" checked={indicator.enabled} onChange={(e) => updateIndicator({ enabled: e.target.checked })} /> Afficher un indicateur de grattage</label>
+        {indicator.enabled && <>
+          <Field label="Type d’indicateur"><select value={indicator.type} onChange={(e) => updateIndicator({ type: e.target.value as typeof indicator.type })}><option value="finger">Doigt animé</option><option value="hand">Main animée</option><option value="text">Texte seul</option><option value="finger-text">Doigt + texte</option></select></Field>
+          {indicatorHasText && <><Field label="Texte indicateur"><input value={indicator.text} onChange={(e) => updateIndicator({ text: e.target.value })} /></Field><Field label="Police"><FontPicker value={indicator.fontFamily ?? "Montserrat"} onChange={(fontFamily) => updateIndicator({ fontFamily })} /></Field></>}
+          <div className="field-row"><Field label="Taille"><input type="number" min="12" max="120" value={indicator.size} onChange={(e) => updateIndicator({ size: Number(e.target.value) })} /></Field><Field label="Couleur"><ColorAlphaInput value={indicator.color} onChange={(color) => updateIndicator({ color })} /></Field></div>
+          <Field label={`Opacité · ${Math.round(indicator.opacity * 100)} %`}><input type="range" min="0.1" max="1" step="0.05" value={indicator.opacity} onChange={(e) => updateIndicator({ opacity: Number(e.target.value) })} /></Field>
+          <div className="field-row"><Field label="Position X locale"><input type="number" min="-500" max="500" value={indicator.x} onChange={(e) => updateIndicator({ x: Number(e.target.value) })} /></Field><Field label="Position Y locale"><input type="number" min="-500" max="500" value={indicator.y} onChange={(e) => updateIndicator({ y: Number(e.target.value) })} /></Field></div>
+          <label className="compact-check"><input type="checkbox" checked={indicator.animated} onChange={(e) => updateIndicator({ animated: e.target.checked })} /> Animation activée</label>
+        </>}
+      </div>
     </div>;
   }
 
@@ -64,12 +83,20 @@ export function RichElementProperties({ element }: { element: RichElement }) {
   </div>;
 
   if (element.type === "schedule") {
+    const scheduleTypography = resolveScheduleTypography(element, getElementLayout(element, previewDevice));
     const changeItem = (id: string, changes: object) => update({ items: element.items.map((item) => item.id === id ? { ...item, ...changes } : item) });
     const move = (index: number, direction: -1 | 1) => { const next = [...element.items]; const target = index + direction; if (target < 0 || target >= next.length) return; [next[index], next[target]] = [next[target], next[index]]; update({ items: next }); };
     return <div className="rich-properties"><h3>Programme</h3><Field label="Style"><select value={element.displayStyle} onChange={(e) => update({ displayStyle: e.target.value })}><option value="list">Liste</option><option value="timeline">Timeline</option><option value="elegant">Timeline élégante</option></select></Field>
+      <div className="schedule-typography-fields">
+        <Field label="Taille des heures"><input type="number" min="6" max="96" value={scheduleTypography.timeFontSize} onChange={(e) => updateElementLayout(element.id, { timeFontSize: Number(e.target.value) })} /></Field>
+        <Field label="Taille des titres"><input type="number" min="6" max="120" value={scheduleTypography.titleFontSize} onChange={(e) => updateElementLayout(element.id, { titleFontSize: Number(e.target.value) })} /></Field>
+        <Field label="Taille des descriptions"><input type="number" min="6" max="96" value={scheduleTypography.descriptionFontSize} onChange={(e) => updateElementLayout(element.id, { descriptionFontSize: Number(e.target.value) })} /></Field>
+      </div>
       <div className="schedule-editor-list">{element.items.map((item, index) => <article key={item.id}><div><input value={item.time} aria-label="Heure" onChange={(e) => changeItem(item.id, { time: e.target.value })} /><input value={item.title} aria-label="Titre" onChange={(e) => changeItem(item.id, { title: e.target.value })} /></div><textarea rows={2} value={item.description ?? ""} placeholder="Description" onChange={(e) => changeItem(item.id, { description: e.target.value })} /><div className="mini-actions"><button onClick={() => move(index, -1)} disabled={!index}><ArrowUp size={12} /></button><button onClick={() => move(index, 1)} disabled={index === element.items.length - 1}><ArrowDown size={12} /></button><button onClick={() => update({ items: element.items.filter((value) => value.id !== item.id) })}><Trash2 size={12} /></button></div></article>)}</div>
       <button className="secondary-action" onClick={() => update({ items: [...element.items, { id: crypto.randomUUID(), time: "18:00", title: "Nouvelle étape" }] })}><Plus size={13} /> Ajouter une étape</button>
-      <div className="field-row"><Field label="Fond"><ColorAlphaInput value={element.backgroundColor} onChange={(value) => update({ backgroundColor: value })} /></Field><Field label="Texte"><ColorAlphaInput value={element.textColor} onChange={(value) => update({ textColor: value })} /></Field></div><div className="field-row"><Field label="Heure"><ColorAlphaInput value={element.timeColor} onChange={(value) => update({ timeColor: value })} /></Field><Field label="Trait"><ColorAlphaInput value={element.lineColor} onChange={(value) => update({ lineColor: value })} /></Field></div><Field label="Marqueurs"><ColorAlphaInput value={element.accentColor} onChange={(value) => update({ accentColor: value })} /></Field>
+      <div className="field-row"><Field label="Fond"><ColorAlphaInput value={element.backgroundColor} onChange={(value) => update({ backgroundColor: value })} /></Field><Field label="Heures"><ColorAlphaInput value={element.timeColor} onChange={(value) => update({ timeColor: value })} /></Field></div>
+      <div className="field-row"><Field label="Titres"><ColorAlphaInput value={element.titleColor ?? element.textColor} onChange={(value) => update({ titleColor: value })} /></Field><Field label="Descriptions"><ColorAlphaInput value={element.descriptionColor ?? element.textColor} onChange={(value) => update({ descriptionColor: value })} /></Field></div>
+      <div className="field-row"><Field label="Trait"><ColorAlphaInput value={element.lineColor} onChange={(value) => update({ lineColor: value })} /></Field><Field label="Marqueurs"><ColorAlphaInput value={element.accentColor} onChange={(value) => update({ accentColor: value })} /></Field></div>
     </div>;
   }
 

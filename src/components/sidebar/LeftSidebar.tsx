@@ -12,6 +12,8 @@ import {
   ImagePlus,
   Layers3,
   Link,
+  LockKeyhole,
+  LockKeyholeOpen,
   MapPin,
   Music2,
   Palette,
@@ -29,11 +31,14 @@ import { MusicPanel } from "../../features/music/MusicPanel";
 import { ParticlePanel } from "../../features/particles/ParticlePanel";
 import { isSupabaseConfigured } from "../../lib/supabase";
 import { uploadProjectAsset } from "../../services/assetRepository";
-import { RsvpFormEditor } from "../../features/rsvp/RsvpFormEditor";
 import { DecorativeHeartSvg } from "../../features/hearts/DecorativeHeartSvg";
 import { DECORATIVE_HEARTS, makeDecorativeHeartElement } from "../../features/hearts/heartRegistry";
 import { makeButtonElement, makeCarouselElement, makeLocationElement, makeScheduleElement, makeScratchElement, makeSectionElement } from "../../features/elements/elementFactories";
 import { IntroductionPanel } from "../../features/introduction/IntroductionPanel";
+import { RSVP_EDITOR_ELEMENT_ID } from "../../features/rsvp/rsvpEditorElement";
+import { getElementLayout } from "../../utils/responsiveLayout";
+import { getSelectedTargetSection } from "../../utils/sectionLayout";
+import { getRsvpBlockHeight, setRsvpLayoutForDevice } from "../../utils/documentLayout";
 
 const uid = () => crypto.randomUUID();
 const navItems: { id: SidebarView; label: string; icon: ComponentType<{ size?: number }> }[] = [
@@ -42,7 +47,6 @@ const navItems: { id: SidebarView; label: string; icon: ComponentType<{ size?: n
   { id: "elements", label: "Contenu", icon: Shapes },
   { id: "music", label: "Musique", icon: Music2 },
   { id: "effects", label: "Effets", icon: WandSparkles,},
-  { id: "rsvp", label: "Formulaire", icon: ClipboardCheck },
 ];
 
 export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: OpeningAnimationType) => void }) {
@@ -50,8 +54,15 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
   const [heartMenu, setHeartMenu] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const heartMenuRef = useRef<HTMLDivElement>(null);
-  const { project, currentPageId, selectedElementIds, sidebarView, setSidebarView, addElement, selectElement, updateElement, removeElement, moveLayer } = useEditorStore();
+  const { project, currentPageId, selectedElementIds, previewDevice, sidebarView, setSidebarView, addElement, selectElement, updateElement, updateElementLayout, updateRsvp, toggleElementLocked, removeElement, moveLayer } = useEditorStore();
   const page = project?.pages.find((item) => item.id === currentPageId);
+  const sortedDocumentElements = [...(page?.elements ?? [])].sort((a, b) => b.zIndex - a.zIndex);
+  const documentSectionIds = new Set(sortedDocumentElements.filter((element) => element.type === "section").map((element) => element.id));
+  const hierarchyElements = sortedDocumentElements
+    .filter((element) => !element.sectionId || !documentSectionIds.has(element.sectionId))
+    .flatMap((element) => element.type === "section"
+      ? [element, ...sortedDocumentElements.filter((candidate) => candidate.sectionId === element.id)]
+      : [element]);
 
   useEffect(() => {
     if (!heartMenu) return;
@@ -83,6 +94,34 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
   };
 
   const documentSummary = <section className="scrollable-document-summary"><div className="panel-title">Document</div><strong>Page verticale scrollable</strong><small>{page?.elements.length ?? 0} élément{(page?.elements.length ?? 0) > 1 ? "s" : ""} · hauteur adaptée au contenu</small></section>;
+
+  const addOrSelectRsvp = () => {
+    if (!project?.rsvp || !page) return;
+    if (project.rsvp.enabled) {
+      selectElement(RSVP_EDITOR_ELEMENT_ID);
+      return;
+    }
+    let next = { ...project.rsvp, enabled: true };
+    const targetSection = getSelectedTargetSection(page.elements, selectedElementIds);
+    if (targetSection) {
+      const sectionLayout = getElementLayout(targetSection, previewDevice);
+      const childrenBottom = page.elements.reduce((bottom, element) => {
+        if (element.sectionId !== targetSection.id || !element.visible) return bottom;
+        const layout = getElementLayout(element, previewDevice);
+        return Math.max(bottom, layout.y + layout.height);
+      }, sectionLayout.y + targetSection.padding);
+      const positionY = Math.max(sectionLayout.y + targetSection.padding, childrenBottom + 24);
+      next = setRsvpLayoutForDevice({ ...next, sectionId: targetSection.id }, previewDevice, {
+        x: sectionLayout.x + targetSection.padding,
+        y: positionY,
+        width: Math.max(120, sectionLayout.width - targetSection.padding * 2),
+      });
+      const requiredHeight = positionY + getRsvpBlockHeight(next, previewDevice) + targetSection.padding - sectionLayout.y;
+      if (requiredHeight > sectionLayout.height) updateElementLayout(targetSection.id, { height: requiredHeight });
+    }
+    updateRsvp(next);
+    selectElement(RSVP_EDITOR_ELEMENT_ID);
+  };
 
   return <aside className="left-sidebar"><nav className="studio-sections" aria-label="Sections de création">{navItems.map(({ id, label, icon: Icon }) => <button key={id} className={sidebarView === id ? "active" : ""} onClick={() => setSidebarView(id)}><Icon size={16} /><span>{label}</span></button>)}</nav>
     {sidebarView === "design" && <div className="sidebar-view"><div className="view-intro"><span>Arrière-plan</span><h2>Fond du document</h2><p>Personnalisez uniquement la couleur, le dégradé ou l’image de fond du faire-part.</p></div>{documentSummary}</div>}
@@ -117,6 +156,7 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
             <button onClick={() => addElement(makeScratchElement())}><CircleDashed size={20} /><span>À gratter</span></button>
             <button onClick={() => addElement(makeButtonElement())}><Link size={20} /><span>Bouton</span></button>
             <button onClick={() => page && addElement(makeSectionElement(page))}><PanelsTopLeft size={20} /><span>Section</span></button>
+            <button onClick={addOrSelectRsvp}><ClipboardCheck size={20} /><span>Formulaire</span></button>
           </div>
           <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={(event) => { void addImage(event.target.files?.[0]); event.currentTarget.value = ""; }} />
           {shapeMenu && <div className="shape-picker">{(["rectangle", "rounded-rectangle", "circle", "line"] as const).map((shape) => <button key={shape} onClick={() => { addElement(makeShapeElement(shape)); setShapeMenu(false); }}>{shape === "rounded-rectangle" ? "Arrondi" : shape === "circle" ? "Cercle" : shape === "line" ? "Ligne" : "Rectangle"}</button>)}</div>}
@@ -125,10 +165,16 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
         <section className="layers-section">
           <div className="panel-title"><Layers3 size={15} /> Calques</div>
           <div className="layers-list">
-            {[...(page?.elements ?? [])].sort((a, b) => b.zIndex - a.zIndex).map((element) => (
-              <div className={`layer-row ${selectedElementIds.includes(element.id) ? "active" : ""}`} key={element.id} onClick={(event) => selectElement(element.id, event.ctrlKey || event.metaKey)}>
+            {project?.rsvp?.enabled && <div className={`layer-row ${selectedElementIds.includes(RSVP_EDITOR_ELEMENT_ID) ? "active" : ""} ${project.rsvp.locked ? "locked" : ""}`} onClick={() => selectElement(RSVP_EDITOR_ELEMENT_ID)}>
+              <span className="layer-kind"><ClipboardCheck size={12} /></span><span className="layer-name">Formulaire invité</span>
+              <button style={{ display: "grid" }} className="layer-lock-button" title={project.rsvp.locked ? "Déverrouiller l’élément" : "Verrouiller l’élément"} aria-label={project.rsvp.locked ? "Déverrouiller le formulaire" : "Verrouiller le formulaire"} onClick={(event) => { event.stopPropagation(); toggleElementLocked(RSVP_EDITOR_ELEMENT_ID); }}>{project.rsvp.locked ? <LockKeyhole size={14} /> : <LockKeyholeOpen size={14} />}</button>
+              <button title="Retirer du document" onClick={(event) => { event.stopPropagation(); updateRsvp({ ...project.rsvp!, enabled: false }); selectElement(null); }}><Trash2 size={14} /></button>
+            </div>}
+            {hierarchyElements.map((element) => (
+              <div className={`layer-row ${selectedElementIds.includes(element.id) ? "active" : ""} ${element.locked ? "locked" : ""} ${element.sectionId ? "section-child" : ""}`} key={element.id} onClick={(event) => selectElement(element.id, event.ctrlKey || event.metaKey)}>
                 <span className="layer-kind">{element.type === "text" ? "T" : element.type === "image" ? "▧" : element.type === "icon" && element.heartStyle ? <Heart size={12} /> : element.type === "icon" ? "❦" : "▱"}</span>
                 <span className="layer-name">{element.name}</span>
+                <button style={{ display: "grid" }} className="layer-lock-button" title={element.locked ? "Déverrouiller l’élément" : "Verrouiller l’élément"} aria-label={element.locked ? `Déverrouiller ${element.name}` : `Verrouiller ${element.name}`} onClick={(event) => { event.stopPropagation(); toggleElementLocked(element.id); }}>{element.locked ? <LockKeyhole size={14} /> : <LockKeyholeOpen size={14} />}</button>
                 <button title={element.visible ? "Masquer" : "Afficher"} onClick={(event) => { event.stopPropagation(); updateElement(element.id, { visible: !element.visible }); }}>{element.visible ? <Eye size={14} /> : <EyeOff size={14} />}</button>
                 <button title="Avancer" onClick={(event) => { event.stopPropagation(); moveLayer(element.id, "forward"); }}><ChevronUp size={14} /></button>
                 <button title="Reculer" onClick={(event) => { event.stopPropagation(); moveLayer(element.id, "backward"); }}><ChevronDown size={14} /></button>
@@ -141,6 +187,5 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
     )}
     {sidebarView === "music" && <MusicPanel />}
     {sidebarView === "effects" && (<ParticlePanel />)}
-    {sidebarView === "rsvp" && <RsvpFormEditor />}
   </aside>;
 }

@@ -12,6 +12,9 @@ import { DECORATIVE_HEARTS, getDecorativeHeart } from "../../features/hearts/hea
 import { RichElementProperties } from "../../features/elements/RichElementProperties";
 import { resolveWelcomePage } from "../../features/welcome/welcomeDefaults";
 import { ColorAlphaInput } from "../ui/ColorAlphaInput";
+import { ImageFrameProperties } from "../../features/images/ImageFrameProperties";
+import { RsvpFormEditor } from "../../features/rsvp/RsvpFormEditor";
+import { RSVP_EDITOR_ELEMENT_ID } from "../../features/rsvp/rsvpEditorElement";
 
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => <label className="field"><span>{label}</span>{children}</label>;
 
@@ -23,6 +26,7 @@ export function PropertiesPanel({ onPreviewOpening }: { onPreviewOpening: (type:
 
   if (sidebarView === "introduction" && project?.introductionMode === "classic") return <OpeningProperties onPreview={onPreviewOpening} />;
   if (sidebarView === "music") return <AudioProperties />;
+  if (selectedElementId === RSVP_EDITOR_ELEMENT_ID && project?.rsvp) return <aside className="properties-panel rsvp-properties-panel"><div className="properties-heading"><div><small>Élément sélectionné</small><h2>Formulaire invité</h2></div><span className="type-pill">formulaire</span></div><RsvpFormEditor embedded /></aside>;
   if (sidebarView === "introduction" && !element) return <aside className="properties-panel"><div className="properties-heading"><div><small>Expérience invité</small><h2>{project?.introductionMode === "welcome" ? "Page d’accueil" : "Aucune introduction"}</h2></div><span className="type-pill">intro</span></div><div className="background-tip"><span>{project?.introductionMode === "welcome" ? "Canvas libre" : "Accès direct"}</span><p>{project?.introductionMode === "welcome" ? "Ajoutez puis sélectionnez un élément dans la Page d’accueil pour modifier ses propriétés." : "Les invités arrivent directement sur le document principal."}</p></div></aside>;
   if (!element) return <BackgroundPanel background={page?.background} />;
   const update = (values: Partial<EditorElement>) => updateElement(element.id, values);
@@ -75,7 +79,7 @@ export function PropertiesPanel({ onPreviewOpening }: { onPreviewOpening: (type:
         </div>
         <div className="field-row"><Field label="Interligne"><input type="number" min="0.7" max="3" step="0.05" value={element.lineHeight} onChange={(event) => update({ lineHeight: Number(event.target.value) })} /></Field><Field label="Espacement"><input type="number" min="-5" max="30" value={element.letterSpacing} onChange={(event) => update({ letterSpacing: Number(event.target.value) })} /></Field></div>
       </>}
-      {element.type === "image" && <div className="image-summary"><img src={element.src} alt="Aperçu" /><p>{element.alt}</p><small>Le recadrage et les filtres seront ajoutés dans une prochaine version.</small></div>}
+      {element.type === "image" && <><div className="image-summary"><img src={element.src} alt="Aperçu" /><p>{element.alt}</p><small>Le recadrage et les filtres seront ajoutés dans une prochaine version.</small></div><ImageFrameProperties element={element} onChange={update} /></>}
       {element.type === "shape" && <>
         {element.shape !== "line" && <Field label="Remplissage"><ColorAlphaInput value={element.fill} onChange={(fill) => update({ fill })} /></Field>}
         <Field label="Bordure"><ColorAlphaInput value={element.stroke} onChange={(stroke) => update({ stroke })} /></Field>

@@ -30,6 +30,11 @@ export const makeScratchElement = (): EditorElement => ({
   surfaceColor: "#c8aa8d", revealedBackgroundColor: "#fffaf5", contentColor: "#4d3e34", textColor: "#4d3e34",
   fontSize: 42, fontFamily: "Cormorant Garamond", fontWeight: 600,
   textAlign: "center", textOffsetX: 0, textOffsetY: 0, hint: "Grattez pour découvrir",
+  scratchIndicator: {
+    enabled: false, type: "finger-text", text: "Grattez ici", color: "#fffaf2",
+    opacity: 0.92, size: 34, x: 0, y: 0, animated: true,
+    fontFamily: "Montserrat", fontWeight: 600,
+  },
 });
 
 export const makeCarouselElement = (): EditorElement => ({
@@ -54,7 +59,8 @@ export const makeScheduleElement = (): EditorElement => ({
     { id: crypto.randomUUID(), time: "23:00", title: "Soirée" },
   ],
   backgroundColor: "#fffaf5", textColor: "#493f39", timeColor: "#9a6d51",
-  lineColor: "#d9c4b4", accentColor: "#a9775a",
+  lineColor: "#d9c4b4", accentColor: "#a9775a", titleColor: "#493f39", descriptionColor: "#493f39",
+  timeFontSize: 12, titleFontSize: 17, descriptionFontSize: 11,
 });
 
 export const makeButtonElement = (): EditorElement => ({

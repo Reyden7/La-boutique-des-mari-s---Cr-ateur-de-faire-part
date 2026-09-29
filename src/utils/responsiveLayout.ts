@@ -8,6 +8,9 @@ export interface ResolvedElementLayout {
   height: number;
   rotation: number;
   fontSize?: number;
+  timeFontSize?: number;
+  titleFontSize?: number;
+  descriptionFontSize?: number;
 }
 
 export interface ElementRenderBox {
@@ -37,6 +40,9 @@ export const getElementLayout = (
     height: override?.height ?? element.height,
     rotation: override?.rotation ?? element.rotation,
     fontSize: element.type === "text" ? override?.fontSize ?? element.fontSize : undefined,
+    timeFontSize: element.type === "schedule" ? override?.timeFontSize ?? element.timeFontSize : undefined,
+    titleFontSize: element.type === "schedule" ? override?.titleFontSize ?? element.titleFontSize : undefined,
+    descriptionFontSize: element.type === "schedule" ? override?.descriptionFontSize ?? element.descriptionFontSize : undefined,
   };
 };
 
@@ -75,7 +81,13 @@ export const setElementLayoutForDevice = (
   };
   const typography = element.type === "text" && updates.fontSize !== undefined
     ? { fontSize: updates.fontSize }
-    : {};
+    : element.type === "schedule"
+      ? {
+          ...(updates.timeFontSize !== undefined ? { timeFontSize: updates.timeFontSize } : {}),
+          ...(updates.titleFontSize !== undefined ? { titleFontSize: updates.titleFontSize } : {}),
+          ...(updates.descriptionFontSize !== undefined ? { descriptionFontSize: updates.descriptionFontSize } : {}),
+        }
+      : {};
 
   if (device === "mobile") {
     return { ...element, ...geometry, ...typography } as EditorElement;
@@ -89,6 +101,11 @@ export const setElementLayoutForDevice = (
     height: current.height,
     rotation: current.rotation,
     ...(element.type === "text" ? { fontSize: current.fontSize } : {}),
+    ...(element.type === "schedule" ? {
+      timeFontSize: current.timeFontSize,
+      titleFontSize: current.titleFontSize,
+      descriptionFontSize: current.descriptionFontSize,
+    } : {}),
     ...geometry,
     ...typography,
   };

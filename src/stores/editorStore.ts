@@ -32,6 +32,8 @@ import {
 } from "../utils/sectionLayout";
 import { resolveWelcomePage } from "../features/welcome/welcomeDefaults";
 import { isElementLocked, isLockableElement, normalizeElementLocks } from "../utils/elementLocking";
+import { getRsvpPositionX, getRsvpPositionY, setRsvpLayoutForDevice } from "../utils/documentLayout";
+import { RSVP_EDITOR_ELEMENT_ID } from "../features/rsvp/rsvpEditorElement";
 
 type SaveStatus = "idle" | "saving" | "saved";
 
@@ -40,8 +42,7 @@ export type SidebarView =
   | "introduction"
   | "elements"
   | "music"
-  | "effects"
-  | "rsvp";
+  | "effects";
 
 interface EditorState {
   project: WeddingProject | null;
@@ -92,6 +93,8 @@ interface EditorState {
   ) => void;
 
   setElementsLocked: (ids: string[], locked: boolean) => void;
+
+  toggleElementLocked: (id: string) => void;
 
   updateElementLayout: (
     id: string,
@@ -495,6 +498,9 @@ export const useEditorStore =
           if (ids.length === 0) return state;
           const selectedIds = new Set(ids);
           return mutateProject(state, (project) => {
+            if (selectedIds.has(RSVP_EDITOR_ELEMENT_ID) && project.rsvp) {
+              project.rsvp = { ...project.rsvp, locked };
+            }
             const editableElements = getEditableElements(project, state);
             if (!editableElements) return;
             setEditableElements(project, state, editableElements.map((element) =>
@@ -504,6 +510,21 @@ export const useEditorStore =
             ));
           });
         }),
+
+      toggleElementLocked: (id) =>
+        set((state) => mutateProject(state, (project) => {
+          if (id === RSVP_EDITOR_ELEMENT_ID) {
+            if (project.rsvp) project.rsvp = { ...project.rsvp, locked: !(project.rsvp.locked ?? false) };
+            return;
+          }
+          const editableElements = getEditableElements(project, state);
+          if (!editableElements) return;
+          setEditableElements(project, state, editableElements.map((element) =>
+            element.id === id && isLockableElement(element)
+              ? { ...element, locked: !(element.locked ?? false) } as EditorElement
+              : element
+          ));
+        })),
 
       updateElementLayout: (
         id,
@@ -526,6 +547,21 @@ export const useEditorStore =
                       previousElement,
                       state.previewDevice,
                       { fontSize: updates.fontSize },
+                    );
+                  }
+                  if (previousElement.type === "schedule" && (
+                    updates.timeFontSize !== undefined
+                    || updates.titleFontSize !== undefined
+                    || updates.descriptionFontSize !== undefined
+                  )) {
+                    editableElements[index] = setElementLayoutForDevice(
+                      previousElement,
+                      state.previewDevice,
+                      {
+                        timeFontSize: updates.timeFontSize,
+                        titleFontSize: updates.titleFontSize,
+                        descriptionFontSize: updates.descriptionFontSize,
+                      },
                     );
                   }
                   return;
@@ -555,6 +591,16 @@ export const useEditorStore =
                         y: layout.y + deltaY,
                       });
                     });
+                    if ((deltaX || deltaY) && project.rsvp?.enabled && project.rsvp.sectionId === id) {
+                      project.rsvp = setRsvpLayoutForDevice(
+                        project.rsvp,
+                        state.previewDevice,
+                        {
+                          x: getRsvpPositionX(project.rsvp, state.previewDevice) + deltaX,
+                          y: getRsvpPositionY(page, project.rsvp, state.previewDevice) + deltaY,
+                        },
+                      );
+                    }
                   }
                 } else if (updates.x !== undefined || updates.y !== undefined) {
                   const sectionId = findContainingSectionId(page.elements, nextElement, state.previewDevice);
@@ -603,6 +649,17 @@ export const useEditorStore =
               const sectionId = findContainingSectionId(editableElements!, element, state.previewDevice);
               return { ...element, sectionId } as EditorElement;
             });
+            if (!welcomeContext && project.rsvp?.enabled && project.rsvp.sectionId && movedIds.has(project.rsvp.sectionId)) {
+              const page = project.pages.find((item) => item.id === state.currentPageId);
+              if (page) project.rsvp = setRsvpLayoutForDevice(
+                project.rsvp,
+                state.previewDevice,
+                {
+                  x: getRsvpPositionX(project.rsvp, state.previewDevice) + deltaX,
+                  y: getRsvpPositionY(page, project.rsvp, state.previewDevice) + deltaY,
+                },
+              );
+            }
             setEditableElements(project, state, editableElements);
           })
         );
@@ -642,6 +699,7 @@ export const useEditorStore =
                   .map((element) => element.sectionId === id
                     ? { ...element, sectionId: undefined } as EditorElement
                     : element));
+                if (project.rsvp?.sectionId === id) project.rsvp = { ...project.rsvp, sectionId: undefined };
               }
             },
 
@@ -654,6 +712,9 @@ export const useEditorStore =
           if (state.selectedElementIds.length === 0) return state;
           const removedIds = new Set(state.selectedElementIds);
           return mutateProject(state, (project) => {
+            if (removedIds.has(RSVP_EDITOR_ELEMENT_ID) && project.rsvp) {
+              project.rsvp = { ...project.rsvp, enabled: false };
+            }
             const editableElements = getEditableElements(project, state);
             if (!editableElements) return;
             setEditableElements(project, state, editableElements
@@ -661,6 +722,9 @@ export const useEditorStore =
               .map((element) => element.sectionId && removedIds.has(element.sectionId)
                 ? { ...element, sectionId: undefined } as EditorElement
                 : element));
+            if (project.rsvp?.sectionId && removedIds.has(project.rsvp.sectionId)) {
+              project.rsvp = { ...project.rsvp, sectionId: undefined };
+            }
           }, null, []);
         }),
 

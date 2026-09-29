@@ -1,4 +1,4 @@
-import { ArrowRight, Copy, LogOut, MoreHorizontal, Plus, Sparkles, Trash2, UserRoundCheck } from "lucide-react";
+import { ArrowRight, Copy, Eye, LayoutTemplate, LogOut, MoreHorizontal, Plus, Sparkles, Trash2, UserRoundCheck } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -6,17 +6,26 @@ import { associateLocalProject } from "../services/projectRepository";
 import { createBlankProject, templateFactories } from "../templates/templates";
 import type { WeddingProject } from "../types/editor";
 import { deleteProject, hydrateProjects, loadProjects, remoteErrorSummary, upsertProject } from "../utils/storage";
+import { instantiateRemoteTemplate, loadPublishedTemplates } from "../services/templateRepository";
+import type { TemplateRecord } from "../types/templates";
+import { instantiateProjectFromTemplate } from "../utils/templateSnapshot";
+import { PreviewMode } from "../components/preview/PreviewMode";
 
 const formatDate = (value: string) => new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", year: "numeric" }).format(new Date(value));
 
 export function HomePage() {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, isAdmin, signOut } = useAuth();
   const [creating, setCreating] = useState(false);
   const [projects, setProjects] = useState<WeddingProject[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [projectError, setProjectError] = useState("");
+  const [remoteTemplates, setRemoteTemplates] = useState<TemplateRecord[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [templateError, setTemplateError] = useState("");
+  const [previewTemplate, setPreviewTemplate] = useState<TemplateRecord | null>(null);
+  const [creatingTemplateId, setCreatingTemplateId] = useState<string | null>(null);
 
   const refreshProjects = useCallback(async () => {
     if (!user) return;
@@ -32,8 +41,16 @@ export function HomePage() {
   }, [user]);
 
   useEffect(() => { void refreshProjects(); }, [refreshProjects]);
+  useEffect(() => {
+    if (!user) return;
+    void loadPublishedTemplates()
+      .then(setRemoteTemplates)
+      .catch((error) => setTemplateError(`Galerie distante indisponible : ${remoteErrorSummary(error)}`))
+      .finally(() => setTemplatesLoading(false));
+  }, [user]);
 
   if (!user) return null;
+  if (previewTemplate) return <PreviewMode project={instantiateProjectFromTemplate(previewTemplate, user.id)} device="mobile" allowDeviceSwitching onClose={() => setPreviewTemplate(null)} />;
 
   const openNewProject = (project: WeddingProject) => {
     const ownedProject = { ...project, ownerId: user.id };
@@ -58,6 +75,20 @@ export function HomePage() {
     setProjects((values) => [copy, ...values]);
   };
 
+  const useRemoteTemplate = async (template: TemplateRecord) => {
+    setCreatingTemplateId(template.id);
+    setTemplateError("");
+    try {
+      const project = await instantiateRemoteTemplate(template.id);
+      upsertProject(project);
+      navigate(`/studio/${project.id}`);
+    } catch (error) {
+      setTemplateError(`Création impossible : ${remoteErrorSummary(error)}`);
+    } finally {
+      setCreatingTemplateId(null);
+    }
+  };
+
   const claimProject = async (project: WeddingProject) => {
     setClaimingId(project.id);
     setProjectError("");
@@ -74,7 +105,7 @@ export function HomePage() {
 
   return (
     <div className="home-page">
-      <header className="home-header"><div className="home-brand"><div className="brand-mark">B</div><div><strong>Le Bureau des Mariés</strong><span>Studio</span></div></div><div className="home-account"><span>{user.email}</span><button className="help-button" onClick={() => void signOut()}><LogOut size={15} /> Déconnexion</button></div></header>
+      <header className="home-header"><div className="home-brand"><div className="brand-mark">B</div><div><strong>Le Bureau des Mariés</strong><span>Studio</span></div></div><div className="home-account">{isAdmin && <button className="help-button" onClick={() => navigate("/admin/templates")}><LayoutTemplate size={15} /> Templates</button>}<span>{user.email}</span><button className="help-button" onClick={() => void signOut()}><LogOut size={15} /> Déconnexion</button></div></header>
       <main className="home-main">
         <section className="welcome-row"><div><p className="eyebrow"><Sparkles size={14} /> Votre atelier créatif</p><h1>Vos plus belles nouvelles<br /><em>prennent vie ici.</em></h1><p>Imaginez, personnalisez et partagez un faire-part qui vous ressemble.</p></div><div className="welcome-actions"><button className="new-project-button" onClick={() => setCreating(true)}><Plus size={20} /> Nouveau faire-part</button><button className="custom-request-button" onClick={() => navigate("/custom-invitation")}><Sparkles size={18} /> Sur mesure — 50 €</button></div></section>
         {projectError && <div className="project-sync-message">{projectError}</div>}
@@ -89,7 +120,7 @@ export function HomePage() {
         {!loadingProjects && projects.length === 0 && <section className="empty-projects"><div className="empty-ornament">B</div><h2>Votre premier faire-part vous attend</h2><p>Partez d’un modèle pensé pour le mariage, puis faites-le entièrement vôtre.</p><button onClick={() => setCreating(true)}>Découvrir les modèles <ArrowRight size={16} /></button></section>}
       </main>
 
-      {creating && <div className="modal-backdrop" onMouseDown={() => setCreating(false)}><section className="template-modal" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setCreating(false)}>×</button><p className="eyebrow">Nouvelle création</p><h2>Choisissez votre point de départ</h2><p className="modal-intro">Chaque détail pourra être modifié ensuite dans le studio.</p><div className="template-grid"><button className="blank-template" onClick={() => openNewProject(createBlankProject())}><span><Plus size={30} /></span><strong>Création vierge</strong><small>Une page claire, prête à imaginer.</small></button>{templateFactories.map((template) => <button className="template-choice" key={template.id} onClick={() => openNewProject(template.create())}><span className={`template-art ${template.id}`}><i style={{ background: template.colors[1] }}>E & L</i><b>18 · 06 · 2027</b></span><strong>{template.name}</strong><small>{template.eyebrow}</small></button>)}</div></section></div>}
+      {creating && <div className="modal-backdrop" onMouseDown={() => setCreating(false)}><section className="template-modal" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setCreating(false)}>×</button><p className="eyebrow">Nouvelle création</p><h2>Choisissez votre point de départ</h2><p className="modal-intro">Chaque détail pourra être modifié ensuite dans le studio.</p>{templateError && <div className="template-admin-message error">{templateError}</div>}<div className="template-grid"><button className="blank-template" onClick={() => openNewProject(createBlankProject())}><span><Plus size={30} /></span><strong>Création vierge</strong><small>Une page claire, prête à imaginer.</small></button>{remoteTemplates.map((template) => <article className="template-choice-card" key={template.id}>{template.thumbnailUrl ? <img src={template.thumbnailUrl} alt={`Aperçu du modèle ${template.name}`} /> : <span className="template-art remote-template-art"><i>{template.name.slice(0, 1)}</i></span>}<strong>{template.name}</strong><small>{template.category}{template.description ? ` · ${template.description}` : ""}</small><div><button onClick={() => setPreviewTemplate(template)}><Eye size={14} /> Aperçu</button><button className="primary" disabled={creatingTemplateId === template.id} onClick={() => void useRemoteTemplate(template)}>{creatingTemplateId === template.id ? "Création…" : "Utiliser ce modèle"}</button></div></article>)}{!templatesLoading && remoteTemplates.length === 0 && templateFactories.map((template) => <button className="template-choice" key={template.id} onClick={() => openNewProject(template.create())}><span className={`template-art ${template.id}`}><i style={{ background: template.colors[1] }}>E & L</i><b>18 · 06 · 2027</b></span><strong>{template.name}</strong><small>{template.eyebrow} · modèle historique</small></button>)}</div>{templatesLoading && <div className="projects-loading">Chargement des modèles…</div>}</section></div>}
     </div>
   );
 }

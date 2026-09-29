@@ -7,6 +7,8 @@ interface AuthContextValue {
   session: Session | null;
   loading: boolean;
   configured: boolean;
+  /** Display hint only. Database RLS/RPCs remain authoritative. */
+  isAdmin: boolean;
   signUp: (email: string, password: string) => Promise<{ confirmationRequired: boolean }>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -54,6 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     loading,
     configured: isSupabaseConfigured,
+    isAdmin: session?.user.app_metadata?.role === "admin",
     signUp: async (email, password) => {
       if (!supabase) throw new Error("Supabase n’est pas configuré.");
       const { data, error } = await supabase.auth.signUp({

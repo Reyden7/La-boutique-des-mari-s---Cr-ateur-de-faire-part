@@ -1,9 +1,11 @@
-import { Check, ChevronLeft, ClipboardList, Copy, ExternalLink, Eye, LockKeyhole, Redo2, Save, Send, Undo2, X } from "lucide-react";
+import { Check, ChevronLeft, Copy, ExternalLink, Eye, LayoutTemplate, LockKeyhole, Redo2, Save, Send, Undo2, X } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useEditorStore } from "../../stores/editorStore";
 import { remoteErrorSummary } from "../../utils/storage";
 import { COMMERCE, formatPrice } from "../../config/commerce";
+import { useAuth } from "../../contexts/AuthContext";
+import { TemplatePublishModal } from "../../features/templates/TemplatePublishModal";
 
 const publicationBenefits = [
   "Lien personnalisé et stable",
@@ -16,7 +18,10 @@ export function TopToolbar({ onPreview }: { onPreview: () => void }) {
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
   const [publishError, setPublishError] = useState("");
   const [confirming, setConfirming] = useState(false);
+  const [responsiveFormatsConfirmed, setResponsiveFormatsConfirmed] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [publishingTemplate, setPublishingTemplate] = useState(false);
+  const { isAdmin } = useAuth();
   const { project, renameProject, past, future, undo, redo, save, checkoutAndPublish, saveStatus } = useEditorStore();
   if (!project) return null;
 
@@ -27,7 +32,17 @@ export function TopToolbar({ onPreview }: { onPreview: () => void }) {
   const showPublishedLink = () => {
     if (project.publicId) setPublishedUrl(`${window.location.origin}/i/${project.publicId}`);
   };
+  const openPublicationConfirmation = () => {
+    setResponsiveFormatsConfirmed(false);
+    setConfirming(true);
+  };
+  const closePublicationConfirmation = () => {
+    if (publishing) return;
+    setResponsiveFormatsConfirmed(false);
+    setConfirming(false);
+  };
   const beginCheckout = async () => {
+    if (!responsiveFormatsConfirmed || publishing) return;
     setPublishError("");
     setPublishing(true);
     try {
@@ -58,13 +73,44 @@ export function TopToolbar({ onPreview }: { onPreview: () => void }) {
         <div className="undo-group"><button onClick={undo} disabled={!past.length} title="Annuler (Ctrl+Z)"><Undo2 size={18} /></button><button onClick={redo} disabled={!future.length} title="Rétablir (Ctrl+Y)"><Redo2 size={18} /></button></div>
         <button onClick={onPreview} aria-label="Aperçu"><Eye size={17} /> <span>Aperçu</span></button>
         <button onClick={save} aria-label="Sauvegarder"><Save size={17} /> <span>Sauvegarder</span></button>
-        {project.rsvp?.purchased && <Link className="toolbar-link-button" to={`/studio/${project.id}/rsvp/responses`}><ClipboardList size={16} /><span>Réponses</span></Link>}
-        <button className="publish-button" disabled={publishing} onClick={isPublished ? showPublishedLink : () => setConfirming(true)} aria-label={isPublished ? "Faire-part publié" : `Publier le faire-part pour ${publicationPriceLabel}`}><Send size={16} /> <span>{publishing ? "Redirection…" : isPublished ? "Faire-part publié ✓" : project.paymentStatus === "pending" ? `Reprendre le paiement — ${publicationPriceLabel}` : `Publier — ${publicationPriceLabel}`}</span></button>
+        {isAdmin && <button className="admin-template-button" onClick={() => setPublishingTemplate(true)} aria-label="Publier comme template"><LayoutTemplate size={17} /> <span>Template</span></button>}
+        <button className="publish-button" disabled={publishing} onClick={isPublished ? showPublishedLink : openPublicationConfirmation} aria-label={isPublished ? "Faire-part publié" : `Publier le faire-part pour ${publicationPriceLabel}`}><Send size={16} /> <span>{publishing ? "Redirection…" : isPublished ? "Faire-part publié ✓" : project.paymentStatus === "pending" ? `Reprendre le paiement — ${publicationPriceLabel}` : `Publier — ${publicationPriceLabel}`}</span></button>
       </div>
 
-      {confirming && <div className="modal-backdrop publication-backdrop" role="presentation" onMouseDown={() => !publishing && setConfirming(false)}><section className="publication-modal" role="dialog" aria-modal="true" aria-labelledby="publication-title" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" disabled={publishing} onClick={() => setConfirming(false)} aria-label="Fermer"><X size={18} /></button><div className="publication-lock"><LockKeyhole size={22} /></div><p className="eyebrow">Publication sécurisée</p><h2 id="publication-title">Publiez votre faire-part</h2><p className="publication-price"><strong>{publicationPriceLabel} TTC</strong><span>Paiement unique, pour ce projet{includesForm ? " · formulaire inclus" : ""}</span></p><ul>{publicationBenefits.map((benefit) => <li key={benefit}><Check size={15} /> {benefit}</li>)}{includesForm && <li><Check size={15} /> Formulaire invité et collecte des réponses</li>}</ul><button className="checkout-button" disabled={publishing} onClick={() => void beginCheckout()}>{publishing ? "Préparation du paiement…" : "Payer et publier"}</button><small><LockKeyhole size={12} /> Paiement sécurisé par Stripe. Aucune donnée bancaire ne transite par le Studio.</small></section></div>}
+      {confirming && (
+        <div className="modal-backdrop publication-backdrop" role="presentation" onMouseDown={closePublicationConfirmation}>
+          <section className="publication-modal" role="dialog" aria-modal="true" aria-labelledby="publication-title" onMouseDown={(event) => event.stopPropagation()}>
+            <button className="modal-close" disabled={publishing} onClick={closePublicationConfirmation} aria-label="Fermer"><X size={18} /></button>
+            <div className="publication-lock"><LockKeyhole size={22} /></div>
+            <p className="eyebrow">Publication sécurisée</p>
+            <h2 id="publication-title">Publiez votre faire-part</h2>
+            <p className="publication-price"><strong>{publicationPriceLabel} TTC</strong><span>Paiement unique, pour ce projet{includesForm ? " · formulaire inclus" : ""}</span></p>
+            <ul>{publicationBenefits.map((benefit) => <li key={benefit}><Check size={15} /> {benefit}</li>)}{includesForm && <li><Check size={15} /> Formulaire invité et collecte des réponses</li>}</ul>
+            <label className="publication-responsive-confirmation">
+              <input
+                type="checkbox"
+                checked={responsiveFormatsConfirmed}
+                disabled={publishing}
+                onChange={(event) => setResponsiveFormatsConfirmed(event.target.checked)}
+              />
+              <span>J’ai bien pris en compte les 3 différents formats : Smartphone, Tablette et PC.</span>
+            </label>
+            <p className="publication-responsive-help" id="publication-responsive-help">Chaque format possède sa propre mise en page. Pensez à vérifier Smartphone, Tablette et PC avant de publier.</p>
+            <button
+              className="checkout-button publication-checkout-button"
+              disabled={publishing || !responsiveFormatsConfirmed}
+              aria-describedby="publication-responsive-help"
+              onClick={() => void beginCheckout()}
+            >
+              {publishing ? "Préparation du paiement…" : "Payer et publier"}
+            </button>
+            <small><LockKeyhole size={12} /> Paiement sécurisé par Stripe. Aucune donnée bancaire ne transite par le Studio.</small>
+          </section>
+        </div>
+      )}
       {publishError && <div className="publish-popover error"><button className="publish-close" onClick={() => setPublishError("")} aria-label="Fermer"><X size={14} /></button><span>Publication interrompue</span><strong>{publishError}</strong></div>}
       {publishedUrl && <div className="publish-popover"><button className="publish-close" onClick={() => setPublishedUrl(null)} aria-label="Fermer"><X size={14} /></button><span>Votre faire-part est en ligne</span><strong>Ce lien restera identique après vos modifications.</strong><button className="copy-public-link" onClick={() => void navigator.clipboard.writeText(publishedUrl)}><Copy size={14} /> Copier le lien</button><a href={publishedUrl} target="_blank" rel="noreferrer">Voir le faire-part <ExternalLink size={14} /></a></div>}
+      {publishingTemplate && <TemplatePublishModal project={project} onClose={() => setPublishingTemplate(false)} />}
     </header>
   );
 }

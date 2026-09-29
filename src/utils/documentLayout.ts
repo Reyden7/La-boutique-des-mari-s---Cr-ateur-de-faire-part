@@ -49,13 +49,17 @@ export const hasRsvpPositionOverride = (
   config: RsvpFormConfig | null | undefined,
   device: PreviewDevice,
 ) => device === "mobile"
-  ? Number.isFinite(config?.positionY)
-  : Number.isFinite(config?.responsive?.[device]?.y);
+  ? Number.isFinite(config?.positionX) || Number.isFinite(config?.positionY) || Number.isFinite(config?.width)
+  : Boolean(config?.responsive?.[device] && (
+      Number.isFinite(config.responsive[device]?.x)
+      || Number.isFinite(config.responsive[device]?.y)
+      || Number.isFinite(config.responsive[device]?.width)
+    ));
 
 export const hasExplicitRsvpPosition = (
   config: RsvpFormConfig | null | undefined,
   device: PreviewDevice,
-) => Number.isFinite(config?.positionY) || hasRsvpPositionOverride(config, device);
+) => Number.isFinite(config?.positionY) || (device !== "mobile" && Number.isFinite(config?.responsive?.[device]?.y));
 
 export const getRsvpPositionY = (
   page: WeddingPage,
@@ -73,24 +77,45 @@ export const getRsvpPositionY = (
   return normalizePosition(Number.isFinite(responsivePosition) ? responsivePosition! : basePosition);
 };
 
+export const getRsvpPositionX = (
+  config: RsvpFormConfig | null | undefined,
+  device: PreviewDevice,
+) => normalizePosition(device === "mobile"
+  ? config?.positionX ?? 0
+  : config?.responsive?.[device]?.x ?? config?.positionX ?? 0);
+
+export const getRsvpWidth = (
+  config: RsvpFormConfig | null | undefined,
+  device: PreviewDevice,
+) => Math.max(120, Math.round(device === "mobile"
+  ? config?.width ?? PREVIEW_DEVICES.mobile.width
+  : config?.responsive?.[device]?.width ?? config?.width ?? PREVIEW_DEVICES[device].width));
+
+export const setRsvpLayoutForDevice = (
+  config: RsvpFormConfig,
+  device: PreviewDevice,
+  layout: { x?: number; y?: number; width?: number },
+): RsvpFormConfig => {
+  const updates = {
+    ...(layout.x !== undefined ? { x: normalizePosition(layout.x) } : {}),
+    ...(layout.y !== undefined ? { y: normalizePosition(layout.y) } : {}),
+    ...(layout.width !== undefined ? { width: Math.max(120, Math.round(layout.width)) } : {}),
+  };
+  if (device === "mobile") return {
+    ...config,
+    ...(updates.x !== undefined ? { positionX: updates.x } : {}),
+    ...(updates.y !== undefined ? { positionY: updates.y } : {}),
+    ...(updates.width !== undefined ? { width: updates.width } : {}),
+  };
+  return { ...config, responsive: { ...config.responsive, [device]: { ...config.responsive?.[device], ...updates } } };
+};
+
 export const setRsvpPositionForDevice = (
   config: RsvpFormConfig,
   device: PreviewDevice,
   positionY: number,
 ): RsvpFormConfig => {
-  const y = normalizePosition(positionY);
-  if (device === "mobile") return { ...config, positionY: y };
-
-  return {
-    ...config,
-    responsive: {
-      ...config.responsive,
-      [device]: {
-        ...config.responsive?.[device],
-        y,
-      },
-    },
-  };
+  return setRsvpLayoutForDevice(config, device, { y: positionY });
 };
 
 export const resetRsvpPositionForDevice = (
@@ -100,6 +125,8 @@ export const resetRsvpPositionForDevice = (
   if (device === "mobile") {
     const next = { ...config };
     delete next.positionY;
+    delete next.positionX;
+    delete next.width;
     return next;
   }
 

@@ -1,34 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import type { ScratchElement } from "../../types/editor";
-import { getScratchTextStyle } from "./scratchDefaults";
+import type { PreviewDevice } from "../../config/previewDevices";
+import { getElementLayout } from "../../utils/responsiveLayout";
+import { getScratchSurfacePalette, getScratchTextStyle, resolveScratchIndicator } from "./scratchDefaults";
+import { ScratchIndicator } from "./ScratchIndicator";
 
-type SurfacePalette = { light: string; base: string; dark: string };
-
-const SURFACES: Record<Exclude<ScratchElement["surfaceStyle"], "custom">, SurfacePalette> = {
-  gold: { light: "#ead58e", base: "#c5a452", dark: "#98752f" },
-  silver: { light: "#f0f2f3", base: "#bfc3c8", dark: "#888e95" },
-  champagne: { light: "#ead9c2", base: "#c8aa8d", dark: "#9f7f64" },
-  beige: { light: "#e9e0d5", base: "#cbbba8", dark: "#a08f7b" },
-  rose: { light: "#eac8cc", base: "#c99398", dark: "#a56d75" },
-};
-
-const blendHex = (source: string, target: "#ffffff" | "#000000", amount: number) => {
-  const normalized = /^#[0-9a-f]{6}$/i.test(source) ? source : "#c8aa8d";
-  const from = [1, 3, 5].map((index) => Number.parseInt(normalized.slice(index, index + 2), 16));
-  const to = target === "#ffffff" ? 255 : 0;
-  return `#${from.map((channel) => Math.round(channel + (to - channel) * amount).toString(16).padStart(2, "0")).join("")}`;
-};
-
-const getSurfacePalette = (element: ScratchElement): SurfacePalette => element.surfaceStyle === "custom"
-  ? { light: blendHex(element.surfaceColor, "#ffffff", .28), base: element.surfaceColor, dark: blendHex(element.surfaceColor, "#000000", .22) }
-  : SURFACES[element.surfaceStyle];
-
-export function ScratchCardRenderer({ element }: { element: ScratchElement }) {
+export function ScratchCardRenderer({ element, device }: { element: ScratchElement; device: PreviewDevice }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const contextRef = useRef<CanvasRenderingContext2D | null>(null);
   const scratchMoves = useRef(0);
   const scratching = useRef(false);
   const lastPoint = useRef<{ x: number; y: number } | undefined>(undefined);
   const [revealed, setRevealed] = useState(false);
+  const [hasStartedScratching, setHasStartedScratching] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -37,10 +21,11 @@ export function ScratchCardRenderer({ element }: { element: ScratchElement }) {
     const rect = canvas.getBoundingClientRect();
     canvas.width = Math.max(1, Math.round(rect.width * ratio));
     canvas.height = Math.max(1, Math.round(rect.height * ratio));
-    const context = canvas.getContext("2d");
+    const context = canvas.getContext("2d", { willReadFrequently: true });
     if (!context) return;
+    contextRef.current = context;
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    const palette = getSurfacePalette(element);
+    const palette = getScratchSurfacePalette(element);
     const surface = context.createRadialGradient(
       rect.width * .3,
       rect.height * .24,
@@ -55,6 +40,7 @@ export function ScratchCardRenderer({ element }: { element: ScratchElement }) {
     context.fillStyle = surface;
     context.fillRect(0, 0, rect.width, rect.height);
     setRevealed(false);
+    setHasStartedScratching(false);
     scratchMoves.current = 0;
     scratching.current = false;
     lastPoint.current = undefined;
@@ -63,7 +49,7 @@ export function ScratchCardRenderer({ element }: { element: ScratchElement }) {
   const scratch = (clientX: number, clientY: number) => {
     if (!scratching.current || revealed) return;
     const canvas = canvasRef.current;
-    const context = canvas?.getContext("2d");
+    const context = contextRef.current ?? canvas?.getContext("2d", { willReadFrequently: true });
     if (!canvas || !context) return;
     const rect = canvas.getBoundingClientRect();
     const point = { x: clientX - rect.left, y: clientY - rect.top };
@@ -96,6 +82,7 @@ export function ScratchCardRenderer({ element }: { element: ScratchElement }) {
   const startScratch = (event: React.PointerEvent<HTMLCanvasElement>) => {
     event.preventDefault();
     event.stopPropagation();
+    setHasStartedScratching(true);
     scratching.current = true;
     lastPoint.current = undefined;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -117,9 +104,11 @@ export function ScratchCardRenderer({ element }: { element: ScratchElement }) {
   };
 
   const text = getScratchTextStyle(element);
+  const layout = getElementLayout(element, device);
+  const indicator = resolveScratchIndicator(element.scratchIndicator);
 
   return <div className={`scratch-card scratch-${element.shape}`} style={{ backgroundColor: element.revealedBackgroundColor ?? "#fffaf5" }} onDragStart={(event) => event.preventDefault()} onContextMenu={(event) => event.preventDefault()}>
-    <strong style={{ color: text.textColor, fontFamily: text.fontFamily, fontSize: `${text.fontSize / Math.max(1, element.width) * 100}cqw`, fontWeight: text.fontWeight, textAlign: text.textAlign, transform: `translate(calc(-50% + ${text.textOffsetX / Math.max(1, element.width) * 100}cqw), calc(-50% + ${text.textOffsetY / Math.max(1, element.width) * 100}cqw))` }}>{element.content}</strong>
+    <strong style={{ color: text.textColor, fontFamily: text.fontFamily, fontSize: `${text.fontSize / Math.max(1, layout.width) * 100}cqw`, fontWeight: text.fontWeight, textAlign: text.textAlign, transform: `translate(calc(-50% + ${text.textOffsetX / Math.max(1, layout.width) * 100}cqw), calc(-50% + ${text.textOffsetY / Math.max(1, layout.width) * 100}cqw))` }}>{element.content}</strong>
     <canvas ref={canvasRef}
       draggable={false}
       aria-label="Surface à gratter"
@@ -132,5 +121,6 @@ export function ScratchCardRenderer({ element }: { element: ScratchElement }) {
       onContextMenu={(event) => event.preventDefault()}
       style={{ opacity: revealed ? 0 : 1 }}
     />
+    {indicator.enabled && !hasStartedScratching && !revealed && <ScratchIndicator indicator={indicator} elementWidth={layout.width} />}
   </div>;
 }

@@ -1,7 +1,7 @@
 import type { WeddingProject } from "../types/editor";
 import { isSupabaseConfigured, requireSupabaseSession, supabase } from "../lib/supabase";
 
-interface ProjectRow {
+export interface ProjectRow {
   id: string;
   owner_id?: string | null;
   name: string;
@@ -27,7 +27,7 @@ interface PublicProjectRow {
   expires_at: string | null;
 }
 
-const fromRow = (row: ProjectRow): WeddingProject => ({
+export const projectFromRow = (row: ProjectRow): WeddingProject => ({
   ...row.project_data,
   id: row.id,
   ownerId: row.owner_id ?? undefined,
@@ -78,7 +78,7 @@ export async function saveRemoteProject(project: WeddingProject) {
       .select("*")
       .single<ProjectRow>();
     if (error) throw error;
-    return fromRow(data);
+    return projectFromRow(data);
   };
 
   const existing = await client
@@ -105,7 +105,7 @@ export async function saveRemoteProject(project: WeddingProject) {
     .single<ProjectRow>();
   if (inserted.error?.code === "23505") return updateExistingProject();
   if (inserted.error) throw inserted.error;
-  return fromRow(inserted.data);
+  return projectFromRow(inserted.data);
 }
 
 export async function associateLocalProject(project: WeddingProject) {
@@ -122,7 +122,7 @@ export async function loadRemoteProjects() {
   await requireSupabaseSession();
   const { data, error } = await supabase.from("projects").select("*").order("updated_at", { ascending: false }).returns<ProjectRow[]>();
   if (error) throw error;
-  return data.map(fromRow);
+  return data.map(projectFromRow);
 }
 
 export async function refreshRemoteProject(projectId: string) {
@@ -130,7 +130,7 @@ export async function refreshRemoteProject(projectId: string) {
   await requireSupabaseSession();
   const { data, error } = await supabase.from("projects").select("*").eq("id", projectId).maybeSingle<ProjectRow>();
   if (error) throw error;
-  return data ? fromRow(data) : null;
+  return data ? projectFromRow(data) : null;
 }
 
 export async function deleteRemoteProject(projectId: string) {
