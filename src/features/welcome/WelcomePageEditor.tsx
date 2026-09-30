@@ -11,6 +11,7 @@ import { deleteProjectAssetIfUnused, uploadProjectAsset } from "../../services/a
 import { makeButtonElement } from "../elements/elementFactories";
 import { useGlobalAssets } from "../../hooks/useGlobalAssets";
 import { PublishGlobalAssetButton } from "../../components/admin/PublishGlobalAssetButton";
+import { getImageInitialSize, readImageFileDimensions, type ImageDimensions } from "../../utils/imageLayout";
 
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => <label className="field"><span>{label}</span>{children}</label>;
 
@@ -111,6 +112,10 @@ export function WelcomePageEditor({ embedded = false }: { embedded?: boolean }) 
     if (!file) return;
     const allowed = ["image/png", "image/jpeg", "image/webp", "image/gif"];
     if (!allowed.includes(file.type) || file.size > 10 * 1024 * 1024) { window.alert("Choisissez une image PNG, JPG, WebP ou GIF de moins de 10 Mo."); return; }
+    let dimensions: ImageDimensions;
+    try { dimensions = await readImageFileDimensions(file); }
+    catch { window.alert("Les dimensions de cette image n’ont pas pu être lues."); return; }
+    const size = getImageInitialSize(dimensions.width, dimensions.height, Math.min(250, PREVIEW_DEVICES.mobile.width * .65), PREVIEW_DEVICES.mobile.height * .45);
     let src = "";
     if (isSupabaseConfigured) {
       try { src = (await uploadProjectAsset(project, file, "image")).url; }
@@ -118,7 +123,12 @@ export function WelcomePageEditor({ embedded = false }: { embedded?: boolean }) 
     } else {
       src = await new Promise<string>((resolve) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.readAsDataURL(file); });
     }
-    const element: EditorElement = { id: crypto.randomUUID(), type: "image", name: file.name, x: 70, y: 180, width: 250, height: 250, rotation: 0, opacity: 1, zIndex: Date.now(), visible: true, locked: false, src, alt: file.name, animation: { type: "fade", duration: .8, delay: 0 } };
+    const element: EditorElement = {
+      id: crypto.randomUUID(), type: "image", name: file.name,
+      x: Math.max(20, (PREVIEW_DEVICES.mobile.width - size.width) / 2), y: 180,
+      width: size.width, height: size.height, rotation: 0, opacity: 1, zIndex: Date.now(), visible: true,
+      locked: false, src, alt: file.name, fit: "contain", animation: { type: "fade", duration: .8, delay: 0 },
+    };
     addElement(element);
   };
 

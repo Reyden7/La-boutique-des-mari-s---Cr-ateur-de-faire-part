@@ -1,6 +1,7 @@
-import type { ImageElement, ImageFrameBorderStyle } from "../../types/editor";
+import type { ImageElement, ImageFit, ImageFrameBorderStyle } from "../../types/editor";
 import { applyImageFramePreset, IMAGE_FRAME_PRESETS, resolveImageFrame } from "../../config/imageFrames";
 import { ColorAlphaInput } from "../../components/ui/ColorAlphaInput";
+import { resolveImageFit } from "../../utils/imageLayout";
 
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => <label className="field"><span>{label}</span>{children}</label>;
 
@@ -14,6 +15,8 @@ export function ImageFrameProperties({ element, onChange }: { element: ImageElem
   });
 
   return <section className="image-frame-properties">
+    <h3>Ajustement</h3>
+    <Field label="Affichage dans le cadre"><select value={resolveImageFit(element.fit)} onChange={(event) => onChange({ fit: event.target.value as ImageFit })}><option value="contain">Image entière</option><option value="cover">Remplir le cadre</option></select></Field>
     <h3>Cadre</h3>
     <label className="compact-check"><input type="checkbox" checked={frame.enabled} onChange={(event) => updateFrame({ enabled: event.target.checked })} /> Afficher un cadre</label>
     {frame.enabled && <>

@@ -40,6 +40,7 @@ import { isElementLocked, isLockableElement } from "../../utils/elementLocking";
 import { DEFAULT_SCHEDULE_STYLE, resolveScheduleTypography } from "../../config/scheduleStyle";
 import { getImageFrameMetrics, getImageFramePalette, resolveImageFrame } from "../../config/imageFrames";
 import { RSVP_EDITOR_ELEMENT_ID } from "../../features/rsvp/rsvpEditorElement";
+import { getImageRenderLayout, resolveImageFit } from "../../utils/imageLayout";
 
 function useLoadedImage(src?: string) {
   const [image, setImage] = useState<HTMLImageElement>();
@@ -51,17 +52,6 @@ function useLoadedImage(src?: string) {
   }, [src]);
   return image;
 }
-
-const getCoverCrop = (image: HTMLImageElement, width: number, height: number) => {
-  const targetRatio = width / Math.max(1, height);
-  const imageRatio = image.naturalWidth / Math.max(1, image.naturalHeight);
-  if (imageRatio > targetRatio) {
-    const cropWidth = image.naturalHeight * targetRatio;
-    return { x: (image.naturalWidth - cropWidth) / 2, y: 0, width: cropWidth, height: image.naturalHeight };
-  }
-  const cropHeight = image.naturalWidth / targetRatio;
-  return { x: 0, y: (image.naturalHeight - cropHeight) / 2, width: image.naturalWidth, height: cropHeight };
-};
 
 const HAND_POINTER_PATH = "M12 22c-3 0-5-2-6-5l-2-4c-.4-1 .1-2 1-2 .6 0 1 .3 1.5 1l1 1V5c0-1.1.9-2 2-2s2 .9 2 2v5c.3-.6 1-1 1.8-1 1 0 1.8.8 1.8 1.8v.2c.3-.7 1-1.2 1.9-1.2 1 0 1.8.8 1.8 1.8v.3c.3-.7 1-1.1 1.8-1.1 1.1 0 2 .9 2 2v5c0 4-3 7-7 7Z";
 const OPEN_HAND_PATH = "M6.5 13V8.5a1.7 1.7 0 0 1 3.4 0V12 6a1.7 1.7 0 0 1 3.4 0v6-4.5a1.7 1.7 0 0 1 3.4 0V12 9.5a1.7 1.7 0 0 1 3.4 0V15c0 4-2.8 7-7 7h-1c-3 0-5-1.5-6.5-4L3.8 15a1.8 1.8 0 0 1 .7-2.5c.7-.4 1.5-.2 2 .5Z";
@@ -178,10 +168,16 @@ function CanvasElement({
     ? (() => {
         const imageElement = element as ImageElement;
         const frame = resolveImageFrame(imageElement.imageStyle?.frame);
-        if (!frame.enabled) return <KonvaImage {...common} image={image} crop={getCoverCrop(image, layout.width, layout.height)} alt={imageElement.alt} />;
+        const fit = resolveImageFit(imageElement.fit);
+        const imageLayout = getImageRenderLayout(image.naturalWidth, image.naturalHeight, layout.width, layout.height, fit);
+        if (!frame.enabled) return <Group {...common}>
+          <Rect width={layout.width} height={layout.height} fill="rgba(0,0,0,0.001)" />
+          <KonvaImage image={image} x={imageLayout.x} y={imageLayout.y} width={imageLayout.width} height={imageLayout.height} crop={imageLayout.crop} alt={imageElement.alt} />
+        </Group>;
         const metrics = getImageFrameMetrics(frame, layout.width, layout.height);
         const innerWidth = Math.max(1, layout.width - metrics.left - metrics.right);
         const innerHeight = Math.max(1, layout.height - metrics.top - metrics.bottom);
+        const framedImageLayout = getImageRenderLayout(image.naturalWidth, image.naturalHeight, innerWidth, innerHeight, fit);
         const palette = getImageFramePalette(frame);
         const gradientStops = palette.stops.flatMap(([position, color]) => [position, color]);
         const angle = palette.angle * Math.PI / 180;
@@ -203,7 +199,7 @@ function CanvasElement({
             shadowOpacity={frame.shadowOpacity}
             shadowOffsetY={frame.shadowDistance}
           />
-          <KonvaImage x={metrics.left} y={metrics.top} width={innerWidth} height={innerHeight} image={image} crop={getCoverCrop(image, innerWidth, innerHeight)} cornerRadius={metrics.innerRadius} alt={imageElement.alt} />
+          <KonvaImage x={metrics.left + framedImageLayout.x} y={metrics.top + framedImageLayout.y} width={framedImageLayout.width} height={framedImageLayout.height} image={image} crop={framedImageLayout.crop} cornerRadius={metrics.innerRadius} alt={imageElement.alt} />
           {(frame.borderStyle === "dotted" || frame.borderStyle === "dashed") && <Rect width={layout.width} height={layout.height} cornerRadius={metrics.outerRadius} stroke={frame.color} strokeWidth={outlineWidth} dash={dash} opacity={frame.opacity} listening={false} />}
           {(frame.type === "double" || frame.borderStyle === "double" || frame.type === "vintage") && <><Rect x={outlineWidth} y={outlineWidth} width={layout.width - outlineWidth * 2} height={layout.height - outlineWidth * 2} cornerRadius={Math.max(0, metrics.outerRadius - outlineWidth)} stroke={frame.color} strokeWidth={Math.max(1, outlineWidth * .45)} opacity={frame.opacity} listening={false} /><Rect x={metrics.left - outlineWidth * .7} y={metrics.top - outlineWidth * .7} width={innerWidth + outlineWidth * 1.4} height={innerHeight + outlineWidth * 1.4} cornerRadius={metrics.innerRadius} stroke={frame.color} strokeWidth={Math.max(1, outlineWidth * .35)} opacity={frame.opacity} listening={false} /></>}
           {frame.type === "wedding-floral" && <Group opacity={frame.opacity} listening={false}><Line points={[4, metrics.top + 8, 8, 10, metrics.left + 14, 4]} stroke="#7d9a72" strokeWidth={1.5} tension={.45} /><Circle x={8} y={12} radius={3} fill="#d8a3a2" /><Circle x={16} y={7} radius={2.5} fill="#f2d4c8" /><Group x={layout.width} y={layout.height} rotation={180}><Line points={[4, metrics.top + 8, 8, 10, metrics.left + 14, 4]} stroke="#7d9a72" strokeWidth={1.5} tension={.45} /><Circle x={8} y={12} radius={3} fill="#d8a3a2" /><Circle x={16} y={7} radius={2.5} fill="#f2d4c8" /></Group></Group>}

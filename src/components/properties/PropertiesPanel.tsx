@@ -79,7 +79,7 @@ export function PropertiesPanel({ onPreviewOpening }: { onPreviewOpening: (type:
         </div>
         <div className="field-row"><Field label="Interligne"><input type="number" min="0.7" max="3" step="0.05" value={element.lineHeight} onChange={(event) => update({ lineHeight: Number(event.target.value) })} /></Field><Field label="Espacement"><input type="number" min="-5" max="30" value={element.letterSpacing} onChange={(event) => update({ letterSpacing: Number(event.target.value) })} /></Field></div>
       </>}
-      {element.type === "image" && <><div className="image-summary"><img src={element.src} alt="Aperçu" /><p>{element.alt}</p><small>Le recadrage et les filtres seront ajoutés dans une prochaine version.</small></div><ImageFrameProperties element={element} onChange={update} /></>}
+      {element.type === "image" && <><div className="image-summary"><img src={element.src} alt="Aperçu" /><p>{element.alt}</p><small>Choisissez d’afficher l’image entière ou de remplir volontairement son cadre.</small></div><ImageFrameProperties element={element} onChange={update} /></>}
       {element.type === "shape" && <>
         {element.shape !== "line" && <Field label="Remplissage"><ColorAlphaInput value={element.fill} onChange={(fill) => update({ fill })} /></Field>}
         <Field label="Bordure"><ColorAlphaInput value={element.stroke} onChange={(stroke) => update({ stroke })} /></Field>

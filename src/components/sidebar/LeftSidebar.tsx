@@ -42,6 +42,8 @@ import { getSelectedTargetSection } from "../../utils/sectionLayout";
 import { getRsvpBlockHeight, setRsvpLayoutForDevice } from "../../utils/documentLayout";
 import { useGlobalAssets } from "../../hooks/useGlobalAssets";
 import { PublishGlobalAssetButton } from "../admin/PublishGlobalAssetButton";
+import { PREVIEW_DEVICES } from "../../config/previewDevices";
+import { getImageInitialSize, loadImageDimensions, readImageFileDimensions, type ImageDimensions } from "../../utils/imageLayout";
 
 const uid = () => crypto.randomUUID();
 const navItems: { id: SidebarView; label: string; icon: ComponentType<{ size?: number }> }[] = [
@@ -84,37 +86,50 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
     if (!file) return;
     const allowed = ["image/png", "image/jpeg", "image/webp", "image/gif"];
     if (!allowed.includes(file.type) || file.size > 10 * 1024 * 1024) { window.alert("Choisissez une image PNG, JPG, WebP ou GIF de moins de 10 Mo."); return; }
+    let dimensions: ImageDimensions;
+    try { dimensions = await readImageFileDimensions(file); }
+    catch { window.alert("Les dimensions de cette image n’ont pas pu être lues."); return; }
+    const size = getImageInitialSize(dimensions.width, dimensions.height, Math.min(250, PREVIEW_DEVICES.mobile.width * .65), PREVIEW_DEVICES.mobile.height * .45);
+    const makeElement = (src: string, assetId?: string): EditorElement => ({
+      id: uid(), type: "image", name: file.name,
+      x: Math.max(20, (PREVIEW_DEVICES.mobile.width - size.width) / 2), y: 250,
+      width: size.width, height: size.height, rotation: 0, opacity: 1, zIndex: Date.now(), visible: true,
+      locked: false, src, alt: file.name, assetId, fit: "contain",
+      animation: { type: "fade", duration: .8, delay: 0 },
+    });
     if (isSupabaseConfigured && project) {
       try {
         const asset = await uploadProjectAsset(project, file, "image");
-        const element: EditorElement = { id: uid(), type: "image", name: file.name, x: 70, y: 250, width: 250, height: 250, rotation: 0, opacity: 1, zIndex: Date.now(), visible: true, locked: false, src: asset.url, alt: file.name, animation: { type: "fade", duration: .8, delay: 0 } };
-        addElement(element);
+        addElement(makeElement(asset.url, asset.id));
       } catch { window.alert("L’image n’a pas pu être envoyée. Vérifiez votre connexion puis réessayez."); }
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => {
-      const element: EditorElement = { id: uid(), type: "image", name: file.name, x: 70, y: 250, width: 250, height: 250, rotation: 0, opacity: 1, zIndex: Date.now(), visible: true, locked: false, src: String(reader.result), alt: file.name, animation: { type: "fade", duration: .8, delay: 0 } };
-      addElement(element);
-    };
+    reader.onload = () => addElement(makeElement(String(reader.result)));
     reader.readAsDataURL(file);
   };
 
-  const addDecorationImage = (name: string, src: string, assetId?: string, globalAssetId?: string) => addElement({
-    id: uid(), type: "image", name, x: 120, y: 250, width: 150, height: 150, rotation: 0, opacity: 1,
-    zIndex: Date.now(), visible: true, locked: false, src, alt: name, assetId, globalAssetId,
-    animation: { type: "fade", duration: .8, delay: 0 },
-  });
+  const addDecorationImage = async (name: string, src: string, assetId?: string, globalAssetId?: string, knownDimensions?: ImageDimensions) => {
+    const dimensions = knownDimensions ?? await loadImageDimensions(src).catch(() => ({ width: 1, height: 1 }));
+    const size = getImageInitialSize(dimensions.width, dimensions.height, 150, 220);
+    addElement({
+      id: uid(), type: "image", name, x: Math.max(20, (PREVIEW_DEVICES.mobile.width - size.width) / 2), y: 250,
+      width: size.width, height: size.height, rotation: 0, opacity: 1,
+      zIndex: Date.now(), visible: true, locked: false, src, alt: name, assetId, globalAssetId, fit: "contain",
+      animation: { type: "fade", duration: .8, delay: 0 },
+    });
+  };
   const importDecoration = async (file?: File) => {
     if (!file || !project) return;
     if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 10 * 1024 * 1024) {
       window.alert("Choisissez une décoration PNG, JPG ou WebP de moins de 10 Mo."); return;
     }
     try {
+      const dimensions = await readImageFileDimensions(file);
       const asset = await uploadProjectAsset(project, file, "image");
       const imported = { assetId: asset.id, name: file.name.replace(/\.[^.]+$/, ""), url: asset.url };
       setLastDecoration(imported);
-      addDecorationImage(imported.name, imported.url, imported.assetId);
+      await addDecorationImage(imported.name, imported.url, imported.assetId, undefined, dimensions);
     } catch { window.alert("La décoration n’a pas pu être envoyée."); }
   };
 
@@ -187,7 +202,7 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
           <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={(event) => { void addImage(event.target.files?.[0]); event.currentTarget.value = ""; }} />
           <input ref={decorationFileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(event) => { void importDecoration(event.target.files?.[0]); event.currentTarget.value = ""; }} />
           {shapeMenu && <div className="shape-picker">{(["rectangle", "rounded-rectangle", "circle", "line"] as const).map((shape) => <button key={shape} onClick={() => { addElement(makeShapeElement(shape)); setShapeMenu(false); }}>{shape === "rounded-rectangle" ? "Arrondi" : shape === "circle" ? "Cercle" : shape === "line" ? "Ligne" : "Rectangle"}</button>)}</div>}
-          {decorationMenu && <div className="global-decoration-picker"><strong>Bibliothèque de décorations</strong><div>{globalDecorations.map((asset) => <button key={asset.id} title={asset.name} onClick={() => { addDecorationImage(asset.name, asset.url, undefined, asset.id); setDecorationMenu(false); }}><img loading="lazy" src={asset.thumbnailUrl ?? asset.url} alt="" /><span>{asset.name}</span></button>)}</div><button className="decoration-upload-button" onClick={() => decorationFileRef.current?.click()}><Upload size={14} /> Importer une décoration</button>{lastDecoration && <PublishGlobalAssetButton input={{ sourceAssetId: lastDecoration.assetId, type: "decoration", name: lastDecoration.name }} />}</div>}
+          {decorationMenu && <div className="global-decoration-picker"><strong>Bibliothèque de décorations</strong><div>{globalDecorations.map((asset) => <button key={asset.id} title={asset.name} onClick={() => { void addDecorationImage(asset.name, asset.url, undefined, asset.id); setDecorationMenu(false); }}><img loading="lazy" src={asset.thumbnailUrl ?? asset.url} alt="" /><span>{asset.name}</span></button>)}</div><button className="decoration-upload-button" onClick={() => decorationFileRef.current?.click()}><Upload size={14} /> Importer une décoration</button>{lastDecoration && <PublishGlobalAssetButton input={{ sourceAssetId: lastDecoration.assetId, type: "decoration", name: lastDecoration.name }} />}</div>}
         </section>
         {documentSummary}
         <section className="layers-section">

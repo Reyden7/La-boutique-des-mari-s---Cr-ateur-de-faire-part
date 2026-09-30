@@ -181,10 +181,14 @@ export interface ImageStyleConfig {
   frame?: ImageFrameConfig;
 }
 
+export type ImageFit = "contain" | "cover";
+
 export interface ImageElement extends BaseElement {
   type: "image";
   src: string;
   alt: string;
+  /** Missing on legacy projects, where the historical renderer used cover. */
+  fit?: ImageFit;
   /** Optional for backward compatibility. Absence keeps the historical image renderer. */
   imageStyle?: ImageStyleConfig;
   assetId?: string;

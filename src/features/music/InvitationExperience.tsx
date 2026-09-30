@@ -56,7 +56,7 @@ export function InvitationExperience({ project, device, mode = "public" }: { pro
     <div className="invitation-content-layer">
       {introductionMode !== "classic" ? <WeddingRenderer
           project={project}
-          device={device}
+          device={activeDevice}
           mode={mode}
         /> : <OpeningRenderer
         config={
@@ -69,7 +69,7 @@ export function InvitationExperience({ project, device, mode = "public" }: { pro
       >
         <WeddingRenderer
           project={project}
-          device={device}
+          device={activeDevice}
           mode={mode}
         />
       </OpeningRenderer>}

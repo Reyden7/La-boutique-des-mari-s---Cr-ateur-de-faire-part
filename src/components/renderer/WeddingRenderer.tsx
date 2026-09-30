@@ -11,6 +11,7 @@ import { DecorativeHeartSvg } from "../../features/hearts/DecorativeHeartSvg";
 import { RichElementRenderer } from "../../features/elements/RichElementRenderer";
 import { ImageFrameRenderer } from "../../features/images/ImageFrameRenderer";
 import { resolveImageFrame } from "../../config/imageFrames";
+import { resolveImageFit } from "../../utils/imageLayout";
 
 const backgroundStyle = (background: PageBackground): CSSProperties => {
   if (background.type === "image") return { backgroundImage: `url(${background.imageUrl})`, backgroundSize: "cover", backgroundPosition: "center" };
@@ -50,7 +51,8 @@ export function RenderElement({ element, device, documentHeight }: { element: Ed
   if (element.type === "text") return <motion.div {...motionConfig} style={{ ...style, color: element.color, fontFamily: element.fontFamily, fontSize: `${(layout.fontSize ?? element.fontSize) / viewport.width * 100}cqw`, fontWeight: element.fontWeight, fontStyle: element.italic ? "italic" : "normal", textDecoration: element.underline ? "underline" : "none", textAlign: element.textAlign, lineHeight: element.lineHeight, letterSpacing: element.letterSpacing, whiteSpace: "pre-wrap", justifyContent: element.textAlign === "center" ? "center" : element.textAlign === "right" ? "flex-end" : "flex-start" }}>{element.text}</motion.div>;
   if (element.type === "image") {
     const frame = resolveImageFrame(element.imageStyle?.frame);
-    if (!frame.enabled) return <motion.img {...motionConfig} style={{ ...style, objectFit: "cover" }} src={element.src} alt={element.alt} />;
+    const fit = resolveImageFit(element.fit);
+    if (!frame.enabled) return <motion.img {...motionConfig} style={{ ...style, objectFit: fit }} src={element.src} alt={element.alt} />;
     return <motion.div {...motionConfig} className="render-image-frame" style={style}><ImageFrameRenderer element={element} layoutWidth={layout.width} layoutHeight={layout.height} /></motion.div>;
   }
   if (element.type === "icon" && element.heartStyle) return <motion.div {...motionConfig} style={{ ...style, color: element.color, justifyContent: "center" }}><DecorativeHeartSvg variant={element.heartStyle} style={{ width: "100%", height: "100%" }} /></motion.div>;
