@@ -5,6 +5,10 @@ import type {
   ParticleDirection,
   ParticleShape,
 } from "../../types/editor";
+import { isSupabaseConfigured } from "../../lib/supabase";
+import { uploadProjectAsset } from "../../services/assetRepository";
+import { useGlobalAssets } from "../../hooks/useGlobalAssets";
+import { PublishGlobalAssetButton } from "../../components/admin/PublishGlobalAssetButton";
 
 const particleShapes: {
   id: ParticleShape;
@@ -98,6 +102,7 @@ export function ParticlePanel() {
     project,
     updateParticles,
   } = useEditorStore();
+  const globalParticles = useGlobalAssets("particle");
 
   if (!project) {
     return null;
@@ -117,7 +122,7 @@ export function ParticlePanel() {
     });
   };
 
-  const handleCustomParticleUpload = (
+  const handleCustomParticleUpload = async (
     file?: File
   ) => {
     if (!file) {
@@ -127,7 +132,6 @@ export function ParticlePanel() {
     const allowedTypes = [
       "image/png",
       "image/webp",
-      "image/svg+xml",
     ];
 
     if (
@@ -136,7 +140,7 @@ export function ParticlePanel() {
       )
     ) {
       window.alert(
-        "Choisissez une image PNG, WebP ou SVG."
+        "Choisissez une image PNG ou WebP."
       );
 
       return;
@@ -153,24 +157,16 @@ export function ParticlePanel() {
       return;
     }
 
-    const reader =
-      new FileReader();
-
-    reader.onload = () => {
-      update({
-        shape: "custom",
-        customImageUrl:
-          String(
-            reader.result
-          ),
-        customImageName:
-          file.name,
-      });
-    };
-
-    reader.readAsDataURL(
-      file
-    );
+    if (isSupabaseConfigured) {
+      try {
+        const asset = await uploadProjectAsset(project, file, "image");
+        update({ shape: "custom", customImageUrl: asset.url, customImageName: file.name, customImageAssetId: asset.id, customImageGlobalAssetId: undefined });
+      } catch { window.alert("Le motif n’a pas pu être envoyé."); }
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => update({ shape: "custom", customImageUrl: String(reader.result), customImageName: file.name, customImageAssetId: undefined, customImageGlobalAssetId: undefined });
+    reader.readAsDataURL(file);
   };
 
   const updateColor = (
@@ -335,6 +331,15 @@ export function ParticlePanel() {
             }
           )}
 
+          {globalParticles.map((asset) => (
+            <button type="button" key={asset.id} title={asset.name} aria-label={asset.name}
+              className={`particle-shape-button ${particles.customImageGlobalAssetId === asset.id ? "active" : ""}`}
+              onClick={() => update({ shape: "custom", customImageUrl: asset.url, customImageName: asset.name, customImageAssetId: undefined, customImageGlobalAssetId: asset.id })}>
+              <img loading="lazy" src={asset.thumbnailUrl ?? asset.url} alt="" className="particle-custom-preview" />
+              <span className="particle-shape-check">{particles.customImageGlobalAssetId === asset.id ? "✓" : ""}</span>
+            </button>
+          ))}
+
           {/* Motif personnalisé */}
           <button
             type="button"
@@ -376,12 +381,12 @@ export function ParticlePanel() {
         <input
           ref={fileRef}
           type="file"
-          accept="image/png,image/webp,image/svg+xml"
+          accept="image/png,image/webp"
           hidden
           onChange={(
             event
           ) => {
-            handleCustomParticleUpload(
+            void handleCustomParticleUpload(
               event.target
                 .files?.[0]
             );
@@ -413,6 +418,8 @@ export function ParticlePanel() {
               </small>
             </div>
 
+            {!particles.customImageGlobalAssetId && <PublishGlobalAssetButton compact input={particles.customImageAssetId ? { sourceAssetId: particles.customImageAssetId, type: "particle", name: particles.customImageName ?? "Particule" } : undefined} />}
+
             <button
               type="button"
               title="Supprimer le motif personnalisé"
@@ -423,6 +430,10 @@ export function ParticlePanel() {
                   customImageUrl:
                     undefined,
                   customImageName:
+                    undefined,
+                  customImageAssetId:
+                    undefined,
+                  customImageGlobalAssetId:
                     undefined,
                 })
               }
@@ -435,7 +446,7 @@ export function ParticlePanel() {
         )}
 
         <p className="particle-help">
-          PNG, WebP ou SVG · 2 Mo maximum · fond transparent conseillé.
+          PNG ou WebP · 2 Mo maximum · fond transparent conseillé.
         </p>
       </section>
 

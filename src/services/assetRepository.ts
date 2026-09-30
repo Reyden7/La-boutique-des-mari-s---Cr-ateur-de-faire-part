@@ -69,3 +69,11 @@ export async function deleteProjectAsset(assetId: string) {
   const { error: metadataError } = await supabase.from("assets").delete().eq("id", assetId);
   if (metadataError) throw metadataError;
 }
+
+/** Persists removed references first, then deletes only an asset no longer used anywhere in the project. */
+export async function deleteProjectAssetIfUnused(project: WeddingProject, assetId: string, publicUrl: string) {
+  if (JSON.stringify(project).includes(publicUrl)) return false;
+  await saveRemoteProject(project);
+  await deleteProjectAsset(assetId);
+  return true;
+}

@@ -12,3 +12,6 @@ verify_jwt = false
 
 [functions.publish-template]
 verify_jwt = true
+
+[functions.publish-global-asset]
+verify_jwt = true

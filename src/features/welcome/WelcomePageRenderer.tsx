@@ -21,8 +21,8 @@ export function WelcomePageRenderer({
 }) {
   const config = resolveWelcomePage(rawConfig);
   const transforms = getWelcomeTransforms(config, device);
-  const background = config.showBackground ? getWelcomeBackground(config.backgroundId) : undefined;
-  const arch = config.showArch ? getWelcomeArch(config.archId) : undefined;
+  const background = config.showBackground ? getWelcomeBackground(config.backgroundId, config.customBackgrounds) : undefined;
+  const arch = config.showArch ? getWelcomeArch(config.archId, config.customArches) : undefined;
   const enterButton = config.elements.find((element) => element.type === "button" && element.welcomeAction === "enter");
   const enterLabel = enterButton?.type === "button" ? enterButton.label : config.enterLabel;
   const contentElements = config.elements.filter((element) => !(element.type === "button" && element.welcomeAction === "enter"));

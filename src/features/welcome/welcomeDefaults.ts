@@ -37,6 +37,8 @@ export const DEFAULT_WELCOME_PAGE: WelcomePageConfig = {
   date: "18 juin 2027",
   message: "Découvrez notre invitation",
   enterLabel: "Entrer",
+  customArches: [],
+  customBackgrounds: [],
   elements: [],
   textElements: structuredClone(DEFAULT_TEXT_ELEMENTS),
   textStyle: {
@@ -80,6 +82,8 @@ export const resolveWelcomePage = (value?: Partial<WelcomePageConfig>): WelcomeP
     separator,
     secondName,
     names: secondName ? `${firstName} ${separator} ${secondName}` : firstName,
+    customArches: value?.customArches ?? [],
+    customBackgrounds: value?.customBackgrounds ?? [],
     textElements,
     background: { ...DEFAULT_WELCOME_PAGE.background, ...value?.background },
     arch: { ...DEFAULT_WELCOME_PAGE.arch, ...value?.arch },

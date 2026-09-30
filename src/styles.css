@@ -233,6 +233,16 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .welcome-preset-grid img { width: 100%; height: 48px; display: block; object-fit: cover; border-radius: 5px; background: #eee9e4; }
 .welcome-preset-grid.arches img { object-fit: contain; }
 .welcome-preset-grid span { display: block; padding: 4px 1px 2px; overflow: hidden; font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+.welcome-library-title { margin: 2px 0 7px !important; color: #806f63; font: 700 8px Montserrat, sans-serif !important; letter-spacing: .08em; text-transform: uppercase; }
+.welcome-library-heading { margin: 4px 0 7px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.welcome-library-heading h4 { margin: 0; color: #806f63; font: 700 8px Montserrat, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+.welcome-library-heading button { min-height: 27px; padding: 0 8px; border: 1px solid #dccfc5; border-radius: 7px; display: flex; align-items: center; gap: 4px; background: #faf6f2; color: #765746; font-size: 8px; }
+.welcome-library-heading button:disabled { opacity: .55; cursor: wait; }
+.welcome-custom-tile { position: relative; min-width: 0; border: 1px solid #e4dcd5; border-radius: 8px; background: #fff; overflow: hidden; }
+.welcome-custom-tile.selected { border-color: #a9775a; box-shadow: 0 0 0 2px rgba(169,119,90,.13); }
+.welcome-preset-grid .welcome-custom-tile > button:first-child { width: 100%; min-width: 0; padding: 3px; border: 0; border-radius: 0; background: transparent; color: #746961; }
+.welcome-preset-grid .welcome-custom-delete { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; min-width: 0; padding: 0; border: 0; border-radius: 99px; display: grid; place-items: center; background: rgba(255,255,255,.94); color: #875a4a; box-shadow: 0 2px 9px rgba(44,31,24,.2); }
+.welcome-asset-error { margin: -8px 0 14px; padding: 8px 9px; border-radius: 7px; background: #fff0ed; color: #9a4237; font: 9px/1.4 Lora, serif; }
 .welcome-reset { width: 100%; min-height: 31px; border: 1px solid #ded4cb; border-radius: 7px; background: #faf7f4; color: #765746; display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 8px; }
 .welcome-names-fields { display: grid; grid-template-columns: 1fr 58px 1fr; gap: 6px; }
 .welcome-text-controls-heading { margin: 16px 0 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -1284,6 +1294,30 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .font-picker { position: relative; }
 .font-picker-trigger { width: 100%; min-height: 38px; padding: 0 10px; border: 1px solid #ded6d0; border-radius: 8px; background: #fff; display: flex; align-items: center; justify-content: space-between; color: #453e39; font-size: 15px; }
 .font-picker-popover { position: absolute; z-index: 80; top: calc(100% + 5px); right: 0; left: 0; padding: 7px; border: 1px solid #ded5ce; border-radius: 10px; background: #fff; box-shadow: 0 18px 45px rgba(45,35,29,.2); }
+.font-upload-error { display: block; padding: 6px 2px 1px; color: #9a4237; font-size: 8px; line-height: 1.35; }
+.font-project-option { display: grid; grid-template-columns: minmax(0, 1fr) 28px; align-items: center; gap: 3px; }
+.font-project-option > .publish-global-asset { width: 28px; }
+
+.publish-global-asset { min-height: 30px; padding: 5px 8px; border: 1px solid #d8c3b3; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; background: #fff9f4; color: #815b45; font-size: 8px; }
+.publish-global-asset.compact { width: 28px; height: 28px; min-height: 0; padding: 0; border-radius: 99px; }
+.publish-global-asset.published { border-color: #bcd8c1; background: #edf7ef; color: #427149; }
+.publish-global-asset.error { border-color: #e2aaa3; color: #9a4237; }
+.publish-global-asset .spin { animation: global-asset-spin .8s linear infinite; }
+@keyframes global-asset-spin { to { transform: rotate(360deg); } }
+.welcome-custom-tile > .publish-global-asset { position: absolute; right: 4px; bottom: 4px; z-index: 2; width: 23px; height: 23px; min-height: 0; padding: 0; border: 0; box-shadow: 0 2px 9px rgba(44,31,24,.2); }
+.global-decoration-picker { margin-top: 8px; padding: 9px; border: 1px solid #ddd3cb; border-radius: 10px; background: #faf7f4; }
+.global-decoration-picker > strong { display: block; margin-bottom: 7px; color: #6f584a; font-size: 9px; }
+.global-decoration-picker > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+.global-decoration-picker > div button { min-width: 0; padding: 3px; border: 1px solid #e0d6ce; border-radius: 7px; background: #fff; color: #72665e; font-size: 7px; }
+.global-decoration-picker img { width: 100%; height: 48px; object-fit: contain; display: block; }
+.global-decoration-picker span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.global-decoration-picker .decoration-upload-button { width: 100%; min-height: 31px; margin-top: 7px; border: 1px dashed #cdb9aa; border-radius: 7px; display: flex; align-items: center; justify-content: center; gap: 5px; background: #fff; color: #765746; font-size: 8px; }
+.global-decoration-picker > .publish-global-asset { width: 100%; margin-top: 6px; }
+.library-group-label { padding: 6px 3px 2px; color: #8c7a6e; font-size: 8px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; }
+.admin-asset-filters { margin: 18px 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.admin-asset-filters button { min-height: 32px; padding: 0 12px; border: 1px solid #ddd3cb; border-radius: 99px; background: #fff; color: #75675e; font-size: 9px; }
+.admin-asset-filters button.active { border-color: #a9775a; background: #f8eee7; color: #754c35; }
+.admin-asset-thumb { color: #8b705e; }
 .font-search { height: 34px; padding: 0 8px; border-radius: 7px; display: flex; align-items: center; gap: 6px; background: #f4f0ec; }
 .font-search input { min-width: 0; border: 0; background: transparent; outline: 0; font-size: 10px; }
 .font-options { max-height: 280px; overflow: auto; padding: 5px 2px; }

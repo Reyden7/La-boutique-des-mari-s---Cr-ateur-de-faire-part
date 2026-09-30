@@ -12,6 +12,7 @@ import {
 import { getElementLayout } from "../../utils/responsiveLayout";
 import { getDocumentHeight, getRsvpBlockHeight, getRsvpPositionX, getRsvpPositionY, getRsvpWidth, setRsvpLayoutForDevice } from "../../utils/documentLayout";
 import { ProjectFontLoader } from "../../features/fonts/ProjectFontLoader";
+import { useProjectFontRevision } from "../../features/fonts/projectFontRuntime";
 import { resolveRsvpStyle } from "../../config/rsvpStyle";
 import { getDecorativeHeart } from "../../features/hearts/heartRegistry";
 import { WelcomePageRenderer } from "../../features/welcome/WelcomePageRenderer";
@@ -281,6 +282,7 @@ export function EditorCanvas() {
   const guideLayerRef = useRef<Konva.Layer>(null);
   const lockControlRef = useRef<Konva.Group>(null);
   const [selectionBounds, setSelectionBounds] = useState<AlignmentBounds | null>(null);
+  const fontRevision = useProjectFontRevision();
   const previousFitRef = useRef<number | undefined>(undefined);
   const previousDeviceRef = useRef(previewDevice);
   const groupDragRef = useRef<{
@@ -481,7 +483,35 @@ export function EditorCanvas() {
       ? getSelectionBounds(selectedNodes.map((node) => getNodeBounds(node, stage)))
       : null;
     setSelectionBounds(bounds);
-  }, [selectedElementIds, elements, previewDevice, sidebarView, zoom]);
+  }, [selectedElementIds, elements, previewDevice, sidebarView, zoom, fontRevision]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let frame = 0;
+    const reflowText = async () => {
+      if (typeof document !== "undefined") await document.fonts.ready;
+      frame = window.requestAnimationFrame(() => {
+        if (cancelled) return;
+        const stage = stageRef.current;
+        if (!stage) return;
+        stage.find("Text").forEach((node) => {
+          const textNode = node as Konva.Text;
+          const width = textNode.width();
+          // Konva caches wrapping/line metrics. A reversible width invalidation
+          // recomputes them without changing the persisted element geometry.
+          if (Number.isFinite(width)) {
+            textNode.width(width + 0.001);
+            textNode.width(width);
+          }
+          textNode.clearCache();
+        });
+        transformerRef.current?.forceUpdate();
+        stage.batchDraw();
+      });
+    };
+    void reflowText();
+    return () => { cancelled = true; window.cancelAnimationFrame(frame); };
+  }, [fontRevision, previewDevice, sidebarView, project?.id]);
 
   if (!page) return null;
 
@@ -489,6 +519,7 @@ export function EditorCanvas() {
     const welcomeContentElements = elements.filter((element) => !(element.type === "button" && element.welcomeAction === "enter"));
     const welcomeInteractionElements = elements.filter((element) => element.type === "button" && element.welcomeAction === "enter");
     return <div ref={canvasAreaRef} className="canvas-area welcome-canvas-area">
+    <ProjectFontLoader project={project} />
     <div className={`device-preview-frame device-preview-frame-${previewDevice}`}>
       <div className="preview-device-screen" style={{ width: viewport.width * zoom, height: viewport.height * zoom }}>
         <div className="welcome-editor-scale" style={{ width: viewport.width, height: viewport.height, transform: `scale(${zoom})` }}>

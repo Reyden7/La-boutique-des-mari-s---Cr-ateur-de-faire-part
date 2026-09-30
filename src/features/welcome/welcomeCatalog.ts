@@ -12,6 +12,8 @@ export interface WelcomeBackgroundPreset {
   imageUrl: string;
 }
 
+type CustomWelcomeAsset = { id: string; name: string; url: string };
+
 const asset = (folder: "arches" | "backgrounds", filename: string) =>
   `/assets/welcome/${folder}/${filename}`;
 
@@ -47,8 +49,13 @@ export const WELCOME_BACKGROUNDS: WelcomeBackgroundPreset[] = [
   return { id, name, thumbnailUrl: url, imageUrl: url };
 });
 
-export const getWelcomeArch = (id?: string) =>
-  WELCOME_ARCHES.find((preset) => preset.id === id);
+const customPreset = (id: string | undefined, custom: CustomWelcomeAsset[]) => {
+  const found = custom.find((asset) => asset.id === id && asset.url);
+  return found ? { id: found.id, name: found.name, thumbnailUrl: found.url, imageUrl: found.url } : undefined;
+};
 
-export const getWelcomeBackground = (id?: string) =>
-  WELCOME_BACKGROUNDS.find((preset) => preset.id === id);
+export const getWelcomeArch = (id?: string, custom: CustomWelcomeAsset[] = []) =>
+  WELCOME_ARCHES.find((preset) => preset.id === id) ?? customPreset(id, custom);
+
+export const getWelcomeBackground = (id?: string, custom: CustomWelcomeAsset[] = []) =>
+  WELCOME_BACKGROUNDS.find((preset) => preset.id === id) ?? customPreset(id, custom);

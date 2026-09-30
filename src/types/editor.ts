@@ -75,12 +75,23 @@ export interface WelcomeTextStyle {
   buttonSize: number;
 }
 
+export interface WelcomeCustomAsset {
+  id: string;
+  name: string;
+  url: string;
+  assetId?: string;
+  globalAssetId?: string;
+}
+
 export interface WelcomePageConfig {
   enabled: boolean;
   showArch: boolean;
   archId?: string;
   showBackground: boolean;
   backgroundId?: string;
+  /** Project-scoped uploads. Built-in presets remain in welcomeCatalog.ts. */
+  customArches?: WelcomeCustomAsset[];
+  customBackgrounds?: WelcomeCustomAsset[];
   fallbackColor: string;
   fallbackColor2: string;
   background: WelcomeMediaTransform;
@@ -176,6 +187,8 @@ export interface ImageElement extends BaseElement {
   alt: string;
   /** Optional for backward compatibility. Absence keeps the historical image renderer. */
   imageStyle?: ImageStyleConfig;
+  assetId?: string;
+  globalAssetId?: string;
 }
 
 export interface ShapeElement extends BaseElement {
@@ -359,8 +372,9 @@ export interface CustomFontAsset {
   name: string;
   family: string;
   url: string;
-  format: "truetype" | "opentype" | "woff" | "woff2";
+  format: "ttf" | "otf" | "truetype" | "opentype" | "woff" | "woff2";
   assetId?: string;
+  globalAssetId?: string;
 }
 
 export type RsvpFieldType = "short_text" | "long_text" | "number" | "boolean" | "single_choice" | "multiple_choice" | "select" | "email";
@@ -436,6 +450,7 @@ export interface ProjectAudioConfig {
   uploadedAudioId?: string;
   uploadedAudioName?: string;
   uploadedAudioUrl?: string;
+  globalAssetId?: string;
   volume: number;
   loop: boolean;
   startMode: "opening-interaction" | "manual";
@@ -485,6 +500,8 @@ export interface ParticleConfig {
 
   customImageUrl?: string;
   customImageName?: string;
+  customImageAssetId?: string;
+  customImageGlobalAssetId?: string;
 }
 
 export interface WeddingProject {

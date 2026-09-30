@@ -24,6 +24,7 @@ import {
   Trash2,
   Type,
   WandSparkles,
+  Upload,
 } from "lucide-react";
 import { makeShapeElement, makeTextElement, useEditorStore, type SidebarView } from "../../stores/editorStore";
 import type { EditorElement, OpeningAnimationType } from "../../types/editor";
@@ -39,6 +40,8 @@ import { RSVP_EDITOR_ELEMENT_ID } from "../../features/rsvp/rsvpEditorElement";
 import { getElementLayout } from "../../utils/responsiveLayout";
 import { getSelectedTargetSection } from "../../utils/sectionLayout";
 import { getRsvpBlockHeight, setRsvpLayoutForDevice } from "../../utils/documentLayout";
+import { useGlobalAssets } from "../../hooks/useGlobalAssets";
+import { PublishGlobalAssetButton } from "../admin/PublishGlobalAssetButton";
 
 const uid = () => crypto.randomUUID();
 const navItems: { id: SidebarView; label: string; icon: ComponentType<{ size?: number }> }[] = [
@@ -52,9 +55,13 @@ const navItems: { id: SidebarView; label: string; icon: ComponentType<{ size?: n
 export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: OpeningAnimationType) => void }) {
   const [shapeMenu, setShapeMenu] = useState(false);
   const [heartMenu, setHeartMenu] = useState(false);
+  const [decorationMenu, setDecorationMenu] = useState(false);
+  const [lastDecoration, setLastDecoration] = useState<{ assetId: string; name: string; url: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const decorationFileRef = useRef<HTMLInputElement>(null);
   const heartMenuRef = useRef<HTMLDivElement>(null);
   const { project, currentPageId, selectedElementIds, previewDevice, sidebarView, setSidebarView, addElement, selectElement, updateElement, updateElementLayout, updateRsvp, toggleElementLocked, removeElement, moveLayer } = useEditorStore();
+  const globalDecorations = useGlobalAssets("decoration");
   const page = project?.pages.find((item) => item.id === currentPageId);
   const sortedDocumentElements = [...(page?.elements ?? [])].sort((a, b) => b.zIndex - a.zIndex);
   const documentSectionIds = new Set(sortedDocumentElements.filter((element) => element.type === "section").map((element) => element.id));
@@ -91,6 +98,24 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
       addElement(element);
     };
     reader.readAsDataURL(file);
+  };
+
+  const addDecorationImage = (name: string, src: string, assetId?: string, globalAssetId?: string) => addElement({
+    id: uid(), type: "image", name, x: 120, y: 250, width: 150, height: 150, rotation: 0, opacity: 1,
+    zIndex: Date.now(), visible: true, locked: false, src, alt: name, assetId, globalAssetId,
+    animation: { type: "fade", duration: .8, delay: 0 },
+  });
+  const importDecoration = async (file?: File) => {
+    if (!file || !project) return;
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 10 * 1024 * 1024) {
+      window.alert("Choisissez une décoration PNG, JPG ou WebP de moins de 10 Mo."); return;
+    }
+    try {
+      const asset = await uploadProjectAsset(project, file, "image");
+      const imported = { assetId: asset.id, name: file.name.replace(/\.[^.]+$/, ""), url: asset.url };
+      setLastDecoration(imported);
+      addDecorationImage(imported.name, imported.url, imported.assetId);
+    } catch { window.alert("La décoration n’a pas pu être envoyée."); }
   };
 
   const documentSummary = <section className="scrollable-document-summary"><div className="panel-title">Document</div><strong>Page verticale scrollable</strong><small>{page?.elements.length ?? 0} élément{(page?.elements.length ?? 0) > 1 ? "s" : ""} · hauteur adaptée au contenu</small></section>;
@@ -155,11 +180,14 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
             <button onClick={() => addElement(makeScheduleElement())}><CalendarClock size={20} /><span>Programme</span></button>
             <button onClick={() => addElement(makeScratchElement())}><CircleDashed size={20} /><span>À gratter</span></button>
             <button onClick={() => addElement(makeButtonElement())}><Link size={20} /><span>Bouton</span></button>
+            <button onClick={() => { setDecorationMenu((value) => !value); setHeartMenu(false); setShapeMenu(false); }}><Sparkles size={20} /><span>Décorations</span></button>
             <button onClick={() => page && addElement(makeSectionElement(page))}><PanelsTopLeft size={20} /><span>Section</span></button>
             <button onClick={addOrSelectRsvp}><ClipboardCheck size={20} /><span>Formulaire</span></button>
           </div>
           <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden onChange={(event) => { void addImage(event.target.files?.[0]); event.currentTarget.value = ""; }} />
+          <input ref={decorationFileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(event) => { void importDecoration(event.target.files?.[0]); event.currentTarget.value = ""; }} />
           {shapeMenu && <div className="shape-picker">{(["rectangle", "rounded-rectangle", "circle", "line"] as const).map((shape) => <button key={shape} onClick={() => { addElement(makeShapeElement(shape)); setShapeMenu(false); }}>{shape === "rounded-rectangle" ? "Arrondi" : shape === "circle" ? "Cercle" : shape === "line" ? "Ligne" : "Rectangle"}</button>)}</div>}
+          {decorationMenu && <div className="global-decoration-picker"><strong>Bibliothèque de décorations</strong><div>{globalDecorations.map((asset) => <button key={asset.id} title={asset.name} onClick={() => { addDecorationImage(asset.name, asset.url, undefined, asset.id); setDecorationMenu(false); }}><img loading="lazy" src={asset.thumbnailUrl ?? asset.url} alt="" /><span>{asset.name}</span></button>)}</div><button className="decoration-upload-button" onClick={() => decorationFileRef.current?.click()}><Upload size={14} /> Importer une décoration</button>{lastDecoration && <PublishGlobalAssetButton input={{ sourceAssetId: lastDecoration.assetId, type: "decoration", name: lastDecoration.name }} />}</div>}
         </section>
         {documentSummary}
         <section className="layers-section">
