@@ -450,19 +450,23 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .stacked-options small { color: #9a9189; font-size: 8px; }
 
 /* Renderer and opening */
-.preview-mode { height: 100vh; height: 100dvh; overflow-y: auto; overscroll-behavior-y: contain; touch-action: pan-y; background: #242522; color: #fff; }
+.preview-mode { position: relative; height: 100vh; height: 100dvh; overflow: hidden; background: #242522; color: #fff; }
 .preview-controls { position: fixed; z-index: 20; top: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 7px; padding: 5px; border-radius: 11px; background: rgba(255,255,255,.11); backdrop-filter: blur(16px); }
 .preview-controls button { border: 0; color: #fff; background: transparent; border-radius: 7px; padding: 9px 12px; display: flex; align-items: center; gap: 7px; font-size: 11px; }
 .preview-controls button:hover { background: rgba(255,255,255,.12); }
-.preview-content { min-height: 100%; display: grid; justify-items: center; align-items: start; padding: 84px 0 40px; }
-.preview-device-frame { width: min(var(--preview-device-width), calc(100vw - 32px)); display: grid; grid-template-columns: minmax(0, 1fr); position: relative; isolation: isolate; container-type: inline-size; }
-.preview-device-frame::before { content: ""; grid-area: 1 / 1; aspect-ratio: var(--preview-device-ratio); pointer-events: none; }
-.preview-device-frame > .invitation-experience { grid-area: 1 / 1; min-width: 0; min-height: 0; }
+.preview-content { position: absolute; inset: 72px 16px 16px; display: grid; place-items: center; overflow: hidden; }
+.preview-device-shell { position: relative; flex: none; }
+.preview-device-frame { position: absolute; top: 0; left: 0; width: var(--preview-device-width); height: var(--preview-device-height); overflow: hidden; isolation: isolate; transform: scale(var(--preview-device-scale)); transform-origin: top left; border-radius: 28px; background: #fff; box-shadow: 0 24px 70px rgba(0,0,0,.3); }
+.preview-mode-tablet .preview-device-frame { border-radius: 18px; }
+.preview-mode-desktop .preview-device-frame { border-radius: 8px; }
+.preview-device-viewport { width: 100%; height: 100%; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: rgba(90, 79, 71, .35) transparent; }
+.preview-device-viewport:has(.welcome-page) { overflow-y: hidden; }
+.preview-device-viewport > .invitation-experience { min-height: 100%; }
 .preview-device-frame .invitation-content-layer { min-height: 0; }
 .preview-device-frame .renderer-wrap { width: 100%; max-width: none; min-height: 0; display: block; }
 .preview-device-frame .renderer-document { width: 100%; max-width: none; }
-.preview-device-frame .welcome-page { position: absolute; inset: 0 auto auto 0; width: 100%; height: auto; aspect-ratio: var(--preview-device-ratio); }
-.preview-device-frame .invitation-experience > .particle-layer { position: absolute; inset: 0 auto auto 0; width: 100%; height: auto; aspect-ratio: var(--preview-device-ratio); }
+.preview-device-frame .welcome-page { position: absolute; inset: 0; width: var(--preview-device-width); height: var(--preview-device-height); }
+.preview-device-frame .invitation-experience > .particle-layer { width: var(--preview-device-width); height: var(--preview-device-height); }
 .renderer-wrap { width: 100%; max-width: 100vw; display: grid; justify-items: center; gap: 0; }
 .renderer-document { width: min(var(--renderer-max-width, 390px), calc(100vw - 28px)); aspect-ratio: 1 / var(--renderer-document-ratio, 2.164); position: relative; overflow: hidden; border-radius: 24px; box-shadow: 0 24px 70px rgba(0,0,0,.25); container-type: inline-size; background: #fff; }
 .render-page { position: absolute; inset: 0; overflow: hidden; }
@@ -1488,9 +1492,10 @@ button:disabled { cursor: not-allowed; opacity: .38; }
   .rsvp-public-section { width: 100%; }
 }
 
-/* A Studio preview uses the selected logical viewport, even on a larger screen. */
-.preview-device-frame .opening-stage:not(.is-opened) { min-height: 0; aspect-ratio: var(--preview-device-ratio); }
+/* Opening animations fill the simulated screen, not the full browser window. */
+.preview-device-frame .opening-stage:not(.is-opened) { height: var(--preview-device-height); min-height: 0; }
+.preview-device-frame .opening-stage.is-opened { min-height: 0; }
 .preview-device-frame .vertical-envelope-scene { width: min(88cqw, 420px); height: auto; }
 .preview-device-frame .vertical-invitation-card { width: min(390px, calc(100cqw - 24px)); }
-.preview-device-frame .phase-complete.vertical-envelope-stage { min-height: 0; aspect-ratio: auto; }
+.preview-device-frame .phase-complete.vertical-envelope-stage { height: auto; min-height: 0; }
 .preview-device-frame .phase-complete .vertical-envelope-scene { width: 100%; min-height: 0; height: auto; }
