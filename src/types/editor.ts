@@ -179,9 +179,24 @@ export interface ImageFrameConfig {
 
 export interface ImageStyleConfig {
   frame?: ImageFrameConfig;
+  /** Non-destructive content transform. Crop positions are normalized from 0 to 1. */
+  transform?: Partial<ImageTransformConfig>;
+  /** Optional per-device content transforms; absent devices inherit the mobile transform. */
+  responsive?: {
+    tablet?: Partial<ImageTransformConfig>;
+    desktop?: Partial<ImageTransformConfig>;
+  };
 }
 
 export type ImageFit = "contain" | "cover";
+
+export interface ImageTransformConfig {
+  cropX: number;
+  cropY: number;
+  cropScale: number;
+  flipX: boolean;
+  flipY: boolean;
+}
 
 export interface ImageElement extends BaseElement {
   type: "image";

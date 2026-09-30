@@ -1,4 +1,5 @@
-import type { ImageFit } from "../types/editor";
+import type { PreviewDevice } from "../config/previewDevices";
+import type { ImageElement, ImageFit, ImageTransformConfig } from "../types/editor";
 
 export interface ImageDimensions {
   width: number;
@@ -8,11 +9,54 @@ export interface ImageDimensions {
 export interface ImageRenderLayout extends ImageDimensions {
   x: number;
   y: number;
-  crop?: { x: number; y: number; width: number; height: number };
 }
 
 /** Old projects did not persist a fit mode and historically rendered with cover. */
 export const resolveImageFit = (fit?: ImageFit): ImageFit => fit ?? "cover";
+
+export const DEFAULT_IMAGE_TRANSFORM: ImageTransformConfig = {
+  cropX: .5,
+  cropY: .5,
+  cropScale: 1,
+  flipX: false,
+  flipY: false,
+};
+
+const clamp = (value: number, minimum: number, maximum: number) =>
+  Number.isFinite(value) ? Math.min(maximum, Math.max(minimum, value)) : minimum;
+
+export const resolveImageTransform = (element: ImageElement, device: PreviewDevice): ImageTransformConfig => {
+  const base = element.imageStyle?.transform;
+  const override = device === "mobile" ? undefined : element.imageStyle?.responsive?.[device];
+  const transform = { ...DEFAULT_IMAGE_TRANSFORM, ...base, ...override };
+  return {
+    cropX: clamp(transform.cropX, 0, 1),
+    cropY: clamp(transform.cropY, 0, 1),
+    cropScale: clamp(transform.cropScale, 1, 4),
+    flipX: Boolean(transform.flipX),
+    flipY: Boolean(transform.flipY),
+  };
+};
+
+export const setImageTransformForDevice = (
+  element: ImageElement,
+  device: PreviewDevice,
+  changes: Partial<ImageTransformConfig>,
+): Pick<ImageElement, "imageStyle"> => {
+  const imageStyle = element.imageStyle ?? {};
+  if (device === "mobile") return {
+    imageStyle: { ...imageStyle, transform: { ...resolveImageTransform(element, device), ...changes } },
+  };
+  return {
+    imageStyle: {
+      ...imageStyle,
+      responsive: {
+        ...imageStyle.responsive,
+        [device]: { ...resolveImageTransform(element, device), ...changes },
+      },
+    },
+  };
+};
 
 export const getImageInitialSize = (
   naturalWidth: number,
@@ -40,43 +84,23 @@ export const getImageRenderLayout = (
   boxWidth: number,
   boxHeight: number,
   fit: ImageFit,
+  transform: Pick<ImageTransformConfig, "cropX" | "cropY" | "cropScale"> = DEFAULT_IMAGE_TRANSFORM,
 ): ImageRenderLayout => {
   const sourceWidth = Math.max(1, naturalWidth);
   const sourceHeight = Math.max(1, naturalHeight);
   const width = Math.max(1, boxWidth);
   const height = Math.max(1, boxHeight);
-  const sourceRatio = sourceWidth / sourceHeight;
-  const boxRatio = width / height;
-
-  if (fit === "contain") {
-    const renderedWidth = sourceRatio > boxRatio ? width : height * sourceRatio;
-    const renderedHeight = sourceRatio > boxRatio ? width / sourceRatio : height;
-    return {
-      x: (width - renderedWidth) / 2,
-      y: (height - renderedHeight) / 2,
-      width: renderedWidth,
-      height: renderedHeight,
-    };
-  }
-
-  if (sourceRatio > boxRatio) {
-    const cropWidth = sourceHeight * boxRatio;
-    return {
-      x: 0,
-      y: 0,
-      width,
-      height,
-      crop: { x: (sourceWidth - cropWidth) / 2, y: 0, width: cropWidth, height: sourceHeight },
-    };
-  }
-
-  const cropHeight = sourceWidth / boxRatio;
+  const fitScale = fit === "contain"
+    ? Math.min(width / sourceWidth, height / sourceHeight)
+    : Math.max(width / sourceWidth, height / sourceHeight);
+  const zoom = clamp(transform.cropScale, 1, 4);
+  const renderedWidth = sourceWidth * fitScale * zoom;
+  const renderedHeight = sourceHeight * fitScale * zoom;
   return {
-    x: 0,
-    y: 0,
-    width,
-    height,
-    crop: { x: 0, y: (sourceHeight - cropHeight) / 2, width: sourceWidth, height: cropHeight },
+    x: (width - renderedWidth) * clamp(transform.cropX, 0, 1),
+    y: (height - renderedHeight) * clamp(transform.cropY, 0, 1),
+    width: renderedWidth,
+    height: renderedHeight,
   };
 };
 

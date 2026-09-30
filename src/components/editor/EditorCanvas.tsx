@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Group, Image as KonvaImage, Layer, Line, Path, Rect, Stage, Text, Transformer } from "react-konva";
 import type Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
-import type { EditorElement, ImageElement, PageBackground } from "../../types/editor";
+import type { EditorElement, ImageElement, ImageFit, ImageTransformConfig, PageBackground } from "../../types/editor";
 import { useEditorStore } from "../../stores/editorStore";
 import { ParticleRenderer } from "../../features/particles/ParticleRenderer";
 import {
@@ -40,7 +40,7 @@ import { isElementLocked, isLockableElement } from "../../utils/elementLocking";
 import { DEFAULT_SCHEDULE_STYLE, resolveScheduleTypography } from "../../config/scheduleStyle";
 import { getImageFrameMetrics, getImageFramePalette, resolveImageFrame } from "../../config/imageFrames";
 import { RSVP_EDITOR_ELEMENT_ID } from "../../features/rsvp/rsvpEditorElement";
-import { getImageRenderLayout, resolveImageFit } from "../../utils/imageLayout";
+import { getImageRenderLayout, resolveImageFit, resolveImageTransform } from "../../utils/imageLayout";
 
 function useLoadedImage(src?: string) {
   const [image, setImage] = useState<HTMLImageElement>();
@@ -116,6 +116,41 @@ function Background({ background, width, height, y = 0 }: { background: PageBack
   return <Rect y={y} width={width} height={height} fill={background.color ?? "#fffdf9"} listening={false} />;
 }
 
+function CanvasImageContent({ image, width, height, fit, transform, radius = 0 }: {
+  image: HTMLImageElement;
+  width: number;
+  height: number;
+  fit: ImageFit;
+  transform: ImageTransformConfig;
+  radius?: number;
+}) {
+  const rendered = getImageRenderLayout(image.naturalWidth, image.naturalHeight, width, height, fit, transform);
+  const corner = Math.min(radius, width / 2, height / 2);
+  return <Group clipFunc={(context) => {
+    context.beginPath();
+    context.moveTo(corner, 0);
+    context.lineTo(width - corner, 0);
+    context.quadraticCurveTo(width, 0, width, corner);
+    context.lineTo(width, height - corner);
+    context.quadraticCurveTo(width, height, width - corner, height);
+    context.lineTo(corner, height);
+    context.quadraticCurveTo(0, height, 0, height - corner);
+    context.lineTo(0, corner);
+    context.quadraticCurveTo(0, 0, corner, 0);
+    context.closePath();
+  }}>
+    <KonvaImage
+      image={image}
+      x={rendered.x + (transform.flipX ? rendered.width : 0)}
+      y={rendered.y + (transform.flipY ? rendered.height : 0)}
+      width={rendered.width}
+      height={rendered.height}
+      scaleX={transform.flipX ? -1 : 1}
+      scaleY={transform.flipY ? -1 : 1}
+    />
+  </Group>;
+}
+
 function CanvasElement({
   element,
   device,
@@ -169,15 +204,14 @@ function CanvasElement({
         const imageElement = element as ImageElement;
         const frame = resolveImageFrame(imageElement.imageStyle?.frame);
         const fit = resolveImageFit(imageElement.fit);
-        const imageLayout = getImageRenderLayout(image.naturalWidth, image.naturalHeight, layout.width, layout.height, fit);
+        const transform = resolveImageTransform(imageElement, device);
         if (!frame.enabled) return <Group {...common}>
           <Rect width={layout.width} height={layout.height} fill="rgba(0,0,0,0.001)" />
-          <KonvaImage image={image} x={imageLayout.x} y={imageLayout.y} width={imageLayout.width} height={imageLayout.height} crop={imageLayout.crop} alt={imageElement.alt} />
+          <CanvasImageContent image={image} width={layout.width} height={layout.height} fit={fit} transform={transform} />
         </Group>;
         const metrics = getImageFrameMetrics(frame, layout.width, layout.height);
         const innerWidth = Math.max(1, layout.width - metrics.left - metrics.right);
         const innerHeight = Math.max(1, layout.height - metrics.top - metrics.bottom);
-        const framedImageLayout = getImageRenderLayout(image.naturalWidth, image.naturalHeight, innerWidth, innerHeight, fit);
         const palette = getImageFramePalette(frame);
         const gradientStops = palette.stops.flatMap(([position, color]) => [position, color]);
         const angle = palette.angle * Math.PI / 180;
@@ -199,7 +233,7 @@ function CanvasElement({
             shadowOpacity={frame.shadowOpacity}
             shadowOffsetY={frame.shadowDistance}
           />
-          <KonvaImage x={metrics.left + framedImageLayout.x} y={metrics.top + framedImageLayout.y} width={framedImageLayout.width} height={framedImageLayout.height} image={image} crop={framedImageLayout.crop} cornerRadius={metrics.innerRadius} alt={imageElement.alt} />
+          <Group x={metrics.left} y={metrics.top}><CanvasImageContent image={image} width={innerWidth} height={innerHeight} fit={fit} transform={transform} radius={metrics.innerRadius} /></Group>
           {(frame.borderStyle === "dotted" || frame.borderStyle === "dashed") && <Rect width={layout.width} height={layout.height} cornerRadius={metrics.outerRadius} stroke={frame.color} strokeWidth={outlineWidth} dash={dash} opacity={frame.opacity} listening={false} />}
           {(frame.type === "double" || frame.borderStyle === "double" || frame.type === "vintage") && <><Rect x={outlineWidth} y={outlineWidth} width={layout.width - outlineWidth * 2} height={layout.height - outlineWidth * 2} cornerRadius={Math.max(0, metrics.outerRadius - outlineWidth)} stroke={frame.color} strokeWidth={Math.max(1, outlineWidth * .45)} opacity={frame.opacity} listening={false} /><Rect x={metrics.left - outlineWidth * .7} y={metrics.top - outlineWidth * .7} width={innerWidth + outlineWidth * 1.4} height={innerHeight + outlineWidth * 1.4} cornerRadius={metrics.innerRadius} stroke={frame.color} strokeWidth={Math.max(1, outlineWidth * .35)} opacity={frame.opacity} listening={false} /></>}
           {frame.type === "wedding-floral" && <Group opacity={frame.opacity} listening={false}><Line points={[4, metrics.top + 8, 8, 10, metrics.left + 14, 4]} stroke="#7d9a72" strokeWidth={1.5} tension={.45} /><Circle x={8} y={12} radius={3} fill="#d8a3a2" /><Circle x={16} y={7} radius={2.5} fill="#f2d4c8" /><Group x={layout.width} y={layout.height} rotation={180}><Line points={[4, metrics.top + 8, 8, 10, metrics.left + 14, 4]} stroke="#7d9a72" strokeWidth={1.5} tension={.45} /><Circle x={8} y={12} radius={3} fill="#d8a3a2" /><Circle x={16} y={7} radius={2.5} fill="#f2d4c8" /></Group></Group>}

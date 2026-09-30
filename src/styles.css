@@ -459,7 +459,11 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .preview-device-frame { position: absolute; top: 0; left: 0; width: var(--preview-device-width); height: var(--preview-device-height); overflow: hidden; isolation: isolate; transform: scale(var(--preview-device-scale)); transform-origin: top left; border-radius: 28px; background: #fff; box-shadow: 0 24px 70px rgba(0,0,0,.3); }
 .preview-mode-tablet .preview-device-frame { border-radius: 18px; }
 .preview-mode-desktop .preview-device-frame { border-radius: 8px; }
-.preview-device-viewport { width: 100%; height: 100%; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: rgba(90, 79, 71, .35) transparent; }
+.preview-device-viewport { width: 100%; height: 100%; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; -webkit-overflow-scrolling: touch; scrollbar-width: none; -ms-overflow-style: none; }
+.preview-device-viewport::-webkit-scrollbar { display: none; }
+.preview-device-viewport.can-drag:not(:has(.welcome-page)) { cursor: grab; }
+.preview-device-viewport.can-drag :is(.photo-carousel, .scratch-card, .location-card, [data-interactive], img, iframe, audio, video, label) { cursor: auto; }
+.preview-device-viewport.is-dragging-scroll, .preview-device-viewport.is-dragging-scroll * { cursor: grabbing; user-select: none; -webkit-user-select: none; }
 .preview-device-viewport:has(.welcome-page) { overflow-y: hidden; }
 .preview-device-viewport > .invitation-experience { min-height: 100%; }
 .preview-device-frame .invitation-content-layer { min-height: 0; }
@@ -682,9 +686,18 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .rich-render-element > * { width: 100%; height: 100%; }
 .render-image-frame { container-type: inline-size; }
 .render-image-frame > * { width: 100%; height: 100%; }
+.image-content-viewport { position: absolute; inset: 0; overflow: hidden; user-select: none; }
+.image-content-viewport > img { position: absolute; display: block; max-width: none; transform-origin: center; user-select: none; }
+.image-transform-properties { margin-top: 18px; padding-top: 15px; border-top: 1px solid #e8e0da; }
+.image-transform-device { display: block; margin: -3px 0 10px; color: #938780; font-size: 9px; line-height: 1.4; }
+.image-transform-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 9px 0 15px; }
+.image-transform-actions button { padding: 7px 9px; border: 1px solid #ddd1c7; border-radius: 7px; background: #fffaf6; color: #6e5445; font-size: 9px; }
+.image-transform-actions button.primary { border-color: #7b5948; background: #7b5948; color: #fff; }
+.image-crop-editor { position: relative; margin: 8px auto 12px; overflow: hidden; border: 1px solid #b78d72; border-radius: 4px; background-color: #fff; background-image: linear-gradient(45deg, #eee9e4 25%, transparent 25%), linear-gradient(-45deg, #eee9e4 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #eee9e4 75%), linear-gradient(-45deg, transparent 75%, #eee9e4 75%); background-position: 0 0, 0 8px, 8px -8px, -8px 0; background-size: 16px 16px; cursor: grab; touch-action: none; user-select: none; }
+.image-crop-editor:active { cursor: grabbing; }
 .image-frame { position: relative; box-sizing: border-box; width: 100%; height: 100%; overflow: visible; border-radius: var(--image-frame-radius); box-shadow: var(--image-frame-shadow); isolation: isolate; pointer-events: none; }
 .image-frame::before { content: ""; position: absolute; z-index: 0; inset: 0; border-radius: inherit; background: var(--image-frame-background); opacity: var(--image-frame-opacity); }
-.image-frame > img { position: absolute; z-index: 1; top: var(--image-frame-top); right: var(--image-frame-right); bottom: var(--image-frame-bottom); left: var(--image-frame-left); width: calc(100% - var(--image-frame-left) - var(--image-frame-right)); height: calc(100% - var(--image-frame-top) - var(--image-frame-bottom)); display: block; border-radius: var(--image-inner-radius); object-fit: cover; user-select: none; }
+.image-frame > .image-content-viewport { z-index: 1; }
 .image-frame-detail { position: absolute; z-index: 2; inset: 0; box-sizing: border-box; border: var(--image-frame-line) solid var(--image-frame-color); border-radius: inherit; opacity: var(--image-frame-opacity); pointer-events: none; }
 .image-frame-border-double .image-frame-detail { border-style: double; }
 .image-frame-border-dotted .image-frame-detail { border-style: dotted; }
