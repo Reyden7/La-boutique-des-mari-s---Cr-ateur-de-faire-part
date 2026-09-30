@@ -38,7 +38,7 @@ export const normalizeSectionMembership = (elements: EditorElement[]) => {
   const sectionIds = new Set(elements.filter((element) => element.type === "section").map((element) => element.id));
   return elements.map((element) => {
     if (element.type === "section") return element;
-    if (element.sectionId && sectionIds.has(element.sectionId)) return element;
+    if (element.sectionId === null || (element.sectionId && sectionIds.has(element.sectionId))) return element;
     const sectionId = findContainingSectionId(elements, element, "mobile");
     if (!sectionId) {
       const next = { ...element };

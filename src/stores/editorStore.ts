@@ -32,8 +32,9 @@ import {
 } from "../utils/sectionLayout";
 import { resolveWelcomePage } from "../features/welcome/welcomeDefaults";
 import { isElementLocked, isLockableElement, normalizeElementLocks } from "../utils/elementLocking";
-import { getRsvpPositionX, getRsvpPositionY, setRsvpLayoutForDevice } from "../utils/documentLayout";
+import { getRsvpPositionX, getRsvpPositionY, getRsvpWidth, setRsvpLayoutForDevice } from "../utils/documentLayout";
 import { RSVP_EDITOR_ELEMENT_ID } from "../features/rsvp/rsvpEditorElement";
+import { moveHierarchyElement, type HierarchyPlacement } from "../utils/hierarchyOrder";
 
 type SaveStatus = "idle" | "saving" | "saved";
 
@@ -119,6 +120,8 @@ interface EditorState {
     id: string,
     direction: "forward" | "backward"
   ) => void;
+
+  moveHierarchyItem: (sourceId: string, targetId: string | null, placement: HierarchyPlacement) => void;
 
   reorderSection: (id: string, direction: -1 | 1) => void;
 
@@ -785,6 +788,25 @@ export const useEditorStore =
                   }
 
                   editableElements.push(duplicated);
+                  if (!isWelcomeContext(project, state) && element.type === "section") {
+                    // The form is unique project config, not an EditorElement: only
+                    // actual section children are copied with the new section.
+                    const children = editableElements.filter((child) => child.sectionId === element.id);
+                    for (const child of children) {
+                      const childLayout = getElementLayout(child, state.previewDevice);
+                      const copy = setElementLayoutForDevice({
+                        ...structuredClone(child),
+                        id: uid(),
+                        name: `${child.name} copie`,
+                        sectionId: duplicatedId,
+                        zIndex: editableElements.length + 1,
+                      } as EditorElement, state.previewDevice, {
+                        x: childLayout.x + 18,
+                        y: childLayout.y + 18,
+                      });
+                      editableElements.push(copy);
+                    }
+                  }
                 }
               },
 
@@ -872,6 +894,15 @@ export const useEditorStore =
 
               const welcomeContext = isWelcomeContext(project, state);
               const selectedElement = editableElements.find((element) => element.id === id);
+              if (!welcomeContext && selectedElement) {
+                const siblings = editableElements
+                  .filter((element) => (element.sectionId ?? null) === (selectedElement.sectionId ?? null))
+                  .sort((a, b) => b.zIndex - a.zIndex);
+                const index = siblings.findIndex((element) => element.id === id);
+                const neighbor = siblings[index + (direction === "forward" ? -1 : 1)];
+                if (neighbor) setEditableElements(project, state, moveHierarchyElement(editableElements, id, neighbor.id, direction === "forward" ? "before" : "after"));
+                return;
+              }
               const isInteractionElement = (element: EditorElement) =>
                 element.type === "button" && element.welcomeAction === "enter";
               const selectedIsInteraction = selectedElement
@@ -934,6 +965,34 @@ export const useEditorStore =
             }
           )
         ),
+
+      moveHierarchyItem: (sourceId, targetId, placement) =>
+        set((state) => mutateProject(state, (project) => {
+          if (isWelcomeContext(project, state)) return;
+          const page = project.pages.find((item) => item.id === state.currentPageId);
+          if (!page) return;
+          if (sourceId === RSVP_EDITOR_ELEMENT_ID) {
+            if (!project.rsvp?.enabled) return;
+            const target = page.elements.find((element) => element.id === targetId);
+            const sectionId = placement === "inside" && target?.type === "section"
+              ? target.id
+              : placement !== "inside" ? target?.sectionId ?? null : undefined;
+            if (sectionId === undefined) return;
+            // Materialize the current visual position before changing ownership;
+            // an automatic form position otherwise changes when its section moves.
+            let nextRsvp = project.rsvp;
+            for (const device of ["mobile", "tablet", "desktop"] as const) {
+              nextRsvp = setRsvpLayoutForDevice(nextRsvp, device, {
+                x: getRsvpPositionX(project.rsvp, device),
+                y: getRsvpPositionY(page, project.rsvp, device),
+                width: getRsvpWidth(project.rsvp, device),
+              });
+            }
+            project.rsvp = { ...nextRsvp, sectionId };
+            return;
+          }
+          page.elements = moveHierarchyElement(page.elements, sourceId, targetId, placement);
+        })),
 
       reorderSection: (id, direction) =>
         set((state) =>

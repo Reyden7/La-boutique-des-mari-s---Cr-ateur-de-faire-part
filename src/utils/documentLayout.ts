@@ -19,8 +19,11 @@ export const getRsvpBlockHeight = (config?: RsvpFormConfig | null, device: Previ
     (height, field) => height + getRsvpFieldHeight(field),
     0,
   );
+  const typographyExtra = Math.max(0, (config.typography?.titleFontSize ?? 34) - 34) * 2.3
+    + Math.max(0, (config.typography?.labelFontSize ?? 11) - 11) * config.fields.length * 1.4
+    + Math.max(0, (config.typography?.fieldFontSize ?? 13) - 13) * config.fields.length * 1.4;
   const deviceFactor = device === "desktop" ? 2.2 : device === "tablet" ? 1.35 : 1;
-  return Math.ceil(Math.max(RSVP_BLOCK_MIN_HEIGHT, 330 + fieldsHeight) * deviceFactor);
+  return Math.ceil(Math.max(RSVP_BLOCK_MIN_HEIGHT, 330 + fieldsHeight + typographyExtra) * deviceFactor);
 };
 
 export const getDocumentContentHeight = (

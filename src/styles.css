@@ -286,6 +286,13 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .layer-row button.layer-lock-button { width: 28px; height: 28px; margin-left: auto; display: grid; flex: 0 0 28px; border: 1px solid #e1d7d0; border-radius: 6px; background: #f4efeb; color: #755c4d; }
 .layer-row.locked button.layer-lock-button { background: #e9dfd8; color: #75513d; }
 .layer-row button:hover { color: #6d4833; }
+.layer-drag-handle { flex: 0 0 16px; width: 16px; display: grid; place-items: center; color: #a99c92; cursor: grab; touch-action: none; }
+.layer-drag-handle:active { cursor: grabbing; }
+.layer-row.drop-inside { border-color: #a9785b; background: #f9ece2; box-shadow: inset 0 0 0 1px #a9785b; }
+.layer-row.drop-before { border-top: 2px solid #a9785b; }
+.layer-row.drop-after { border-bottom: 2px solid #a9785b; }
+.layer-root-drop { min-height: 29px; padding: 8px 10px; border: 1px dashed #dbd1c9; border-radius: 7px; color: #9c8b7e; font-size: 9px; text-align: center; }
+.layer-root-drop.drop-active { border-color: #a9785b; background: #f9ece2; color: #79543f; }
 
 .editor-main { min-width: 0; min-height: 0; position: relative; display: block; overflow: auto; background-color: #eeeae5; background-image: radial-gradient(#d5cec7 .65px, transparent .65px); background-size: 14px 14px; }
 .editor-preview-toolbar { position: absolute; z-index: 20; top: 13px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; padding: 4px; border: 1px solid #dcd4cd; border-radius: 11px; background: rgba(255,255,255,.94); box-shadow: 0 7px 22px rgba(39,34,30,.09); backdrop-filter: blur(12px); }
@@ -1447,17 +1454,17 @@ button:disabled { cursor: not-allowed; opacity: .38; }
   .admin-sort-field, .admin-template-status { grid-column: 2; }
   .admin-template-actions { grid-column: 1 / -1; justify-content: flex-end; }
 }
-.rsvp-public-form h2 { margin: -8px 0 8px; font: 500 clamp(31px, 8cqw, 48px) "Cormorant Garamond", serif; text-align: center; line-height: 1.08; }
+.rsvp-public-form h2 { margin: -8px 0 8px; font: 500 var(--rsvp-title-size, clamp(31px, 8cqw, 48px)) var(--rsvp-font, "Cormorant Garamond", serif); text-align: center; line-height: 1.08; }
 .rsvp-public-form > .eyebrow { color: var(--rsvp-label, #5d514a); }
-.rsvp-public-form > p { margin: 0; text-align: center; color: var(--rsvp-text, #7b6e66); opacity: .78; font: 13px/1.6 Lora, serif; }
-.rsvp-public-field { display: grid; gap: 7px; color: var(--rsvp-label, #5d514a); font: 600 10px Montserrat, sans-serif; letter-spacing: .03em; }
+.rsvp-public-form > p { margin: 0; text-align: center; color: var(--rsvp-text, #7b6e66); opacity: .78; font: var(--rsvp-field-size, 13px)/1.6 var(--rsvp-font, Lora, serif); }
+.rsvp-public-field { display: grid; gap: 7px; color: var(--rsvp-label, #5d514a); font: 600 var(--rsvp-label-size, 10px) var(--rsvp-font, Montserrat, sans-serif); letter-spacing: .03em; }
 .rsvp-public-field b { color: var(--rsvp-selection, #9f604f); }
-.rsvp-public-field > input, .rsvp-public-field > textarea, .rsvp-public-field > select { width: 100%; border: 1px solid var(--rsvp-field-border, #d9cec6); border-radius: 8px; padding: 11px; background: var(--rsvp-field-background, rgba(255,255,255,.78)); color: var(--rsvp-field-text, #443c37); font: 13px Lora, serif; outline: none; }
+.rsvp-public-field > input, .rsvp-public-field > textarea, .rsvp-public-field > select { width: 100%; border: 1px solid var(--rsvp-field-border, #d9cec6); border-radius: 8px; padding: 11px; background: var(--rsvp-field-background, rgba(255,255,255,.78)); color: var(--rsvp-field-text, #443c37); font: var(--rsvp-field-size, 13px) var(--rsvp-font, Lora, serif); outline: none; }
 .rsvp-public-field > input:focus, .rsvp-public-field > textarea:focus, .rsvp-public-field > select:focus { border-color: var(--rsvp-selection, #9f604f); box-shadow: 0 0 0 2px color-mix(in srgb, var(--rsvp-selection, #9f604f), transparent 78%); }
 .rsvp-choice-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.rsvp-choice-row label { padding: 8px 10px; border: 1px solid var(--rsvp-field-border, #d9cec6); border-radius: 8px; background: var(--rsvp-field-background, rgba(255,255,255,.7)); color: var(--rsvp-field-text, #443c37); font-size: 10px; }
+.rsvp-choice-row label { padding: 8px 10px; border: 1px solid var(--rsvp-field-border, #d9cec6); border-radius: 8px; background: var(--rsvp-field-background, rgba(255,255,255,.7)); color: var(--rsvp-field-text, #443c37); font-size: var(--rsvp-field-size, 10px); }
 .rsvp-choice-row input { accent-color: var(--rsvp-selection, #9f604f); }
-.rsvp-public-form > button { min-height: 44px; border: 0; border-radius: 9px; background: var(--rsvp-button-background, #795746); color: var(--rsvp-button-text, #fff); font: 700 10px Montserrat, sans-serif; letter-spacing: .08em; text-transform: uppercase; transition: background .18s ease; }
+.rsvp-public-form > button { min-height: 44px; border: 0; border-radius: 9px; background: var(--rsvp-button-background, #795746); color: var(--rsvp-button-text, #fff); font: 700 10px var(--rsvp-font, Montserrat, sans-serif); letter-spacing: .08em; text-transform: uppercase; transition: background .18s ease; }
 .rsvp-public-form > button:hover:not(:disabled) { background: var(--rsvp-button-hover, #684737); }
 .rsvp-public-form .form-error { color: var(--rsvp-error, #9b4f4a); }
 .rsvp-honeypot { position: absolute !important; left: -10000px !important; opacity: 0 !important; }

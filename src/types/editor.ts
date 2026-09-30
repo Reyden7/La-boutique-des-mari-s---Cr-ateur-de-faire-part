@@ -116,7 +116,7 @@ export interface BaseElement {
   id: string;
   type: ElementType;
   /** Parent section in the logical document. Coordinates remain document-based. */
-  sectionId?: string;
+  sectionId?: string | null;
   name: string;
   x: number;
   y: number;
@@ -420,11 +420,18 @@ export interface RsvpFormStyle {
   errorColor: string;
 }
 
+export interface RsvpFormTypography {
+  fontFamily?: string;
+  titleFontSize?: number;
+  labelFontSize?: number;
+  fieldFontSize?: number;
+}
+
 export interface RsvpFormConfig {
   enabled: boolean;
   purchased: boolean;
   /** Optional parent section in the editor; commercial entitlement remains independent. */
-  sectionId?: string;
+  sectionId?: string | null;
   /** The RSVP block is positionable in the editor, so its geometry can be locked too. */
   locked?: boolean;
   title: string;
@@ -439,6 +446,7 @@ export interface RsvpFormConfig {
   /** Tablet and desktop reuse the same responsive override model as canvas elements. */
   responsive?: ResponsiveLayouts;
   style?: RsvpFormStyle;
+  typography?: RsvpFormTypography;
 }
 
 export type OpeningAnimationType = "none" | "envelope" | "curtains" | "doors" | "scroll" | "book" | "veil" | "floral-gates";

@@ -2,6 +2,7 @@ import { useMemo, useState, type CSSProperties } from "react";
 import type { RsvpField, RsvpFormConfig } from "../../types/editor";
 import { submitRsvpResponse } from "../../services/rsvpRepository";
 import { resolveRsvpStyle } from "../../config/rsvpStyle";
+import { PREVIEW_DEVICES, type PreviewDevice } from "../../config/previewDevices";
 
 export type RsvpRenderMode = "preview" | "public";
 
@@ -23,7 +24,7 @@ function RsvpInput({ field, value, onChange }: { field: RsvpField; value: unknow
   return <input {...common} type="text" value={String(value ?? "")} onChange={(event) => onChange(event.target.value)} />;
 }
 
-export function RsvpFormRenderer({ config, publicId, mode }: { config: RsvpFormConfig; publicId?: string; mode: RsvpRenderMode }) {
+export function RsvpFormRenderer({ config, publicId, mode, device }: { config: RsvpFormConfig; publicId?: string; mode: RsvpRenderMode; device: PreviewDevice }) {
   const startedAt = useMemo(() => Date.now(), []);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
@@ -41,6 +42,10 @@ export function RsvpFormRenderer({ config, publicId, mode }: { config: RsvpFormC
     "--rsvp-button-hover": style.buttonHoverColor,
     "--rsvp-selection": style.selectionColor,
     "--rsvp-error": style.errorColor,
+    ...(config.typography?.fontFamily ? { "--rsvp-font": `"${config.typography.fontFamily.replaceAll('"', '\\"')}"` } : {}),
+    ...(config.typography?.titleFontSize ? { "--rsvp-title-size": `${config.typography.titleFontSize / PREVIEW_DEVICES[device].width * 100}cqw` } : {}),
+    ...(config.typography?.labelFontSize ? { "--rsvp-label-size": `${config.typography.labelFontSize / PREVIEW_DEVICES[device].width * 100}cqw` } : {}),
+    ...(config.typography?.fieldFontSize ? { "--rsvp-field-size": `${config.typography.fieldFontSize / PREVIEW_DEVICES[device].width * 100}cqw` } : {}),
   } as CSSProperties;
 
   const submit = async (event: React.FormEvent) => {

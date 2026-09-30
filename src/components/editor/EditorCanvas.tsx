@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Circle, Group, Image as KonvaImage, Layer, Line, Path, Rect, Stage, Text, Transformer } from "react-konva";
-import type Konva from "konva";
+import Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
 import type { EditorElement, ImageElement, ImageFit, ImageTransformConfig, PageBackground } from "../../types/editor";
 import { useEditorStore } from "../../stores/editorStore";
@@ -39,7 +39,7 @@ import {
 import { isElementLocked, isLockableElement } from "../../utils/elementLocking";
 import { DEFAULT_SCHEDULE_STYLE, resolveScheduleTypography } from "../../config/scheduleStyle";
 import { getImageFrameMetrics, getImageFramePalette, resolveImageFrame } from "../../config/imageFrames";
-import { RSVP_EDITOR_ELEMENT_ID } from "../../features/rsvp/rsvpEditorElement";
+import { RSVP_EDITOR_ELEMENT_ID, getRsvpLayerZIndex } from "../../features/rsvp/rsvpEditorElement";
 import { getImageRenderLayout, resolveImageFit, resolveImageTransform } from "../../utils/imageLayout";
 
 function useLoadedImage(src?: string) {
@@ -335,9 +335,19 @@ export function EditorCanvas() {
   const viewport = PREVIEW_DEVICES[previewDevice];
   const rsvpHeight = getRsvpBlockHeight(project?.rsvp, previewDevice);
   const rsvpStyle = resolveRsvpStyle(project?.rsvp?.style);
+  const rsvpLayerZIndex = getRsvpLayerZIndex(project?.rsvp, page?.elements ?? []);
   const rsvpPositionX = project?.rsvp ? getRsvpPositionX(project.rsvp, previewDevice) : 0;
   const rsvpPositionY = page && project?.rsvp ? getRsvpPositionY(page, project.rsvp, previewDevice) : 0;
   const rsvpWidth = project?.rsvp ? Math.min(viewport.width, getRsvpWidth(project.rsvp, previewDevice)) : viewport.width;
+  const rsvpTextWidth = Math.max(32, rsvpWidth - 88);
+  const rsvpTitleSize = project?.rsvp?.typography?.titleFontSize ?? 34;
+  const rsvpFieldSize = project?.rsvp?.typography?.fieldFontSize ?? 13;
+  const rsvpLabelSize = project?.rsvp?.typography?.labelFontSize ?? 11;
+  const rsvpTitleHeight = Math.max(76, new Konva.Text({ text: project?.rsvp?.title ?? "", width: rsvpTextWidth, fontFamily: project?.rsvp?.typography?.fontFamily ?? "Cormorant Garamond", fontSize: rsvpTitleSize, lineHeight: 1.05 }).height());
+  const rsvpDescriptionY = 58 + rsvpTitleHeight + 12;
+  const rsvpDescriptionHeight = project?.rsvp?.description ? Math.max(44, new Konva.Text({ text: project.rsvp.description, width: rsvpTextWidth, fontFamily: project.rsvp.typography?.fontFamily ?? "Lora", fontSize: rsvpFieldSize, lineHeight: 1.5 }).height()) : 0;
+  const rsvpFieldsY = project?.rsvp?.description ? rsvpDescriptionY + rsvpDescriptionHeight + 15 : 58 + rsvpTitleHeight + 71;
+  const rsvpFieldStep = Math.max(82, rsvpLabelSize * 1.4 + 66);
   const documentHeight = page ? getDocumentHeight(page, previewDevice, project?.rsvp) : viewport.height;
   const rsvpSelected = Boolean(project?.rsvp?.enabled && selectedElementId === RSVP_EDITOR_ELEMENT_ID);
   const rsvpLocked = project?.rsvp?.locked ?? false;
@@ -543,6 +553,17 @@ export function EditorCanvas() {
     return () => { cancelled = true; window.cancelAnimationFrame(frame); };
   }, [fontRevision, previewDevice, sidebarView, project?.id]);
 
+  useEffect(() => {
+    if (isWelcomeEditing || !project?.rsvp?.enabled) return;
+    const node = stageRef.current?.findOne(`#${RSVP_EDITOR_ELEMENT_ID}`);
+    const layer = node?.getLayer();
+    if (!node || !layer) return;
+    const backgroundNodes = 1 + (page?.backgroundSections?.length ?? 0);
+    node.zIndex(backgroundNodes + elements.filter((element) => element.zIndex < rsvpLayerZIndex).length);
+    transformerRef.current?.moveToTop();
+    layer.batchDraw();
+  }, [elements, isWelcomeEditing, page?.backgroundSections?.length, project?.rsvp?.enabled, rsvpLayerZIndex]);
+
   if (!page) return null;
 
   if (isWelcomeEditing && welcomeConfig) {
@@ -676,14 +697,14 @@ export function EditorCanvas() {
               >
                 <Rect width={rsvpWidth} height={rsvpHeight} fill={rsvpStyle.backgroundColor} stroke={rsvpSelected ? rsvpStyle.selectionColor : undefined} strokeWidth={rsvpSelected ? 3 / zoom : 0} />
                 <Text x={44} y={18} width={rsvpWidth - 88} text="↕ GLISSER POUR DÉPLACER" fontFamily="Montserrat" fontSize={9} letterSpacing={1.2} align="center" fill={rsvpStyle.labelColor} opacity={0.7} />
-                <Text x={44} y={58} width={rsvpWidth - 88} height={76} text={project.rsvp.title} fontFamily="Cormorant Garamond" fontSize={34} lineHeight={1.05} align="center" verticalAlign="top" fill={rsvpStyle.textColor} />
-                {project.rsvp.description && <Text x={44} y={146} width={rsvpWidth - 88} height={44} text={project.rsvp.description} fontFamily="Lora" fontSize={13} lineHeight={1.5} align="center" verticalAlign="top" fill={rsvpStyle.textColor} opacity={0.8} />}
-                {project.rsvp.fields.map((field, index) => <Group key={field.id} y={205 + index * 82}>
-                  <Text x={44} width={rsvpWidth - 88} text={`${field.label}${field.required ? " *" : ""}`} fontFamily="Montserrat" fontSize={11} fill={rsvpStyle.labelColor} />
+                <Text x={44} y={58} width={rsvpTextWidth} height={rsvpTitleHeight} text={project.rsvp.title} fontFamily={project.rsvp.typography?.fontFamily ?? "Cormorant Garamond"} fontSize={rsvpTitleSize} lineHeight={1.05} align="center" verticalAlign="top" fill={rsvpStyle.textColor} />
+                {project.rsvp.description && <Text x={44} y={rsvpDescriptionY} width={rsvpTextWidth} height={rsvpDescriptionHeight} text={project.rsvp.description} fontFamily={project.rsvp.typography?.fontFamily ?? "Lora"} fontSize={rsvpFieldSize} lineHeight={1.5} align="center" verticalAlign="top" fill={rsvpStyle.textColor} opacity={0.8} />}
+                {project.rsvp.fields.map((field, index) => <Group key={field.id} y={rsvpFieldsY + index * rsvpFieldStep}>
+                  <Text x={44} width={rsvpTextWidth} text={`${field.label}${field.required ? " *" : ""}`} fontFamily={project.rsvp?.typography?.fontFamily ?? "Montserrat"} fontSize={rsvpLabelSize} fill={rsvpStyle.labelColor} />
                   <Rect x={44} y={24} width={rsvpWidth - 88} height={42} cornerRadius={8} fill={rsvpStyle.fieldBackgroundColor} stroke={rsvpStyle.fieldBorderColor} />
                 </Group>)}
                 <Rect x={44} y={rsvpHeight - 86} width={rsvpWidth - 88} height={44} cornerRadius={9} fill={rsvpStyle.buttonBackgroundColor} />
-                <Text x={44} y={rsvpHeight - 72} width={rsvpWidth - 88} text={project.rsvp.submitLabel.toUpperCase()} fontFamily="Montserrat" fontSize={10} fontStyle="bold" letterSpacing={1} align="center" fill={rsvpStyle.buttonTextColor} />
+                <Text x={44} y={rsvpHeight - 72} width={rsvpWidth - 88} text={project.rsvp.submitLabel.toUpperCase()} fontFamily={project.rsvp.typography?.fontFamily ?? "Montserrat"} fontSize={10} fontStyle="bold" letterSpacing={1} align="center" fill={rsvpStyle.buttonTextColor} />
               </Group>}
             </Layer>
             <Layer ref={guideLayerRef} listening={false} />

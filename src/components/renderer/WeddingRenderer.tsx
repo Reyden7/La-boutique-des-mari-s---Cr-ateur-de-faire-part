@@ -7,6 +7,7 @@ import { getElementLayout, getElementRenderBox, type ResolvedElementLayout } fro
 import { getDocumentHeight, getRsvpBlockHeight, getRsvpPositionX, getRsvpPositionY, getRsvpWidth } from "../../utils/documentLayout";
 import { ProjectFontLoader } from "../../features/fonts/ProjectFontLoader";
 import { RsvpFormRenderer, shouldRenderRsvp, type RsvpRenderMode } from "../../features/rsvp/RsvpFormRenderer";
+import { getRsvpLayerZIndex } from "../../features/rsvp/rsvpEditorElement";
 import { DecorativeHeartSvg } from "../../features/hearts/DecorativeHeartSvg";
 import { RichElementRenderer } from "../../features/elements/RichElementRenderer";
 import { ImageFrameRenderer } from "../../features/images/ImageFrameRenderer";
@@ -65,11 +66,12 @@ export function RenderElement({ element, device, documentHeight }: { element: Ed
   return <motion.div {...motionConfig} style={{ ...style, background: element.shape === "line" ? element.stroke : element.fill, border: element.shape === "line" ? "none" : `${element.strokeWidth}px solid ${element.stroke}`, borderRadius: radius, height: element.shape === "line" ? `${Math.max(1, element.strokeWidth)}px` : style.height }} />;
 }
 
-function RenderPage({ page, device, documentHeight }: { page: WeddingPage; device: PreviewDevice; documentHeight: number }) {
+function RenderPage({ page, device, documentHeight, rsvp }: { page: WeddingPage; device: PreviewDevice; documentHeight: number; rsvp?: React.ReactNode }) {
   return (
     <motion.section className="render-page" style={backgroundStyle(page.background)} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.45 }}>
       {(page.backgroundSections ?? []).map((section) => <div key={section.id} className="render-background-section" style={{ ...backgroundStyle(section.background), top: `${section.y / documentHeight * 100}%`, height: `${section.height / documentHeight * 100}%` }} />)}
       {[...page.elements].sort((a, b) => a.zIndex - b.zIndex).map((element) => <RenderElement key={element.id} element={element} device={device} documentHeight={documentHeight} />)}
+      {rsvp}
     </motion.section>
   );
 }
@@ -92,8 +94,7 @@ export function WeddingRenderer({ project, device: forcedDevice, mode = "public"
     <div className={`renderer-wrap renderer-device-${device}`}>
       <ProjectFontLoader project={project} />
       <div className="renderer-document" style={rendererStyle}>
-        {page && <RenderPage key={`${page.id}-${device}`} page={page} device={device} documentHeight={documentHeight} />}
-        {visibleRsvp && <div className="render-rsvp-layer" style={{ left: `${rsvpPositionX / viewport.width * 100}%`, width: `${rsvpWidth / viewport.width * 100}%`, top: `${rsvpPositionY / documentHeight * 100}%`, height: `${rsvpHeight / documentHeight * 100}%` }}><RsvpFormRenderer config={visibleRsvp} publicId={project.publicId} mode={mode} /></div>}
+        {page && <RenderPage key={`${page.id}-${device}`} page={page} device={device} documentHeight={documentHeight} rsvp={visibleRsvp && <div className="render-rsvp-layer" style={{ left: `${rsvpPositionX / viewport.width * 100}%`, width: `${rsvpWidth / viewport.width * 100}%`, top: `${rsvpPositionY / documentHeight * 100}%`, height: `${rsvpHeight / documentHeight * 100}%`, zIndex: getRsvpLayerZIndex(visibleRsvp, page.elements) }}><RsvpFormRenderer config={visibleRsvp} publicId={project.publicId} mode={mode} device={device} /></div>} />}
       </div>
     </div>
   );
