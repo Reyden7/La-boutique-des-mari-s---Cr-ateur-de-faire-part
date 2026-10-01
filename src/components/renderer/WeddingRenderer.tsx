@@ -1,9 +1,8 @@
-import { motion } from "framer-motion";
 import { type CSSProperties } from "react";
 import type { EditorElement, PageBackground, WeddingPage, WeddingProject } from "../../types/editor";
 import { PREVIEW_DEVICES, type PreviewDevice } from "../../config/previewDevices";
 import { useResponsiveDevice } from "../../hooks/useResponsiveDevice";
-import { getElementLayout, getElementRenderBox, type ResolvedElementLayout } from "../../utils/responsiveLayout";
+import { getElementLayout, getElementRenderBox } from "../../utils/responsiveLayout";
 import { getDocumentHeight, getRsvpBlockHeight, getRsvpPositionX, getRsvpPositionY, getRsvpWidth } from "../../utils/documentLayout";
 import { ProjectFontLoader } from "../../features/fonts/ProjectFontLoader";
 import { RsvpFormRenderer, shouldRenderRsvp, type RsvpRenderMode } from "../../features/rsvp/RsvpFormRenderer";
@@ -14,6 +13,8 @@ import { ImageFrameRenderer } from "../../features/images/ImageFrameRenderer";
 import { ImageContentRenderer } from "../../features/images/ImageContentRenderer";
 import { resolveImageFrame } from "../../config/imageFrames";
 import { resolveImageFit, resolveImageTransform } from "../../utils/imageLayout";
+import { AnimatedElement } from "./AnimatedElement";
+import { getSectionRenderGroups } from "../../utils/sectionRenderGroups";
 
 const backgroundStyle = (background: PageBackground): CSSProperties => {
   if (background.type === "image") return { backgroundImage: `url(${background.imageUrl})`, backgroundSize: "cover", backgroundPosition: "center" };
@@ -26,57 +27,45 @@ const backgroundStyle = (background: PageBackground): CSSProperties => {
   return { backgroundColor: background.color ?? "#fffdf9" };
 };
 
-const motionProps = (element: EditorElement, layout: ResolvedElementLayout) => {
-  const animation = element.animation;
-  const transition = { duration: animation?.duration ?? 0.8, delay: animation?.delay ?? 0 };
-  switch (animation?.type) {
-    case "fade": return { initial: { opacity: 0 }, animate: { opacity: element.opacity }, transition };
-    case "slide-left": return { initial: { opacity: 0, x: 42 }, animate: { opacity: element.opacity, x: 0 }, transition };
-    case "slide-right": return { initial: { opacity: 0, x: -42 }, animate: { opacity: element.opacity, x: 0 }, transition };
-    case "slide-up": return { initial: { opacity: 0, y: 42 }, animate: { opacity: element.opacity, y: 0 }, transition };
-    case "slide-down": return { initial: { opacity: 0, y: -42 }, animate: { opacity: element.opacity, y: 0 }, transition };
-    case "zoom": return { initial: { opacity: 0, scale: 0.72 }, animate: { opacity: element.opacity, scale: 1 }, transition };
-    case "rotate": return { initial: { opacity: 0, rotate: layout.rotation - 18 }, animate: { opacity: element.opacity, rotate: layout.rotation }, transition };
-    default: return { initial: false as const, animate: { opacity: element.opacity }, transition: { duration: 0 } };
-  }
-};
-
-export function RenderElement({ element, device, documentHeight }: { element: EditorElement; device: PreviewDevice; documentHeight: number }) {
+export function RenderElement({ element, device, documentHeight, playAnimation = true, sectionChildren = [], sectionExtra, origin }: { element: EditorElement; device: PreviewDevice; documentHeight: number; playAnimation?: boolean; sectionChildren?: EditorElement[]; sectionExtra?: React.ReactNode; origin?: { x: number; y: number; width: number; height: number } }) {
   const layout = getElementLayout(element, device);
   const viewport = PREVIEW_DEVICES[device];
-  const renderBox = getElementRenderBox(layout, viewport.width, documentHeight);
+  const renderBox = getElementRenderBox({ ...layout, x: layout.x - (origin?.x ?? 0), y: layout.y - (origin?.y ?? 0) }, origin?.width ?? viewport.width, origin?.height ?? documentHeight);
   const style: CSSProperties = {
-    position: "absolute", ...renderBox, opacity: element.opacity, zIndex: element.zIndex,
+    position: "absolute", left: renderBox.left, top: renderBox.top, width: renderBox.width, height: renderBox.height, zIndex: element.zIndex,
     display: element.visible ? "flex" : "none", alignItems: "center",
   };
-  const motionConfig = motionProps(element, layout);
-  if (element.type === "text") return <motion.div {...motionConfig} style={{ ...style, color: element.color, fontFamily: element.fontFamily, fontSize: `${(layout.fontSize ?? element.fontSize) / viewport.width * 100}cqw`, fontWeight: element.fontWeight, fontStyle: element.italic ? "italic" : "normal", textDecoration: element.underline ? "underline" : "none", textAlign: element.textAlign, lineHeight: element.lineHeight, letterSpacing: element.letterSpacing, whiteSpace: "pre-wrap", justifyContent: element.textAlign === "center" ? "center" : element.textAlign === "right" ? "flex-end" : "flex-start" }}>{element.text}</motion.div>;
+  const overlayChildren = element.type === "section" ? <>{[...sectionChildren].sort((a, b) => a.zIndex - b.zIndex).map((child) => <RenderElement key={child.id} element={child} device={device} documentHeight={documentHeight} playAnimation={playAnimation} origin={{ x: layout.x, y: layout.y, width: layout.width, height: layout.height }} />)}{sectionExtra}</> : undefined;
+  const wrap = (content: React.ReactNode, className?: string) => <AnimatedElement animation={element.animation} opacity={element.opacity ?? 1} rotation={layout.rotation} style={style} className={className} overlayChildren={overlayChildren} play={playAnimation}>{content}</AnimatedElement>;
+  if (element.type === "text") return wrap(<div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", color: element.color, fontFamily: element.fontFamily, fontSize: `${(layout.fontSize ?? element.fontSize) / viewport.width * 100}cqw`, fontWeight: element.fontWeight, fontStyle: element.italic ? "italic" : "normal", textDecoration: element.underline ? "underline" : "none", textAlign: element.textAlign, lineHeight: element.lineHeight, letterSpacing: element.letterSpacing, whiteSpace: "pre-wrap", justifyContent: element.textAlign === "center" ? "center" : element.textAlign === "right" ? "flex-end" : "flex-start" }}>{element.text}</div>);
   if (element.type === "image") {
     const frame = resolveImageFrame(element.imageStyle?.frame);
     const fit = resolveImageFit(element.fit);
-    if (!frame.enabled) return <motion.div {...motionConfig} className="render-image-frame" style={style}>
+    if (!frame.enabled) return wrap(
       <ImageContentRenderer src={element.src} alt={element.alt} fit={fit} transform={resolveImageTransform(element, device)} boxWidth={layout.width} boxHeight={layout.height} />
-    </motion.div>;
-    return <motion.div {...motionConfig} className="render-image-frame" style={style}><ImageFrameRenderer element={element} device={device} layoutWidth={layout.width} layoutHeight={layout.height} /></motion.div>;
+    , "render-image-frame");
+    return wrap(<ImageFrameRenderer element={element} device={device} layoutWidth={layout.width} layoutHeight={layout.height} />, "render-image-frame");
   }
-  if (element.type === "icon" && element.heartStyle) return <motion.div {...motionConfig} style={{ ...style, color: element.color, justifyContent: "center" }}><DecorativeHeartSvg variant={element.heartStyle} style={{ width: "100%", height: "100%" }} /></motion.div>;
-  if (element.type === "icon") return <motion.div {...motionConfig} style={{ ...style, color: element.color, fontSize: `${element.fontSize / viewport.width * 100}cqw`, justifyContent: "center" }}>{element.icon}</motion.div>;
-  if (element.type === "scratch" || element.type === "carousel" || element.type === "location" || element.type === "schedule" || element.type === "button" || element.type === "section") return <motion.div {...motionConfig} className={`rich-render-element rich-render-${element.type}`} style={style}><RichElementRenderer element={element} device={device} /></motion.div>;
+  if (element.type === "icon" && element.heartStyle) return wrap(<div style={{ width: "100%", height: "100%", color: element.color, display: "flex", justifyContent: "center" }}><DecorativeHeartSvg variant={element.heartStyle} style={{ width: "100%", height: "100%" }} /></div>);
+  if (element.type === "icon") return wrap(<div style={{ width: "100%", height: "100%", color: element.color, fontSize: `${element.fontSize / viewport.width * 100}cqw`, display: "flex", justifyContent: "center", alignItems: "center" }}>{element.icon}</div>);
+  if (element.type === "scratch" || element.type === "carousel" || element.type === "location" || element.type === "schedule" || element.type === "button" || element.type === "section") return wrap(<RichElementRenderer element={element} device={device} />, `rich-render-element rich-render-${element.type}`);
   const radius = element.shape === "circle" ? "50%" : element.shape === "rounded-rectangle" ? element.cornerRadius : 0;
-  return <motion.div {...motionConfig} style={{ ...style, background: element.shape === "line" ? element.stroke : element.fill, border: element.shape === "line" ? "none" : `${element.strokeWidth}px solid ${element.stroke}`, borderRadius: radius, height: element.shape === "line" ? `${Math.max(1, element.strokeWidth)}px` : style.height }} />;
+  return wrap(<div style={{ width: "100%", height: element.shape === "line" ? `${Math.max(1, element.strokeWidth)}px` : "100%", background: element.shape === "line" ? element.stroke : element.fill, border: element.shape === "line" ? "none" : `${element.strokeWidth}px solid ${element.stroke}`, borderRadius: radius }} />);
 }
 
-function RenderPage({ page, device, documentHeight, rsvp }: { page: WeddingPage; device: PreviewDevice; documentHeight: number; rsvp?: React.ReactNode }) {
+function RenderPage({ page, device, documentHeight, renderRsvp, rsvpSectionId, playAnimations }: { page: WeddingPage; device: PreviewDevice; documentHeight: number; renderRsvp?: (origin?: { x: number; y: number; width: number; height: number }) => React.ReactNode; rsvpSectionId?: string | null; playAnimations: boolean }) {
+  const { roots, childrenBySection } = getSectionRenderGroups(page.elements);
+  const rsvpSection = roots.find((element) => element.type === "section" && element.id === rsvpSectionId);
   return (
-    <motion.section className="render-page" style={backgroundStyle(page.background)} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.45 }}>
+    <section className="render-page" style={backgroundStyle(page.background)}>
       {(page.backgroundSections ?? []).map((section) => <div key={section.id} className="render-background-section" style={{ ...backgroundStyle(section.background), top: `${section.y / documentHeight * 100}%`, height: `${section.height / documentHeight * 100}%` }} />)}
-      {[...page.elements].sort((a, b) => a.zIndex - b.zIndex).map((element) => <RenderElement key={element.id} element={element} device={device} documentHeight={documentHeight} />)}
-      {rsvp}
-    </motion.section>
+      {[...roots].sort((a, b) => a.zIndex - b.zIndex).map((element) => <RenderElement key={element.id} element={element} device={device} documentHeight={documentHeight} playAnimation={playAnimations} sectionChildren={childrenBySection.get(element.id)} sectionExtra={element.id === rsvpSection?.id ? renderRsvp?.(getElementLayout(element, device)) : undefined} />)}
+      {!rsvpSection && renderRsvp?.()}
+    </section>
   );
 }
 
-export function WeddingRenderer({ project, device: forcedDevice, mode = "public" }: { project: WeddingProject; device?: PreviewDevice; mode?: RsvpRenderMode }) {
+export function WeddingRenderer({ project, device: forcedDevice, mode = "public", playAnimations = true }: { project: WeddingProject; device?: PreviewDevice; mode?: RsvpRenderMode; playAnimations?: boolean }) {
   const device = useResponsiveDevice(forcedDevice);
   const viewport = PREVIEW_DEVICES[device];
   const page = project.pages[0];
@@ -90,11 +79,12 @@ export function WeddingRenderer({ project, device: forcedDevice, mode = "public"
     "--renderer-max-width": `${viewport.width}px`,
     "--renderer-document-ratio": documentHeight / viewport.width,
   } as CSSProperties;
+  const renderRsvp = visibleRsvp ? (origin?: { x: number; y: number; width: number; height: number }) => <div className="render-rsvp-layer" style={{ left: `${(rsvpPositionX - (origin?.x ?? 0)) / (origin?.width ?? viewport.width) * 100}%`, width: `${rsvpWidth / (origin?.width ?? viewport.width) * 100}%`, top: `${(rsvpPositionY - (origin?.y ?? 0)) / (origin?.height ?? documentHeight) * 100}%`, height: `${rsvpHeight / (origin?.height ?? documentHeight) * 100}%`, zIndex: getRsvpLayerZIndex(visibleRsvp, page?.elements ?? []) }}><AnimatedElement animation={visibleRsvp.animation} opacity={1} style={{ width: "100%", height: "100%" }} play={playAnimations}><RsvpFormRenderer config={visibleRsvp} publicId={project.publicId} mode={mode} device={device} /></AnimatedElement></div> : undefined;
   return (
     <div className={`renderer-wrap renderer-device-${device}`}>
       <ProjectFontLoader project={project} />
       <div className="renderer-document" style={rendererStyle}>
-        {page && <RenderPage key={`${page.id}-${device}`} page={page} device={device} documentHeight={documentHeight} rsvp={visibleRsvp && <div className="render-rsvp-layer" style={{ left: `${rsvpPositionX / viewport.width * 100}%`, width: `${rsvpWidth / viewport.width * 100}%`, top: `${rsvpPositionY / documentHeight * 100}%`, height: `${rsvpHeight / documentHeight * 100}%`, zIndex: getRsvpLayerZIndex(visibleRsvp, page.elements) }}><RsvpFormRenderer config={visibleRsvp} publicId={project.publicId} mode={mode} device={device} /></div>} />}
+        {page && <RenderPage key={`${page.id}-${device}`} page={page} device={device} documentHeight={documentHeight} renderRsvp={renderRsvp} rsvpSectionId={visibleRsvp?.sectionId} playAnimations={playAnimations} />}
       </div>
     </div>
   );

@@ -21,6 +21,8 @@ export function InvitationExperience({ project, device, mode = "public" }: { pro
   const introductionMode = project.introductionMode ?? (welcomePage.enabled ? "welcome" : project.opening.type === "none" ? "none" : "classic");
   const activeDevice = useResponsiveDevice(device);
   const [welcomeVisible, setWelcomeVisible] = useState(introductionMode === "welcome");
+  const [documentAnimationReady, setDocumentAnimationReady] = useState(introductionMode === "none" || (introductionMode === "classic" && project.opening.type === "none"));
+  const welcomeEnteredRef = useRef(false);
   useEffect(() => () => controllerRef.current?.stop(), []);
 
   const start = async () => {
@@ -38,8 +40,15 @@ export function InvitationExperience({ project, device, mode = "public" }: { pro
     if (controller.isPlaying()) { controller.pause(); setPlaying(false); }
     else { await controller.resume(); setPlaying(true); }
   };
-  const onInteract = () => { if (project.audio.startMode === "opening-interaction") void start(); };
-  const enterWelcome = () => { onInteract(); setWelcomeVisible(false); };
+  const onInteract = () => {
+    if (project.audio.startMode === "opening-interaction") void start();
+  };
+  const enterWelcome = () => {
+    if (welcomeEnteredRef.current) return;
+    welcomeEnteredRef.current = true;
+    onInteract();
+    setWelcomeVisible(false);
+  };
   const couple = project.name.match(/—\s*(.*)/)?.[1] ?? project.name;
 
  return (
@@ -58,6 +67,7 @@ export function InvitationExperience({ project, device, mode = "public" }: { pro
           project={project}
           device={activeDevice}
           mode={mode}
+          playAnimations={documentAnimationReady}
         /> : <OpeningRenderer
         config={
           project.opening
@@ -66,16 +76,18 @@ export function InvitationExperience({ project, device, mode = "public" }: { pro
         onInteract={
           onInteract
         }
+        onComplete={() => setDocumentAnimationReady(true)}
       >
         <WeddingRenderer
           project={project}
           device={activeDevice}
           mode={mode}
+          playAnimations={documentAnimationReady}
         />
       </OpeningRenderer>}
     </div>
 
-    <AnimatePresence>
+    <AnimatePresence onExitComplete={() => { if (introductionMode === "welcome" && welcomeEnteredRef.current) setDocumentAnimationReady(true); }}>
       {introductionMode === "welcome" && welcomeVisible && <WelcomePageRenderer config={welcomePage} device={activeDevice} onEnter={enterWelcome} />}
     </AnimatePresence>
 

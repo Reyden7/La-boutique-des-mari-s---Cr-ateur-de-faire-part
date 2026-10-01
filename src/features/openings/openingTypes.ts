@@ -6,6 +6,7 @@ export interface OpeningAnimationProps {
   children: ReactNode;
   couple: string;
   onInteract?: () => void;
+  onComplete?: () => void;
 }
 
 export interface OpeningAnimationDefinition {

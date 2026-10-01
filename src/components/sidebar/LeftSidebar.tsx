@@ -82,7 +82,7 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
       x: Math.max(20, (PREVIEW_DEVICES.mobile.width - size.width) / 2), y: 250,
       width: size.width, height: size.height, rotation: 0, opacity: 1, zIndex: Date.now(), visible: true,
       locked: false, src, alt: file.name, assetId, fit: "contain",
-      animation: { type: "fade", duration: .8, delay: 0 },
+      animation: { type: "none", duration: .8, delay: 0 },
     });
     if (isSupabaseConfigured && project) {
       try {
@@ -103,7 +103,7 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
       id: uid(), type: "image", name, x: Math.max(20, (PREVIEW_DEVICES.mobile.width - size.width) / 2), y: 250,
       width: size.width, height: size.height, rotation: 0, opacity: 1,
       zIndex: Date.now(), visible: true, locked: false, src, alt: name, assetId, globalAssetId, fit: "contain",
-      animation: { type: "fade", duration: .8, delay: 0 },
+      animation: { type: "none", duration: .8, delay: 0 },
     });
   };
   const importDecoration = async (file?: File) => {

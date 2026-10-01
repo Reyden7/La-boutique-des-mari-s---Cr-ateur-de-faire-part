@@ -26,3 +26,10 @@ test("alpha can be changed independently without losing the base color", () => {
   assert.equal(toHex8("#795746", 1), "#795746ff");
   assert.equal(parseColorWithAlpha("#79574600").alpha, 0);
 });
+
+test("opaque, translucent and transparent RSVP CSS colors keep their intended alpha", () => {
+  assert.equal(parseColorWithAlpha("#000000FF").alpha, 1);
+  assert.equal(parseColorWithAlpha("#FFFFFF").alpha, 1);
+  assert.equal(parseColorWithAlpha("#FF000080").alpha, 128 / 255);
+  assert.equal(parseColorWithAlpha("transparent").alpha, 0);
+});

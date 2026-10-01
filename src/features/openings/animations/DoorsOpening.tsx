@@ -2,7 +2,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { useState } from "react";
 import type { OpeningAnimationProps } from "../openingTypes";
 
-export function DoorsOpening({ children, config, couple, onInteract }: OpeningAnimationProps) {
+export function DoorsOpening({ children, config, couple, onInteract, onComplete }: OpeningAnimationProps) {
   const [opened, setOpened] = useState(false);
   const reduceMotion = useReducedMotion();
   const [primary, accent] = config.colors ?? ["#f4efe7", "#b2905d"];
@@ -13,7 +13,7 @@ export function DoorsOpening({ children, config, couple, onInteract }: OpeningAn
     <motion.button className="doors-scene" onClick={open} aria-label="Ouvrir les portes" animate={opened ? { pointerEvents: "none" } : {}}>
       <motion.div className="door-light" animate={opened ? { opacity: [0, .2, .82, 0] } : { opacity: 0 }} transition={{ duration: duration * .86, delay: duration * .12, times: [0, .2, .72, 1], ease: "easeOut" }} />
       <motion.div className="door-panel door-left" animate={opened ? { rotateY: [0, -2.5, -58, -101], x: [0, 0, -2, -4] } : { rotateY: 0, x: 0 }} transition={{ duration, times: [0, .13, .66, 1], ease: [0.18, .72, .18, 1] }}><i /><span /></motion.div>
-      <motion.div className="door-panel door-right" animate={opened ? { rotateY: [0, 2.5, 58, 101], x: [0, 0, 2, 4] } : { rotateY: 0, x: 0 }} transition={{ duration, times: [0, .13, .66, 1], ease: [0.18, .72, .18, 1] }}><i /><span /></motion.div>
+      <motion.div className="door-panel door-right" animate={opened ? { rotateY: [0, 2.5, 58, 101], x: [0, 0, 2, 4] } : { rotateY: 0, x: 0 }} transition={{ duration, times: [0, .13, .66, 1], ease: [0.18, .72, .18, 1] }} onAnimationComplete={() => { if (opened) onComplete?.(); }}><i /><span /></motion.div>
       <motion.div className="door-intro" animate={opened ? { opacity: 0, scale: .985, y: -5 } : { opacity: 1, scale: 1, y: 0 }} transition={{ duration: duration * .2, ease: "easeOut" }}><span>{couple}</span><small>Vous ouvrent les portes de leur histoire</small><b>Entrer</b></motion.div>
     </motion.button>
   </div>;

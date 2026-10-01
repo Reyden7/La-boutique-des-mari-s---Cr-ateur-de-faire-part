@@ -87,5 +87,5 @@ export const makeDecorativeHeartElement = (style: DecorativeHeartStyle): EditorE
   heartStyle: style,
   color: "#8a5f58",
   fontSize: 54,
-  animation: { type: "zoom", duration: 0.8, delay: 0 },
+  animation: { type: "none", duration: 0.8, delay: 0 },
 });

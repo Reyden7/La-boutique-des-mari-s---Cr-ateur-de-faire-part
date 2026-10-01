@@ -21,7 +21,7 @@ const getPageBottom = (page: WeddingPage, device: PreviewDevice) => {
 const base = (type: ElementType, name: string, y = 420, width = 310, height = 220) => ({
   id: crypto.randomUUID(), type, name, x: 40, y, width, height, rotation: 0,
   opacity: 1, zIndex: Date.now(), visible: true, locked: false,
-  animation: { type: "fade" as const, duration: 0.8, delay: 0 },
+  animation: { type: "none" as const, duration: 0.8, delay: 0 },
 });
 
 export const makeScratchElement = (): EditorElement => ({

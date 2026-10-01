@@ -1353,7 +1353,7 @@ export const makeTextElement =
     underline: false,
 
     animation: {
-      type: "fade",
+      type: "none",
 
       duration: 0.8,
 

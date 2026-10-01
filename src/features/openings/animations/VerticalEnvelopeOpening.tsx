@@ -17,6 +17,7 @@ export function VerticalEnvelopeOpening({
   children,
   config,
   onInteract,
+  onComplete,
 }: OpeningAnimationProps) {
   const [phase, setPhase] = useState<EnvelopePhase>("closed");
   const reduceMotion = useReducedMotion();
@@ -253,6 +254,7 @@ export function VerticalEnvelopeOpening({
                 phase === "revealing"
               ) {
                 setPhase("complete");
+                onComplete?.();
               }
             }}
           >

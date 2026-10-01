@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as R
 import type { WeddingProject } from "../../types/editor";
 import { InvitationExperience } from "../../features/music/InvitationExperience";
 import { PREVIEW_DEVICES, type PreviewDevice } from "../../config/previewDevices";
+import { AnimationViewportProvider } from "../renderer/AnimatedElement";
 
 const INTERACTIVE_SELECTOR = [
   "button", "a", "input", "textarea", "select", "label", "iframe", "audio", "video", "img",
@@ -82,7 +83,7 @@ function PreviewDeviceViewport({ project, device, scale }: { project: WeddingPro
         event.stopPropagation();
       }}
     >
-      <InvitationExperience project={project} device={device} mode="preview" />
+      <AnimationViewportProvider root={viewportRef}><InvitationExperience project={project} device={device} mode="preview" /></AnimationViewportProvider>
     </div>
   );
 }

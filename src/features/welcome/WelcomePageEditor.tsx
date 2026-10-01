@@ -106,7 +106,7 @@ export function WelcomePageEditor({ embedded = false }: { embedded?: boolean }) 
   const addDecoration = () => addElement({
     id: crypto.randomUUID(), type: "icon", name: "Décoration", x: 145, y: 360, width: 100, height: 80,
     rotation: 0, opacity: 1, zIndex: Date.now(), visible: true, locked: false,
-    icon: "❦", color: "#8a5f58", fontSize: 58, animation: { type: "fade", duration: .8, delay: 0 },
+    icon: "❦", color: "#8a5f58", fontSize: 58, animation: { type: "none", duration: .8, delay: 0 },
   });
   const addImage = async (file?: File) => {
     if (!file) return;
@@ -127,7 +127,7 @@ export function WelcomePageEditor({ embedded = false }: { embedded?: boolean }) 
       id: crypto.randomUUID(), type: "image", name: file.name,
       x: Math.max(20, (PREVIEW_DEVICES.mobile.width - size.width) / 2), y: 180,
       width: size.width, height: size.height, rotation: 0, opacity: 1, zIndex: Date.now(), visible: true,
-      locked: false, src, alt: file.name, fit: "contain", animation: { type: "fade", duration: .8, delay: 0 },
+      locked: false, src, alt: file.name, fit: "contain", animation: { type: "none", duration: .8, delay: 0 },
     };
     addElement(element);
   };

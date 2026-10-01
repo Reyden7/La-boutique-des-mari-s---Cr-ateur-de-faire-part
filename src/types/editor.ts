@@ -430,6 +430,7 @@ export interface RsvpFormTypography {
 export interface RsvpFormConfig {
   enabled: boolean;
   purchased: boolean;
+  animation?: AnimationConfig;
   /** Optional parent section in the editor; commercial entitlement remains independent. */
   sectionId?: string | null;
   /** The RSVP block is positionable in the editor, so its geometry can be locked too. */

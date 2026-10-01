@@ -322,6 +322,17 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .zoom-controls .zoom-value { width: 46px; font-size: 10px; border-left: 1px solid #e9e4df; border-right: 1px solid #e9e4df; border-radius: 0; }
 
 .properties-panel { border-left: 1px solid var(--line); padding: 21px 18px 36px; }
+.property-section { margin: 10px 0; border: 1px solid #e4d9cf; border-radius: 11px; background: #fff; }
+.property-section-trigger { width: 100%; min-height: 43px; padding: 10px 13px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 0; background: transparent; color: #57483f; cursor: pointer; font: 600 13px "Montserrat", sans-serif; text-align: left; }
+.property-section-trigger span { min-width: 0; overflow-wrap: anywhere; }
+.property-section-trigger:hover { background: #faf6f2; }
+.property-section-trigger:focus-visible { outline: 2px solid #9d795f; outline-offset: -3px; }
+.property-section-trigger svg { transition: transform 180ms ease; transform: rotate(-90deg); flex: none; }
+.property-section.is-open .property-section-trigger svg { transform: rotate(0); }
+.property-section-content { padding: 4px 13px 14px; }
+.property-section-content[hidden] { display: none; }
+.property-section .responsive-layout-panel { margin: 0; }
+.property-section .rich-properties { margin-top: 0; }
 .properties-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; }
 .properties-heading small { display: block; margin-bottom: 4px; color: #a09790; font-size: 9px; text-transform: uppercase; letter-spacing: .12em; }
 .properties-heading h2 { margin: 0; font: 600 22px "Cormorant Garamond", serif; max-width: 190px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

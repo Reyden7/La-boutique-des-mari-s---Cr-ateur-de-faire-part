@@ -110,7 +110,7 @@ export const resolveWelcomePage = (value?: Partial<WelcomePageConfig>): WelcomeP
       rotation: appearance.rotation, opacity: appearance.opacity, zIndex: index + 1, visible: true, locked: false,
       text: content[key], fontFamily: appearance.fontFamily, fontSize: appearance.fontSize, fontWeight: appearance.fontWeight,
       color: appearance.color, textAlign: appearance.textAlign, lineHeight: appearance.lineHeight, letterSpacing: appearance.letterSpacing,
-      italic: appearance.italic, underline: appearance.underline, animation: { type: "fade", duration: .8, delay: index * .08 },
+      italic: appearance.italic, underline: appearance.underline, animation: { type: "none", duration: .8, delay: 0 },
     };
     base.responsive = Object.fromEntries((["tablet", "desktop"] as const).map((device) => {
       const viewport = PREVIEW_DEVICES[device];
@@ -129,7 +129,7 @@ export const resolveWelcomePage = (value?: Partial<WelcomePageConfig>): WelcomeP
     rotation: buttonAppearance.rotation, opacity: buttonAppearance.opacity, zIndex: 100, visible: true, locked: false,
     backgroundColor: "rgba(255,255,255,0.13)", textColor: buttonAppearance.color, borderColor: buttonAppearance.color, borderWidth: 1, borderRadius: 99, textAlign: "center",
     fontFamily: buttonAppearance.fontFamily, fontSize: buttonAppearance.fontSize, fontWeight: buttonAppearance.fontWeight,
-    animation: { type: "fade", duration: .8, delay: .4 },
+    animation: { type: "none", duration: .8, delay: 0 },
   };
   button.responsive = Object.fromEntries((["tablet", "desktop"] as const).map((device) => {
     const viewport = PREVIEW_DEVICES[device];

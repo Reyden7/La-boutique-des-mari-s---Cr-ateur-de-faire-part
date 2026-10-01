@@ -80,8 +80,8 @@ export function WelcomePageRenderer({
         />
       )}
       {showElements && <>
-        <div className="welcome-elements-layer">{[...contentElements].sort((a, b) => a.zIndex - b.zIndex).map((element) => <RenderElement key={element.id} element={element} device={device} documentHeight={PREVIEW_DEVICES[device].height} />)}</div>
-        <div className="welcome-interaction-layer">{[...interactionElements].sort((a, b) => a.zIndex - b.zIndex).map((element) => <RenderElement key={element.id} element={element} device={device} documentHeight={PREVIEW_DEVICES[device].height} />)}</div>
+        <div className="welcome-elements-layer">{[...contentElements].sort((a, b) => a.zIndex - b.zIndex).map((element) => <RenderElement key={element.id} element={element} device={device} documentHeight={PREVIEW_DEVICES[device].height} playAnimation={interactive} />)}</div>
+        <div className="welcome-interaction-layer">{[...interactionElements].sort((a, b) => a.zIndex - b.zIndex).map((element) => <RenderElement key={element.id} element={element} device={device} documentHeight={PREVIEW_DEVICES[device].height} playAnimation={interactive} />)}</div>
       </>}
     </motion.section>
   );
