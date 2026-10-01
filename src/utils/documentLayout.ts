@@ -1,6 +1,6 @@
-import { PREVIEW_DEVICES, type PreviewDevice } from "../config/previewDevices";
+import { PREVIEW_DEVICES, type PreviewDevice } from "../config/previewDevices.ts";
 import type { BackgroundSection, RsvpField, RsvpFormConfig, WeddingPage } from "../types/editor";
-import { getElementLayout } from "./responsiveLayout";
+import { getElementLayout, isElementVisibleOnDevice } from "./responsiveLayout.ts";
 
 export const DOCUMENT_BOTTOM_MARGIN = 120;
 export const RSVP_BLOCK_MIN_HEIGHT = 620;
@@ -31,7 +31,7 @@ export const getDocumentContentHeight = (
   device: PreviewDevice,
 ) => {
   const contentBottom = page.elements.reduce((maximum, element) => {
-    if (!element.visible) return maximum;
+    if (!isElementVisibleOnDevice(element, page.elements, device)) return maximum;
     const layout = getElementLayout(element, device);
     return Math.max(maximum, layout.y + layout.height);
   }, 0);
@@ -113,6 +113,10 @@ export const setRsvpLayoutForDevice = (
   return { ...config, responsive: { ...config.responsive, [device]: { ...config.responsive?.[device], ...updates } } };
 };
 
+export const setRsvpSectionForDevice = (config: RsvpFormConfig, device: PreviewDevice, sectionId: string | null): RsvpFormConfig => device === "mobile"
+  ? { ...config, sectionId }
+  : { ...config, responsive: { ...config.responsive, [device]: { ...config.responsive?.[device], sectionId } } };
+
 export const setRsvpPositionForDevice = (
   config: RsvpFormConfig,
   device: PreviewDevice,
@@ -135,7 +139,12 @@ export const resetRsvpPositionForDevice = (
 
   if (!config.responsive) return config;
   const responsive = { ...config.responsive };
-  delete responsive[device];
+  const layout = { ...responsive[device] };
+  delete layout.x;
+  delete layout.y;
+  delete layout.width;
+  if (Object.keys(layout).length) responsive[device] = layout;
+  else delete responsive[device];
   const next: RsvpFormConfig = { ...config, responsive };
   if (!responsive.tablet && !responsive.desktop) delete next.responsive;
   return next;

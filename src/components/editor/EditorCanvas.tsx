@@ -9,7 +9,7 @@ import {
   PREVIEW_DEVICES,
   type PreviewDevice,
 } from "../../config/previewDevices";
-import { getElementLayout } from "../../utils/responsiveLayout";
+import { getElementLayout, getElementSectionId, getElementZIndex, isElementVisibleOnDevice } from "../../utils/responsiveLayout";
 import { getDocumentHeight, getRsvpBlockHeight, getRsvpPositionX, getRsvpPositionY, getRsvpWidth, setRsvpLayoutForDevice } from "../../utils/documentLayout";
 import { ProjectFontLoader } from "../../features/fonts/ProjectFontLoader";
 import { useProjectFontRevision } from "../../features/fonts/projectFontRuntime";
@@ -39,7 +39,8 @@ import {
 import { isElementLocked, isLockableElement } from "../../utils/elementLocking";
 import { DEFAULT_SCHEDULE_STYLE, resolveScheduleTypography } from "../../config/scheduleStyle";
 import { getImageFrameMetrics, getImageFramePalette, resolveImageFrame } from "../../config/imageFrames";
-import { RSVP_EDITOR_ELEMENT_ID, getRsvpLayerZIndex } from "../../features/rsvp/rsvpEditorElement";
+import { RSVP_EDITOR_ELEMENT_ID, getRsvpLayerZIndex, getRsvpSectionId, isRsvpVisibleOnDevice } from "../../features/rsvp/rsvpEditorElement";
+import { setRsvpSectionForDevice } from "../../utils/documentLayout";
 import { getImageRenderLayout, resolveImageFit, resolveImageTransform } from "../../utils/imageLayout";
 
 function useLoadedImage(src?: string) {
@@ -154,6 +155,7 @@ function CanvasImageContent({ image, width, height, fit, transform, radius = 0 }
 function CanvasElement({
   element,
   device,
+  visible,
   selected,
   onSelect,
   onElementDragStart,
@@ -162,6 +164,7 @@ function CanvasElement({
 }: {
   element: EditorElement;
   device: PreviewDevice;
+  visible: boolean;
   selected: boolean;
   onSelect: (additive: boolean) => void;
   onElementDragStart: (event: KonvaEventObject<DragEvent>) => void;
@@ -173,7 +176,7 @@ function CanvasElement({
   const isCircle = element.type === "shape" && element.shape === "circle";
   const common = {
     id: element.id, x: layout.x, y: layout.y, width: layout.width, height: layout.height,
-    rotation: layout.rotation, opacity: element.opacity, visible: element.visible,
+    rotation: layout.rotation, opacity: element.opacity, visible,
     draggable: isLockableElement(element) && !isElementLocked(element),
     onClick: (event: KonvaEventObject<MouseEvent>) => { event.cancelBubble = true; onSelect(event.evt.ctrlKey || event.evt.metaKey); },
     onTap: (event: KonvaEventObject<TouchEvent>) => { event.cancelBubble = true; onSelect(false); },
@@ -331,11 +334,14 @@ export function EditorCanvas() {
   const welcomeConfig = project ? resolveWelcomePage(project.welcomePage) : undefined;
   const isWelcomeEditing = sidebarView === "introduction" && project?.introductionMode === "welcome";
   const activeElements = isWelcomeEditing ? welcomeConfig?.elements : page?.elements;
-  const elements = useMemo(() => [...(activeElements ?? [])].sort((a, b) => a.zIndex - b.zIndex), [activeElements]);
+  const elements = useMemo(() => [...(activeElements ?? [])].sort((a, b) => getElementZIndex(a, previewDevice) - getElementZIndex(b, previewDevice)), [activeElements, previewDevice]);
   const viewport = PREVIEW_DEVICES[previewDevice];
   const rsvpHeight = getRsvpBlockHeight(project?.rsvp, previewDevice);
   const rsvpStyle = resolveRsvpStyle(project?.rsvp?.style);
-  const rsvpLayerZIndex = getRsvpLayerZIndex(project?.rsvp, page?.elements ?? []);
+  const rsvpLayerZIndex = getRsvpLayerZIndex(project?.rsvp, page?.elements ?? [], previewDevice);
+  const rsvpParentId = getRsvpSectionId(project?.rsvp, previewDevice);
+  const rsvpParent = elements.find((element) => element.type === "section" && element.id === rsvpParentId);
+  const rsvpVisible = isRsvpVisibleOnDevice(project?.rsvp, previewDevice) && (!rsvpParent || isElementVisibleOnDevice(rsvpParent, elements, previewDevice));
   const rsvpPositionX = project?.rsvp ? getRsvpPositionX(project.rsvp, previewDevice) : 0;
   const rsvpPositionY = page && project?.rsvp ? getRsvpPositionY(page, project.rsvp, previewDevice) : 0;
   const rsvpWidth = project?.rsvp ? Math.min(viewport.width, getRsvpWidth(project.rsvp, previewDevice)) : viewport.width;
@@ -348,8 +354,8 @@ export function EditorCanvas() {
   const rsvpDescriptionHeight = project?.rsvp?.description ? Math.max(44, new Konva.Text({ text: project.rsvp.description, width: rsvpTextWidth, fontFamily: project.rsvp.typography?.fontFamily ?? "Lora", fontSize: rsvpFieldSize, lineHeight: 1.5 }).height()) : 0;
   const rsvpFieldsY = project?.rsvp?.description ? rsvpDescriptionY + rsvpDescriptionHeight + 15 : 58 + rsvpTitleHeight + 71;
   const rsvpFieldStep = Math.max(82, rsvpLabelSize * 1.4 + 66);
-  const documentHeight = page ? getDocumentHeight(page, previewDevice, project?.rsvp) : viewport.height;
-  const rsvpSelected = Boolean(project?.rsvp?.enabled && selectedElementId === RSVP_EDITOR_ELEMENT_ID);
+  const documentHeight = page ? getDocumentHeight(page, previewDevice, rsvpVisible ? project?.rsvp : undefined) : viewport.height;
+  const rsvpSelected = Boolean(rsvpVisible && selectedElementId === RSVP_EDITOR_ELEMENT_ID);
   const rsvpLocked = project?.rsvp?.locked ?? false;
   const rsvpSelectionBounds = rsvpSelected
     ? { x: rsvpPositionX, y: rsvpPositionY, width: rsvpWidth, height: rsvpHeight }
@@ -388,7 +394,7 @@ export function EditorCanvas() {
     ids.forEach((id) => {
       if (elements.find((element) => element.id === id)?.type !== "section") return;
       elements.forEach((element) => {
-        if (element.sectionId === id) expanded.add(element.id);
+        if (getElementSectionId(element, previewDevice) === id) expanded.add(element.id);
       });
     });
     return [...expanded];
@@ -402,7 +408,7 @@ export function EditorCanvas() {
       return selected && !isElementLocked(selected);
     });
     const ids = expandSectionSelection(directIds);
-    if (project?.rsvp?.enabled && project.rsvp.sectionId && directIds.includes(project.rsvp.sectionId)) ids.push(RSVP_EDITOR_ELEMENT_ID);
+    if (rsvpVisible && rsvpParentId && directIds.includes(rsvpParentId)) ids.push(RSVP_EDITOR_ELEMENT_ID);
     const stage = event.target.getStage();
     const nodes = new Map<string, { node: Konva.Node; x: number; y: number }>();
     ids.forEach((id) => {
@@ -413,14 +419,15 @@ export function EditorCanvas() {
     const selectedBounds = element.type === "section"
       ? [getNodeBounds(event.target, stage)]
       : [...nodes.values()].map(({ node }) => getNodeBounds(node, stage));
-    const sameSectionElements = element.type !== "section" && element.sectionId
-      ? elements.filter((candidate) => candidate.sectionId === element.sectionId && !ids.includes(candidate.id) && candidate.visible)
+    const sectionId = getElementSectionId(element, previewDevice);
+    const sameSectionElements = element.type !== "section" && sectionId
+      ? elements.filter((candidate) => getElementSectionId(candidate, previewDevice) === sectionId && !ids.includes(candidate.id) && isElementVisibleOnDevice(candidate, elements, previewDevice))
       : [];
     const candidateElements = element.type === "section"
-      ? elements.filter((candidate) => candidate.type === "section" && !ids.includes(candidate.id) && candidate.visible)
+      ? elements.filter((candidate) => candidate.type === "section" && !ids.includes(candidate.id) && isElementVisibleOnDevice(candidate, elements, previewDevice))
       : sameSectionElements.length > 0
         ? sameSectionElements
-        : elements.filter((candidate) => !ids.includes(candidate.id) && candidate.visible);
+        : elements.filter((candidate) => !ids.includes(candidate.id) && isElementVisibleOnDevice(candidate, elements, previewDevice));
     const candidates = candidateElements.flatMap((candidate) => {
       const node = stage.findOne(`#${candidate.id}`);
       return node ? [{ id: candidate.id, bounds: getNodeBounds(node, stage) }] : [];
@@ -559,7 +566,7 @@ export function EditorCanvas() {
     const layer = node?.getLayer();
     if (!node || !layer) return;
     const backgroundNodes = 1 + (page?.backgroundSections?.length ?? 0);
-    node.zIndex(backgroundNodes + elements.filter((element) => element.zIndex < rsvpLayerZIndex).length);
+    node.zIndex(backgroundNodes + elements.filter((element) => getElementZIndex(element, previewDevice) < rsvpLayerZIndex).length);
     transformerRef.current?.moveToTop();
     layer.batchDraw();
   }, [elements, isWelcomeEditing, page?.backgroundSections?.length, project?.rsvp?.enabled, rsvpLayerZIndex]);
@@ -578,10 +585,10 @@ export function EditorCanvas() {
           <div className="welcome-editor-content-layer">
           <Stage ref={stageRef} width={viewport.width} height={viewport.height} onMouseDown={(event) => { if (event.target === event.target.getStage()) selectElement(null); }}>
             <Layer>
-              {welcomeContentElements.map((element) => <CanvasElement key={element.id} element={element} device={previewDevice} selected={selectedElementIds.includes(element.id)} onSelect={(additive) => { if (!additive && selectedElementIds.includes(element.id)) return; selectElement(element.id, additive); }} onElementDragStart={(event) => handleDragStart(element, event)} onElementDragMove={(event) => handleDragMove(element, event)} onElementDragEnd={handleDragEnd} />)}
+              {welcomeContentElements.map((element) => <CanvasElement key={element.id} element={element} device={previewDevice} visible={getElementLayout(element, previewDevice).visible} selected={selectedElementIds.includes(element.id)} onSelect={(additive) => { if (!additive && selectedElementIds.includes(element.id)) return; selectElement(element.id, additive); }} onElementDragStart={(event) => handleDragStart(element, event)} onElementDragMove={(event) => handleDragMove(element, event)} onElementDragEnd={handleDragEnd} />)}
             </Layer>
             <Layer>
-              {welcomeInteractionElements.map((element) => <CanvasElement key={element.id} element={element} device={previewDevice} selected={selectedElementIds.includes(element.id)} onSelect={(additive) => { if (!additive && selectedElementIds.includes(element.id)) return; selectElement(element.id, additive); }} onElementDragStart={(event) => handleDragStart(element, event)} onElementDragMove={(event) => handleDragMove(element, event)} onElementDragEnd={handleDragEnd} />)}
+              {welcomeInteractionElements.map((element) => <CanvasElement key={element.id} element={element} device={previewDevice} visible={getElementLayout(element, previewDevice).visible} selected={selectedElementIds.includes(element.id)} onSelect={(additive) => { if (!additive && selectedElementIds.includes(element.id)) return; selectElement(element.id, additive); }} onElementDragStart={(event) => handleDragStart(element, event)} onElementDragMove={(event) => handleDragMove(element, event)} onElementDragEnd={handleDragEnd} />)}
             </Layer>
             <Layer ref={guideLayerRef} listening={false} />
             <Layer>
@@ -642,6 +649,7 @@ export function EditorCanvas() {
                   key={element.id}
                   element={element}
                   device={previewDevice}
+                  visible={isElementVisibleOnDevice(element, elements, previewDevice)}
                   selected={selectedElementIds.includes(element.id)}
                   onSelect={(additive) => {
                     if (!additive && selectedElementIds.includes(element.id)) return;
@@ -671,7 +679,7 @@ export function EditorCanvas() {
                 onTransformEnd={syncSelectionControl}
                 boundBoxFunc={(oldBox, newBox) => newBox.width < 12 || newBox.height < 12 ? oldBox : newBox}
               />
-              {project?.rsvp?.enabled && <Group
+              {rsvpVisible && project?.rsvp && <Group
                 id={RSVP_EDITOR_ELEMENT_ID}
                 x={rsvpPositionX}
                 y={rsvpPositionY}
@@ -690,7 +698,7 @@ export function EditorCanvas() {
                     const layout = getElementLayout(candidate, previewDevice);
                     return centerX >= layout.x && centerX <= layout.x + layout.width && centerY >= layout.y && centerY <= layout.y + layout.height;
                   });
-                  updateRsvp({ ...setRsvpLayoutForDevice(project.rsvp!, previewDevice, { x, y, width: rsvpWidth }), sectionId: section?.id });
+                  updateRsvp(setRsvpSectionForDevice(setRsvpLayoutForDevice(project.rsvp!, previewDevice, { x, y, width: rsvpWidth }), previewDevice, section?.id ?? null));
                 }}
                 onMouseEnter={(event) => { event.target.getStage()!.container().style.cursor = "move"; }}
                 onMouseLeave={(event) => { event.target.getStage()!.container().style.cursor = "default"; }}

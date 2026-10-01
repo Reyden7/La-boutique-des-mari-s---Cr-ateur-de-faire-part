@@ -2,11 +2,11 @@ import { type CSSProperties } from "react";
 import type { EditorElement, PageBackground, WeddingPage, WeddingProject } from "../../types/editor";
 import { PREVIEW_DEVICES, type PreviewDevice } from "../../config/previewDevices";
 import { useResponsiveDevice } from "../../hooks/useResponsiveDevice";
-import { getElementLayout, getElementRenderBox } from "../../utils/responsiveLayout";
+import { getElementLayout, getElementRenderBox, getElementZIndex, isElementVisibleOnDevice } from "../../utils/responsiveLayout";
 import { getDocumentHeight, getRsvpBlockHeight, getRsvpPositionX, getRsvpPositionY, getRsvpWidth } from "../../utils/documentLayout";
 import { ProjectFontLoader } from "../../features/fonts/ProjectFontLoader";
 import { RsvpFormRenderer, shouldRenderRsvp, type RsvpRenderMode } from "../../features/rsvp/RsvpFormRenderer";
-import { getRsvpLayerZIndex } from "../../features/rsvp/rsvpEditorElement";
+import { getRsvpLayerZIndex, getRsvpSectionId, isRsvpVisibleOnDevice } from "../../features/rsvp/rsvpEditorElement";
 import { DecorativeHeartSvg } from "../../features/hearts/DecorativeHeartSvg";
 import { RichElementRenderer } from "../../features/elements/RichElementRenderer";
 import { ImageFrameRenderer } from "../../features/images/ImageFrameRenderer";
@@ -32,10 +32,10 @@ export function RenderElement({ element, device, documentHeight, playAnimation =
   const viewport = PREVIEW_DEVICES[device];
   const renderBox = getElementRenderBox({ ...layout, x: layout.x - (origin?.x ?? 0), y: layout.y - (origin?.y ?? 0) }, origin?.width ?? viewport.width, origin?.height ?? documentHeight);
   const style: CSSProperties = {
-    position: "absolute", left: renderBox.left, top: renderBox.top, width: renderBox.width, height: renderBox.height, zIndex: element.zIndex,
-    display: element.visible ? "flex" : "none", alignItems: "center",
+    position: "absolute", left: renderBox.left, top: renderBox.top, width: renderBox.width, height: renderBox.height, zIndex: layout.zIndex,
+    display: layout.visible ? "flex" : "none", alignItems: "center",
   };
-  const overlayChildren = element.type === "section" ? <>{[...sectionChildren].sort((a, b) => a.zIndex - b.zIndex).map((child) => <RenderElement key={child.id} element={child} device={device} documentHeight={documentHeight} playAnimation={playAnimation} origin={{ x: layout.x, y: layout.y, width: layout.width, height: layout.height }} />)}{sectionExtra}</> : undefined;
+  const overlayChildren = element.type === "section" ? <>{[...sectionChildren].sort((a, b) => getElementZIndex(a, device) - getElementZIndex(b, device)).map((child) => <RenderElement key={child.id} element={child} device={device} documentHeight={documentHeight} playAnimation={playAnimation} origin={{ x: layout.x, y: layout.y, width: layout.width, height: layout.height }} />)}{sectionExtra}</> : undefined;
   const wrap = (content: React.ReactNode, className?: string) => <AnimatedElement animation={element.animation} opacity={element.opacity ?? 1} rotation={layout.rotation} style={style} className={className} overlayChildren={overlayChildren} play={playAnimation}>{content}</AnimatedElement>;
   if (element.type === "text") return wrap(<div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", color: element.color, fontFamily: element.fontFamily, fontSize: `${(layout.fontSize ?? element.fontSize) / viewport.width * 100}cqw`, fontWeight: element.fontWeight, fontStyle: element.italic ? "italic" : "normal", textDecoration: element.underline ? "underline" : "none", textAlign: element.textAlign, lineHeight: element.lineHeight, letterSpacing: element.letterSpacing, whiteSpace: "pre-wrap", justifyContent: element.textAlign === "center" ? "center" : element.textAlign === "right" ? "flex-end" : "flex-start" }}>{element.text}</div>);
   if (element.type === "image") {
@@ -54,12 +54,12 @@ export function RenderElement({ element, device, documentHeight, playAnimation =
 }
 
 function RenderPage({ page, device, documentHeight, renderRsvp, rsvpSectionId, playAnimations }: { page: WeddingPage; device: PreviewDevice; documentHeight: number; renderRsvp?: (origin?: { x: number; y: number; width: number; height: number }) => React.ReactNode; rsvpSectionId?: string | null; playAnimations: boolean }) {
-  const { roots, childrenBySection } = getSectionRenderGroups(page.elements);
+  const { roots, childrenBySection } = getSectionRenderGroups(page.elements, device);
   const rsvpSection = roots.find((element) => element.type === "section" && element.id === rsvpSectionId);
   return (
     <section className="render-page" style={backgroundStyle(page.background)}>
       {(page.backgroundSections ?? []).map((section) => <div key={section.id} className="render-background-section" style={{ ...backgroundStyle(section.background), top: `${section.y / documentHeight * 100}%`, height: `${section.height / documentHeight * 100}%` }} />)}
-      {[...roots].sort((a, b) => a.zIndex - b.zIndex).map((element) => <RenderElement key={element.id} element={element} device={device} documentHeight={documentHeight} playAnimation={playAnimations} sectionChildren={childrenBySection.get(element.id)} sectionExtra={element.id === rsvpSection?.id ? renderRsvp?.(getElementLayout(element, device)) : undefined} />)}
+      {[...roots].sort((a, b) => getElementZIndex(a, device) - getElementZIndex(b, device)).map((element) => <RenderElement key={element.id} element={element} device={device} documentHeight={documentHeight} playAnimation={playAnimations} sectionChildren={childrenBySection.get(element.id)} sectionExtra={element.id === rsvpSection?.id ? renderRsvp?.(getElementLayout(element, device)) : undefined} />)}
       {!rsvpSection && renderRsvp?.()}
     </section>
   );
@@ -69,7 +69,9 @@ export function WeddingRenderer({ project, device: forcedDevice, mode = "public"
   const device = useResponsiveDevice(forcedDevice);
   const viewport = PREVIEW_DEVICES[device];
   const page = project.pages[0];
-  const visibleRsvp = shouldRenderRsvp(project.rsvp, mode) ? project.rsvp : undefined;
+  const rsvpParentId = getRsvpSectionId(project.rsvp, device);
+  const rsvpParent = page?.elements.find((element) => element.type === "section" && element.id === rsvpParentId);
+  const visibleRsvp = shouldRenderRsvp(project.rsvp, mode) && isRsvpVisibleOnDevice(project.rsvp, device) && (!rsvpParent || isElementVisibleOnDevice(rsvpParent, page?.elements ?? [], device)) ? project.rsvp : undefined;
   const rsvpHeight = getRsvpBlockHeight(visibleRsvp, device);
   const rsvpPositionX = visibleRsvp ? getRsvpPositionX(visibleRsvp, device) : 0;
   const rsvpPositionY = page && visibleRsvp ? getRsvpPositionY(page, visibleRsvp, device) : 0;
@@ -79,12 +81,12 @@ export function WeddingRenderer({ project, device: forcedDevice, mode = "public"
     "--renderer-max-width": `${viewport.width}px`,
     "--renderer-document-ratio": documentHeight / viewport.width,
   } as CSSProperties;
-  const renderRsvp = visibleRsvp ? (origin?: { x: number; y: number; width: number; height: number }) => <div className="render-rsvp-layer" style={{ left: `${(rsvpPositionX - (origin?.x ?? 0)) / (origin?.width ?? viewport.width) * 100}%`, width: `${rsvpWidth / (origin?.width ?? viewport.width) * 100}%`, top: `${(rsvpPositionY - (origin?.y ?? 0)) / (origin?.height ?? documentHeight) * 100}%`, height: `${rsvpHeight / (origin?.height ?? documentHeight) * 100}%`, zIndex: getRsvpLayerZIndex(visibleRsvp, page?.elements ?? []) }}><AnimatedElement animation={visibleRsvp.animation} opacity={1} style={{ width: "100%", height: "100%" }} play={playAnimations}><RsvpFormRenderer config={visibleRsvp} publicId={project.publicId} mode={mode} device={device} /></AnimatedElement></div> : undefined;
+  const renderRsvp = visibleRsvp ? (origin?: { x: number; y: number; width: number; height: number }) => <div className="render-rsvp-layer" style={{ left: `${(rsvpPositionX - (origin?.x ?? 0)) / (origin?.width ?? viewport.width) * 100}%`, width: `${rsvpWidth / (origin?.width ?? viewport.width) * 100}%`, top: `${(rsvpPositionY - (origin?.y ?? 0)) / (origin?.height ?? documentHeight) * 100}%`, height: `${rsvpHeight / (origin?.height ?? documentHeight) * 100}%`, zIndex: getRsvpLayerZIndex(visibleRsvp, page?.elements ?? [], device) }}><AnimatedElement animation={visibleRsvp.animation} opacity={1} style={{ width: "100%", height: "100%" }} play={playAnimations}><RsvpFormRenderer config={visibleRsvp} publicId={project.publicId} mode={mode} device={device} /></AnimatedElement></div> : undefined;
   return (
     <div className={`renderer-wrap renderer-device-${device}`}>
       <ProjectFontLoader project={project} />
       <div className="renderer-document" style={rendererStyle}>
-        {page && <RenderPage key={`${page.id}-${device}`} page={page} device={device} documentHeight={documentHeight} renderRsvp={renderRsvp} rsvpSectionId={visibleRsvp?.sectionId} playAnimations={playAnimations} />}
+        {page && <RenderPage key={`${page.id}-${device}`} page={page} device={device} documentHeight={documentHeight} renderRsvp={renderRsvp} rsvpSectionId={getRsvpSectionId(visibleRsvp, device)} playAnimations={playAnimations} />}
       </div>
     </div>
   );

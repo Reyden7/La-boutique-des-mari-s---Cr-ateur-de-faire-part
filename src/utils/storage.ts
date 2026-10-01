@@ -5,6 +5,8 @@ import { DEFAULT_RSVP_STYLE, resolveRsvpStyle } from "../config/rsvpStyle";
 import { resolveWelcomePage } from "../features/welcome/welcomeDefaults";
 import { normalizeSectionMembership } from "./sectionLayout";
 import { normalizeElementLocks } from "./elementLocking";
+import { materializeElementLayouts } from "./responsiveLayout";
+import { materializeRsvpComposition } from "../features/rsvp/rsvpEditorElement";
 
 const STORAGE_KEY = "lbm-studio-projects-v1";
 
@@ -30,15 +32,16 @@ export const normalizeProject = (value: unknown): WeddingProject | null => {
   const legacyType: OpeningAnimationType = legacy.openingAnimation === "none" ? "none" : "envelope";
   const pages = migratePagesToScrollableDocument(legacy.pages).map((page) => ({
     ...page,
-    elements: normalizeElementLocks(normalizeSectionMembership(page.elements)),
+    elements: normalizeElementLocks(normalizeSectionMembership(page.elements)).map(materializeElementLayouts),
     background: normalizeBackground(page.background),
     backgroundSections: page.backgroundSections?.map((section) => ({ ...section, background: normalizeBackground(section.background) })),
   }));
   const defaultRsvpConfig = defaultRsvp();
-  const rsvp = legacy.rsvp
+  const rsvp = materializeRsvpComposition(legacy.rsvp
     ? { ...defaultRsvpConfig, ...legacy.rsvp, locked: legacy.rsvp.locked ?? false, style: resolveRsvpStyle(legacy.rsvp.style) }
-    : defaultRsvpConfig;
-  const resolvedWelcomePage = resolveWelcomePage(legacy.welcomePage);
+    : defaultRsvpConfig);
+  const welcome = resolveWelcomePage(legacy.welcomePage);
+  const resolvedWelcomePage = { ...welcome, elements: welcome.elements.map(materializeElementLayouts) };
   const introductionMode: IntroductionMode = legacy.introductionMode
     ?? (resolvedWelcomePage.enabled ? "welcome" : (legacy.opening?.type ?? legacyType) !== "none" ? "classic" : "none");
   return {

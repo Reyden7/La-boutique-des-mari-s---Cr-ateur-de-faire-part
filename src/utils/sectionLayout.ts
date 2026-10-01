@@ -1,7 +1,7 @@
 import type { PreviewDevice } from "../config/previewDevices";
 import type { EditorElement, SectionElement } from "../types/editor";
-import { getElementLayout, setElementLayoutForDevice } from "./responsiveLayout";
-import { isElementLocked } from "./elementLocking";
+import { getElementLayout, getElementSectionId, isElementVisibleOnDevice, setElementLayoutForDevice } from "./responsiveLayout.ts";
+import { isElementLocked } from "./elementLocking.ts";
 
 export const SECTION_INSERT_GAP = 24;
 export const SECTION_PADDING_TOP = 30;
@@ -25,12 +25,12 @@ export const findContainingSectionId = (
   element: EditorElement,
   device: PreviewDevice,
 ) => elements
-  .filter((candidate) => candidate.type === "section" && candidate.id !== element.id && isInside(element, candidate, device))
+  .filter((candidate) => candidate.type === "section" && candidate.id !== element.id && isElementVisibleOnDevice(candidate, elements, device) && isInside(element, candidate, device))
   .sort((left, right) => {
     const leftLayout = getElementLayout(left, device);
     const rightLayout = getElementLayout(right, device);
     const areaDifference = leftLayout.width * leftLayout.height - rightLayout.width * rightLayout.height;
-    return areaDifference || right.zIndex - left.zIndex;
+    return areaDifference || getElementLayout(right, device).zIndex - getElementLayout(left, device).zIndex;
   })[0]?.id;
 
 /** Adds explicit ownership to projects created before sections had parent links. */
@@ -52,9 +52,10 @@ export const normalizeSectionMembership = (elements: EditorElement[]) => {
 export const getSelectedTargetSection = (
   elements: EditorElement[],
   selectedElementIds: string[],
+  device: PreviewDevice = "mobile",
 ) => {
   const selectedSections = elements.filter(
-    (element): element is SectionElement => element.type === "section" && selectedElementIds.includes(element.id),
+    (element): element is SectionElement => element.type === "section" && selectedElementIds.includes(element.id) && isElementVisibleOnDevice(element, elements, device),
   );
   return selectedSections.length === 1 ? selectedSections[0] : undefined;
 };
@@ -67,7 +68,7 @@ export const insertElementInSection = (
 ) => {
   const sectionLayout = getElementLayout(section, device);
   const elementLayout = getElementLayout(element, device);
-  const children = elements.filter((candidate) => candidate.sectionId === section.id);
+  const children = elements.filter((candidate) => getElementSectionId(candidate, device) === section.id && isElementVisibleOnDevice(candidate, elements, device));
   const childrenBottom = children.reduce((bottom, child) => {
     const layout = getElementLayout(child, device);
     return Math.max(bottom, layout.y + layout.height);
@@ -78,10 +79,7 @@ export const insertElementInSection = (
   const horizontalPadding = Math.max(0, section.padding ?? SECTION_PADDING_TOP);
   const centeredX = sectionLayout.x + (sectionLayout.width - elementLayout.width) / 2;
   const x = Math.max(sectionLayout.x + horizontalPadding, centeredX);
-  const positionedElement = {
-    ...setElementLayoutForDevice(element, device, { x, y }),
-    sectionId: section.id,
-  } as EditorElement;
+  const positionedElement = setElementLayoutForDevice(element, device, { x, y, sectionId: section.id });
   const requiredSectionBottom = y + elementLayout.height + SECTION_PADDING_BOTTOM;
   const sectionBottom = sectionLayout.y + sectionLayout.height;
   const resizedSection = requiredSectionBottom > sectionBottom && !isElementLocked(section)
@@ -99,41 +97,38 @@ export const reorderSections = (
   direction: -1 | 1,
   currentDevice: PreviewDevice,
 ) => {
-  const devices: PreviewDevice[] = ["mobile", "tablet", "desktop"];
-  const layouts = new Map(devices.map((device) => [
-    device,
-    new Map(elements.map((element) => [element.id, getElementLayout(element, device)])),
-  ]));
   const sections = elements
     .filter((element): element is SectionElement => element.type === "section")
-    .sort((left, right) => layouts.get(currentDevice)!.get(left.id)!.y - layouts.get(currentDevice)!.get(right.id)!.y);
+    .sort((left, right) => getElementLayout(left, currentDevice).y - getElementLayout(right, currentDevice).y);
   const index = sections.findIndex((section) => section.id === sectionId);
   const target = index + direction;
   if (index < 0 || target < 0 || target >= sections.length) return elements;
   [sections[index], sections[target]] = [sections[target], sections[index]];
+  return reflowSectionsInOrder(elements, sections.map((section) => section.id), currentDevice);
+};
 
-  let next = [...elements];
-  for (const device of devices) {
-    const deviceLayouts = layouts.get(device)!;
-    let cursor = Math.min(...sections.map((section) => deviceLayouts.get(section.id)!.y));
+export const reflowSectionsInOrder = (elements: EditorElement[], orderedIds: string[], device: PreviewDevice) => {
+    const layouts = new Map(elements.map((element) => [element.id, getElementLayout(element, device)]));
+    const sections = orderedIds.map((id) => elements.find((element): element is SectionElement => element.type === "section" && element.id === id)).filter((section): section is SectionElement => Boolean(section));
+    if (!sections.length) return elements;
+    let cursor = Math.min(...sections.map((section) => layouts.get(section.id)!.y));
     const deltas = new Map<string, number>();
     const nextSectionY = new Map<string, number>();
     for (const section of sections) {
-      const layout = deviceLayouts.get(section.id)!;
+      const layout = layouts.get(section.id)!;
       nextSectionY.set(section.id, cursor);
       deltas.set(section.id, cursor - layout.y);
       cursor += layout.height + SECTION_GAP;
     }
-    next = next.map((element) => {
-      const original = deviceLayouts.get(element.id)!;
+    return elements.map((element) => {
+      const original = layouts.get(element.id)!;
       if (element.type === "section") {
         return setElementLayoutForDevice(element, device, { y: nextSectionY.get(element.id)! });
       }
-      const delta = element.sectionId ? deltas.get(element.sectionId) : undefined;
+      const parentId = getElementSectionId(element, device);
+      const delta = parentId ? deltas.get(parentId) : undefined;
       return delta === undefined
         ? element
         : setElementLayoutForDevice(element, device, { y: original.y + delta });
     });
-  }
-  return next;
 };

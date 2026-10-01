@@ -1,5 +1,6 @@
 import type { PreviewDevice } from "../config/previewDevices";
 import type { EditorElement, ResponsiveElementLayout } from "../types/editor";
+import { getElementComposition, isCompositionVisible } from "./hierarchyOrder.ts";
 
 export interface ResolvedElementLayout {
   x: number;
@@ -7,6 +8,9 @@ export interface ResolvedElementLayout {
   width: number;
   height: number;
   rotation: number;
+  visible: boolean;
+  zIndex: number;
+  sectionId: string | null;
   fontSize?: number;
   timeFontSize?: number;
   titleFontSize?: number;
@@ -32,6 +36,7 @@ export const getElementLayout = (
   device: PreviewDevice,
 ): ResolvedElementLayout => {
   const override = getOverride(element, device);
+  const composition = getElementComposition(element, device);
 
   return {
     x: override?.x ?? element.x,
@@ -39,11 +44,25 @@ export const getElementLayout = (
     width: override?.width ?? element.width,
     height: override?.height ?? element.height,
     rotation: override?.rotation ?? element.rotation,
+    ...composition,
     fontSize: element.type === "text" ? override?.fontSize ?? element.fontSize : undefined,
     timeFontSize: element.type === "schedule" ? override?.timeFontSize ?? element.timeFontSize : undefined,
     titleFontSize: element.type === "schedule" ? override?.titleFontSize ?? element.titleFontSize : undefined,
     descriptionFontSize: element.type === "schedule" ? override?.descriptionFontSize ?? element.descriptionFontSize : undefined,
   };
+};
+
+export const getElementSectionId = (element: EditorElement, device: PreviewDevice) => getElementLayout(element, device).sectionId;
+export const getElementZIndex = (element: EditorElement, device: PreviewDevice) => getElementLayout(element, device).zIndex;
+
+export const isElementVisibleOnDevice = isCompositionVisible;
+
+/** Freeze inherited legacy values so later edits to one device cannot leak into another. */
+export const materializeElementLayouts = (element: EditorElement): EditorElement => {
+  const snapshot = (device: "tablet" | "desktop"): ResponsiveElementLayout => ({
+    ...getElementLayout(element, device),
+  });
+  return { ...element, responsive: { tablet: snapshot("tablet"), desktop: snapshot("desktop") } } as EditorElement;
 };
 
 /** Shared pixel-to-renderer conversion used by Preview and Public.
@@ -65,7 +84,13 @@ export const getElementRenderBox = (
 export const hasElementLayoutOverride = (
   element: EditorElement,
   device: PreviewDevice,
-) => device !== "mobile" && Boolean(element.responsive?.[device]);
+) => {
+  if (device === "mobile") return false;
+  const current = getElementLayout(element, device);
+  const mobile = getElementLayout(element, "mobile");
+  return (["x", "y", "width", "height", "rotation", "fontSize", "timeFontSize", "titleFontSize", "descriptionFontSize"] as const)
+    .some((key) => current[key] !== mobile[key]);
+};
 
 export const setElementLayoutForDevice = (
   element: EditorElement,
@@ -78,6 +103,9 @@ export const setElementLayoutForDevice = (
     ...(updates.width !== undefined ? { width: updates.width } : {}),
     ...(updates.height !== undefined ? { height: updates.height } : {}),
     ...(updates.rotation !== undefined ? { rotation: updates.rotation } : {}),
+    ...(updates.visible !== undefined ? { visible: updates.visible } : {}),
+    ...(updates.zIndex !== undefined ? { zIndex: updates.zIndex } : {}),
+    ...(updates.sectionId !== undefined ? { sectionId: updates.sectionId } : {}),
   };
   const typography = element.type === "text" && updates.fontSize !== undefined
     ? { fontSize: updates.fontSize }
@@ -100,6 +128,9 @@ export const setElementLayoutForDevice = (
     width: current.width,
     height: current.height,
     rotation: current.rotation,
+    visible: current.visible,
+    zIndex: current.zIndex,
+    sectionId: current.sectionId,
     ...(element.type === "text" ? { fontSize: current.fontSize } : {}),
     ...(element.type === "schedule" ? {
       timeFontSize: current.timeFontSize,
@@ -123,16 +154,12 @@ export const resetElementLayoutForDevice = (
   element: EditorElement,
   device: PreviewDevice,
 ): EditorElement => {
-  if (device === "mobile" || !element.responsive) return element;
-
-  const responsive = { ...element.responsive };
-  delete responsive[device];
-
-  if (!responsive.tablet && !responsive.desktop) {
-    const next = { ...element };
-    delete next.responsive;
-    return next;
-  }
-
-  return { ...element, responsive } as EditorElement;
+  if (device === "mobile") return element;
+  const mobile = getElementLayout(element, "mobile");
+  return setElementLayoutForDevice(element, device, {
+    x: mobile.x, y: mobile.y, width: mobile.width, height: mobile.height,
+    rotation: mobile.rotation, fontSize: mobile.fontSize,
+    timeFontSize: mobile.timeFontSize, titleFontSize: mobile.titleFontSize,
+    descriptionFontSize: mobile.descriptionFontSize,
+  });
 };

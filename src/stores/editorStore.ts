@@ -10,6 +10,7 @@ import type {
   RsvpFormConfig,
   ResponsiveElementLayout,
   WeddingProject,
+  WeddingPage,
   WelcomePageConfig,
   IntroductionMode,
 } from "../types/editor";
@@ -20,6 +21,10 @@ import { startProjectCheckout } from "../services/projectRepository";
 import { getProject, remoteErrorSummary, syncProject, upsertProject } from "../utils/storage";
 import {
   getElementLayout,
+  getElementSectionId,
+  getElementZIndex,
+  isElementVisibleOnDevice,
+  materializeElementLayouts,
   resetElementLayoutForDevice,
   setElementLayoutForDevice,
 } from "../utils/responsiveLayout";
@@ -28,13 +33,14 @@ import {
   getSelectedTargetSection,
   insertElementInSection,
   normalizeSectionMembership,
+  reflowSectionsInOrder,
   reorderSections,
 } from "../utils/sectionLayout";
 import { resolveWelcomePage } from "../features/welcome/welcomeDefaults";
 import { isElementLocked, isLockableElement, normalizeElementLocks } from "../utils/elementLocking";
-import { getRsvpPositionX, getRsvpPositionY, getRsvpWidth, setRsvpLayoutForDevice } from "../utils/documentLayout";
-import { RSVP_EDITOR_ELEMENT_ID, selectionAfterRsvpUpdate } from "../features/rsvp/rsvpEditorElement";
-import { moveHierarchyElement, type HierarchyPlacement } from "../utils/hierarchyOrder";
+import { getRsvpPositionX, getRsvpPositionY, getRsvpWidth, setRsvpLayoutForDevice, setRsvpSectionForDevice } from "../utils/documentLayout";
+import { RSVP_EDITOR_ELEMENT_ID, getRsvpSectionId, materializeRsvpComposition, selectionAfterRsvpUpdate } from "../features/rsvp/rsvpEditorElement";
+import { getHierarchyRows, moveHierarchyElement, type HierarchyPlacement } from "../utils/hierarchyOrder";
 
 type SaveStatus = "idle" | "saving" | "saved";
 
@@ -92,6 +98,8 @@ interface EditorState {
     id: string,
     updates: Partial<EditorElement>
   ) => void;
+
+  setElementVisibility: (id: string, visible: boolean) => void;
 
   setElementsLocked: (ids: string[], locked: boolean) => void;
 
@@ -202,12 +210,12 @@ const normalizeProject = (
 
   pages: project.pages.map((page) => ({
     ...page,
-    elements: normalizeElementLocks(normalizeSectionMembership(page.elements)),
+    elements: normalizeElementLocks(normalizeSectionMembership(page.elements)).map(materializeElementLayouts),
   })),
 
-  welcomePage: resolveWelcomePage(project.welcomePage),
+  welcomePage: (() => { const welcome = resolveWelcomePage(project.welcomePage); return { ...welcome, elements: welcome.elements.map(materializeElementLayouts) }; })(),
 
-  rsvp: project.rsvp ? { ...project.rsvp, locked: project.rsvp.locked ?? false } : undefined,
+  rsvp: project.rsvp ? materializeRsvpComposition({ ...project.rsvp, locked: project.rsvp.locked ?? false }) : undefined,
 
   particles:
     project.particles ??
@@ -231,6 +239,34 @@ const setEditableElements = (project: WeddingProject, state: Pick<EditorState, "
     const page = project.pages.find((item) => item.id === state.currentPageId);
     if (page) page.elements = elements;
   }
+};
+
+const detachDeletedSection = (element: EditorElement, deletedId: string): EditorElement => {
+  let next = element;
+  for (const device of ["mobile", "tablet", "desktop"] as const) {
+    if (getElementSectionId(next, device) === deletedId) next = setElementLayoutForDevice(next, device, { sectionId: null });
+  }
+  return next;
+};
+
+const offsetAllDeviceLayouts = (element: EditorElement, amount = 18): EditorElement =>
+  (["mobile", "tablet", "desktop"] as const).reduce((next, device) => {
+    const layout = getElementLayout(next, device);
+    return setElementLayoutForDevice(next, device, { x: layout.x + amount, y: layout.y + amount });
+  }, element);
+
+const moveRsvpWithReorderedSection = (project: WeddingProject, page: WeddingPage, nextElements: EditorElement[], device: PreviewDevice) => {
+  if (!project.rsvp?.enabled) return;
+  const parentId = getRsvpSectionId(project.rsvp, device);
+  if (!parentId) return;
+  const previous = page.elements.find((element) => element.id === parentId);
+  const next = nextElements.find((element) => element.id === parentId);
+  if (!previous || !next) return;
+  const deltaY = getElementLayout(next, device).y - getElementLayout(previous, device).y;
+  if (!deltaY) return;
+  project.rsvp = setRsvpLayoutForDevice(project.rsvp, device, {
+    y: getRsvpPositionY(page, project.rsvp, device) + deltaY,
+  });
 };
 
 const mutateProject = (
@@ -405,7 +441,7 @@ export const useEditorStore =
             state,
 
             (project) => {
-              const normalizedElement = { ...element, locked: element.locked ?? false } as EditorElement;
+              const normalizedElement = materializeElementLayouts({ ...element, sectionId: element.sectionId ?? null, locked: element.locked ?? false } as EditorElement);
               if (isWelcomeContext(project, state)) {
                 const layout = getElementLayout(normalizedElement, state.previewDevice);
                 const viewport = PREVIEW_DEVICES[state.previewDevice];
@@ -427,15 +463,15 @@ export const useEditorStore =
                 if (normalizedElement.type === "section") {
                   page.elements.push(normalizedElement);
                   page.elements = page.elements.map((candidate) => {
-                    if (candidate.type === "section" || candidate.sectionId) return candidate;
+                    if (candidate.type === "section" || getElementSectionId(candidate, state.previewDevice) || !isElementVisibleOnDevice(candidate, page.elements, state.previewDevice)) return candidate;
                     const sectionId = findContainingSectionId(page.elements, candidate, state.previewDevice);
-                    return sectionId ? { ...candidate, sectionId } as EditorElement : candidate;
+                    return sectionId ? setElementLayoutForDevice(candidate, state.previewDevice, { sectionId }) : candidate;
                   });
                 } else {
                   const selectedSections = page.elements.filter(
                     (candidate) => candidate.type === "section" && state.selectedElementIds.includes(candidate.id),
                   );
-                  const targetSection = getSelectedTargetSection(page.elements, state.selectedElementIds);
+                  const targetSection = getSelectedTargetSection(page.elements, state.selectedElementIds, state.previewDevice);
                   if (targetSection) {
                     const insertion = insertElementInSection(
                       page.elements,
@@ -448,12 +484,10 @@ export const useEditorStore =
                     );
                     page.elements.push(insertion.element);
                   } else if (selectedSections.length > 1) {
-                    const ungroupedElement = { ...normalizedElement };
-                    delete ungroupedElement.sectionId;
-                    page.elements.push(ungroupedElement as EditorElement);
+                    page.elements.push(setElementLayoutForDevice(normalizedElement, state.previewDevice, { sectionId: null }));
                   } else {
                     const sectionId = findContainingSectionId(page.elements, normalizedElement, state.previewDevice);
-                    page.elements.push({ ...normalizedElement, sectionId } as EditorElement);
+                    page.elements.push(setElementLayoutForDevice(normalizedElement, state.previewDevice, { sectionId: sectionId ?? null }));
                   }
                 }
               }
@@ -495,6 +529,17 @@ export const useEditorStore =
             }
           )
         ),
+
+      setElementVisibility: (id, visible) => set((state) => mutateProject(state, (project) => {
+        if (id === RSVP_EDITOR_ELEMENT_ID) {
+          if (project.rsvp) project.rsvp = { ...project.rsvp, visibilityByDevice: { ...project.rsvp.visibilityByDevice, [state.previewDevice]: visible } };
+          return;
+        }
+        const editableElements = getEditableElements(project, state);
+        if (!editableElements) return;
+        setEditableElements(project, state, editableElements.map((element) => element.id === id
+          ? setElementLayoutForDevice(element, state.previewDevice, { visible }) : element));
+      })),
 
       setElementsLocked: (ids, locked) =>
         set((state) => {
@@ -587,14 +632,14 @@ export const useEditorStore =
                   const deltaY = nextLayout.y - previousLayout.y;
                   if (deltaX || deltaY) {
                     page.elements = page.elements.map((element) => {
-                      if (element.sectionId !== id) return element;
+                      if (getElementSectionId(element, state.previewDevice) !== id) return element;
                       const layout = getElementLayout(element, state.previewDevice);
                       return setElementLayoutForDevice(element, state.previewDevice, {
                         x: layout.x + deltaX,
                         y: layout.y + deltaY,
                       });
                     });
-                    if ((deltaX || deltaY) && project.rsvp?.enabled && project.rsvp.sectionId === id) {
+                    if ((deltaX || deltaY) && project.rsvp?.enabled && getRsvpSectionId(project.rsvp, state.previewDevice) === id) {
                       project.rsvp = setRsvpLayoutForDevice(
                         project.rsvp,
                         state.previewDevice,
@@ -607,7 +652,7 @@ export const useEditorStore =
                   }
                 } else if (updates.x !== undefined || updates.y !== undefined) {
                   const sectionId = findContainingSectionId(page.elements, nextElement, state.previewDevice);
-                  page.elements[index] = { ...nextElement, sectionId } as EditorElement;
+                  page.elements[index] = setElementLayoutForDevice(nextElement, state.previewDevice, { sectionId: sectionId ?? null });
                 }
               }
             }
@@ -629,7 +674,7 @@ export const useEditorStore =
               movedIds.add(id);
               if (!welcomeContext && element.type === "section") {
                 editableElements.forEach((candidate) => {
-                  if (candidate.sectionId === id) movedIds.add(candidate.id);
+                  if (getElementSectionId(candidate, state.previewDevice) === id) movedIds.add(candidate.id);
                 });
               }
             }
@@ -647,12 +692,13 @@ export const useEditorStore =
 
             if (!welcomeContext) editableElements = editableElements.map((element) => {
               if (!movedIds.has(element.id) || element.type === "section") return element;
-              const parentMoved = element.sectionId ? movedIds.has(element.sectionId) : false;
+              const parentId = getElementSectionId(element, state.previewDevice);
+              const parentMoved = parentId ? movedIds.has(parentId) : false;
               if (parentMoved) return element;
               const sectionId = findContainingSectionId(editableElements!, element, state.previewDevice);
-              return { ...element, sectionId } as EditorElement;
+              return setElementLayoutForDevice(element, state.previewDevice, { sectionId: sectionId ?? null });
             });
-            if (!welcomeContext && project.rsvp?.enabled && project.rsvp.sectionId && movedIds.has(project.rsvp.sectionId)) {
+            if (!welcomeContext && project.rsvp?.enabled && getRsvpSectionId(project.rsvp, state.previewDevice) && movedIds.has(getRsvpSectionId(project.rsvp, state.previewDevice)!)) {
               const page = project.pages.find((item) => item.id === state.currentPageId);
               if (page) project.rsvp = setRsvpLayoutForDevice(
                 project.rsvp,
@@ -699,10 +745,10 @@ export const useEditorStore =
               if (editableElements) {
                 setEditableElements(project, state, editableElements
                   .filter((element) => element.id !== id)
-                  .map((element) => element.sectionId === id
-                    ? { ...element, sectionId: undefined } as EditorElement
-                    : element));
-                if (project.rsvp?.sectionId === id) project.rsvp = { ...project.rsvp, sectionId: undefined };
+                  .map((element) => detachDeletedSection(element, id)));
+                if (project.rsvp) for (const device of ["mobile", "tablet", "desktop"] as const) {
+                  if (getRsvpSectionId(project.rsvp, device) === id) project.rsvp = setRsvpSectionForDevice(project.rsvp, device, null);
+                }
               }
             },
 
@@ -722,11 +768,10 @@ export const useEditorStore =
             if (!editableElements) return;
             setEditableElements(project, state, editableElements
               .filter((element) => !removedIds.has(element.id))
-              .map((element) => element.sectionId && removedIds.has(element.sectionId)
-                ? { ...element, sectionId: undefined } as EditorElement
-                : element));
-            if (project.rsvp?.sectionId && removedIds.has(project.rsvp.sectionId)) {
-              project.rsvp = { ...project.rsvp, sectionId: undefined };
+              .map((element) => [...removedIds].reduce((candidate, deletedId) => detachDeletedSection(candidate, deletedId), element)));
+            if (project.rsvp) for (const device of ["mobile", "tablet", "desktop"] as const) {
+              const parentId = getRsvpSectionId(project.rsvp, device);
+              if (parentId && removedIds.has(parentId)) project.rsvp = setRsvpSectionForDevice(project.rsvp, device, null);
             }
           }, null, []);
         }),
@@ -756,7 +801,7 @@ export const useEditorStore =
                   duplicatedId =
                     uid();
 
-                  let duplicated = {
+                  let duplicated = materializeElementLayouts({
                     ...structuredClone(
                       element
                     ),
@@ -767,43 +812,31 @@ export const useEditorStore =
                     name:
                       `${element.name} copie`,
 
-                    zIndex:
-                      editableElements.length +
-                      1,
-                  } as EditorElement;
-
-                  const layout = getElementLayout(
-                    duplicated,
-                    state.previewDevice,
-                  );
-                  duplicated = setElementLayoutForDevice(
-                    duplicated,
-                    state.previewDevice,
-                    { x: layout.x + 18, y: layout.y + 18 },
-                  );
-
-                  if (!isWelcomeContext(project, state) && duplicated.type !== "section") {
-                    const sectionId = findContainingSectionId(editableElements, duplicated, state.previewDevice);
-                    duplicated = { ...duplicated, sectionId } as EditorElement;
+                  } as EditorElement);
+                  duplicated = offsetAllDeviceLayouts(duplicated);
+                  for (const device of ["mobile", "tablet", "desktop"] as const) {
+                    const top = Math.max(0, ...editableElements.map((candidate) => getElementZIndex(candidate, device))) + 1;
+                    duplicated = setElementLayoutForDevice(duplicated, device, { zIndex: top });
                   }
 
                   editableElements.push(duplicated);
                   if (!isWelcomeContext(project, state) && element.type === "section") {
                     // The form is unique project config, not an EditorElement: only
                     // actual section children are copied with the new section.
-                    const children = editableElements.filter((child) => child.sectionId === element.id);
+                    const children = editableElements.filter((child) => (["mobile", "tablet", "desktop"] as const).some((device) => getElementSectionId(child, device) === element.id));
                     for (const child of children) {
-                      const childLayout = getElementLayout(child, state.previewDevice);
-                      const copy = setElementLayoutForDevice({
+                      let copy = offsetAllDeviceLayouts(materializeElementLayouts({
                         ...structuredClone(child),
                         id: uid(),
                         name: `${child.name} copie`,
-                        sectionId: duplicatedId,
-                        zIndex: editableElements.length + 1,
-                      } as EditorElement, state.previewDevice, {
-                        x: childLayout.x + 18,
-                        y: childLayout.y + 18,
-                      });
+                      } as EditorElement));
+                      for (const device of ["mobile", "tablet", "desktop"] as const) {
+                        const top = Math.max(0, ...editableElements.map((candidate) => getElementZIndex(candidate, device))) + 1;
+                        copy = setElementLayoutForDevice(copy, device, {
+                          zIndex: top,
+                          ...(getElementSectionId(copy, device) === element.id ? { sectionId: duplicatedId } : {}),
+                        });
+                      }
                       editableElements.push(copy);
                     }
                   }
@@ -896,11 +929,11 @@ export const useEditorStore =
               const selectedElement = editableElements.find((element) => element.id === id);
               if (!welcomeContext && selectedElement) {
                 const siblings = editableElements
-                  .filter((element) => (element.sectionId ?? null) === (selectedElement.sectionId ?? null))
-                  .sort((a, b) => b.zIndex - a.zIndex);
+                  .filter((element) => getElementSectionId(element, state.previewDevice) === getElementSectionId(selectedElement, state.previewDevice))
+                  .sort((a, b) => getElementZIndex(b, state.previewDevice) - getElementZIndex(a, state.previewDevice));
                 const index = siblings.findIndex((element) => element.id === id);
                 const neighbor = siblings[index + (direction === "forward" ? -1 : 1)];
-                if (neighbor) setEditableElements(project, state, moveHierarchyElement(editableElements, id, neighbor.id, direction === "forward" ? "before" : "after"));
+                if (neighbor) setEditableElements(project, state, moveHierarchyElement(editableElements, id, neighbor.id, direction === "forward" ? "before" : "after", state.previewDevice));
                 return;
               }
               const isInteractionElement = (element: EditorElement) =>
@@ -914,8 +947,8 @@ export const useEditorStore =
                 !welcomeContext || isInteractionElement(element) === selectedIsInteraction
               ).sort(
                 (a, b) =>
-                  a.zIndex -
-                  b.zIndex
+                  getElementZIndex(a, state.previewDevice) -
+                  getElementZIndex(b, state.previewDevice)
               );
 
               const index =
@@ -947,20 +980,14 @@ export const useEditorStore =
                 ordered[index],
               ];
 
-              ordered.forEach(
-                (
-                  element,
-                  zIndex
-                ) => {
-                  element.zIndex =
-                    zIndex;
-                }
-              );
+              const order = new Map(ordered.map((element, zIndex) => [element.id, zIndex]));
 
               setEditableElements(
                 project,
                 state,
-                welcomeContext ? editableElements : ordered
+                editableElements.map((element) => order.has(element.id)
+                  ? setElementLayoutForDevice(element, state.previewDevice, { zIndex: order.get(element.id)! })
+                  : element)
               );
             }
           )
@@ -976,22 +1003,25 @@ export const useEditorStore =
             const target = page.elements.find((element) => element.id === targetId);
             const sectionId = placement === "inside" && target?.type === "section"
               ? target.id
-              : placement !== "inside" ? target?.sectionId ?? null : undefined;
+              : placement !== "inside" ? target ? getElementSectionId(target, state.previewDevice) : null : undefined;
             if (sectionId === undefined) return;
             // Materialize the current visual position before changing ownership;
             // an automatic form position otherwise changes when its section moves.
             let nextRsvp = project.rsvp;
-            for (const device of ["mobile", "tablet", "desktop"] as const) {
-              nextRsvp = setRsvpLayoutForDevice(nextRsvp, device, {
-                x: getRsvpPositionX(project.rsvp, device),
-                y: getRsvpPositionY(page, project.rsvp, device),
-                width: getRsvpWidth(project.rsvp, device),
-              });
-            }
-            project.rsvp = { ...nextRsvp, sectionId };
+            nextRsvp = setRsvpLayoutForDevice(nextRsvp, state.previewDevice, {
+              x: getRsvpPositionX(project.rsvp, state.previewDevice),
+              y: getRsvpPositionY(page, project.rsvp, state.previewDevice),
+              width: getRsvpWidth(project.rsvp, state.previewDevice),
+            });
+            project.rsvp = setRsvpSectionForDevice(nextRsvp, state.previewDevice, sectionId);
             return;
           }
-          page.elements = moveHierarchyElement(page.elements, sourceId, targetId, placement);
+          const moved = moveHierarchyElement(page.elements, sourceId, targetId, placement, state.previewDevice);
+          const nextElements = page.elements.find((element) => element.id === sourceId)?.type === "section" && moved !== page.elements
+            ? reflowSectionsInOrder(moved, getHierarchyRows(moved, state.previewDevice).filter((element) => element.type === "section").map((element) => element.id), state.previewDevice)
+            : moved;
+          moveRsvpWithReorderedSection(project, page, nextElements, state.previewDevice);
+          page.elements = nextElements;
         })),
 
       reorderSection: (id, direction) =>
@@ -1002,7 +1032,15 @@ export const useEditorStore =
             if (!page) return;
             const section = page.elements.find((element) => element.id === id);
             if (!section || isElementLocked(section)) return;
-            page.elements = reorderSections(page.elements, id, direction, state.previewDevice);
+            const sections = page.elements.filter((element) => element.type === "section")
+              .sort((left, right) => getElementLayout(left, state.previewDevice).y - getElementLayout(right, state.previewDevice).y);
+            const index = sections.findIndex((element) => element.id === id);
+            const neighbor = sections[index + direction];
+            if (!neighbor) return;
+            const verticallyReordered = reorderSections(page.elements, id, direction, state.previewDevice);
+            const nextElements = moveHierarchyElement(verticallyReordered, id, neighbor.id, direction === -1 ? "before" : "after", state.previewDevice);
+            moveRsvpWithReorderedSection(project, page, nextElements, state.previewDevice);
+            page.elements = nextElements;
           })
         ),
 

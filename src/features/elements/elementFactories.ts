@@ -1,12 +1,12 @@
 import { PREVIEW_DEVICES, type PreviewDevice } from "../../config/previewDevices";
 import type { EditorElement, ElementType, WeddingPage } from "../../types/editor";
-import { getElementLayout } from "../../utils/responsiveLayout";
+import { getElementLayout, isElementVisibleOnDevice } from "../../utils/responsiveLayout";
 
 export const NEW_SECTION_MARGIN = 40;
 
 const getPageBottom = (page: WeddingPage, device: PreviewDevice) => {
   const elementsBottom = page.elements.reduce((bottom, element) => {
-    if (!element.visible) return bottom;
+    if (!isElementVisibleOnDevice(element, page.elements, device)) return bottom;
     const layout = getElementLayout(element, device);
     return Math.max(bottom, layout.y + layout.height);
   }, 0);

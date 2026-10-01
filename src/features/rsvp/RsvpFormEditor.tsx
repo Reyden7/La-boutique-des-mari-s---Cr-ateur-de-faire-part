@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, ClipboardList, MoveVertical, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ClipboardList, Eye, EyeOff, MoveVertical, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { COMMERCE, formatPrice } from "../../config/commerce";
@@ -12,6 +12,7 @@ import { startRsvpAddonCheckout } from "../../services/commerceRepository";
 import { useEditorStore } from "../../stores/editorStore";
 import type { RsvpField, RsvpFieldType, RsvpFormConfig, RsvpFormStyle, RsvpFormTypography } from "../../types/editor";
 import { getRsvpPositionX, getRsvpPositionY, getRsvpWidth, hasExplicitRsvpPosition, hasRsvpPositionOverride, resetRsvpPositionForDevice, setRsvpLayoutForDevice, setRsvpPositionForDevice } from "../../utils/documentLayout";
+import { RSVP_EDITOR_ELEMENT_ID, isRsvpVisibleOnDevice } from "./rsvpEditorElement";
 
 const fieldTypes: { value: RsvpFieldType; label: string }[] = [
   { value: "short_text", label: "Texte court" }, { value: "long_text", label: "Texte long" },
@@ -22,7 +23,7 @@ const fieldTypes: { value: RsvpFieldType; label: string }[] = [
 const hasOptions = (type: RsvpFieldType) => ["single_choice", "multiple_choice", "select"].includes(type);
 
 export function RsvpFormEditor({ embedded = false }: { embedded?: boolean }) {
-  const { project, currentPageId, previewDevice, updateRsvp, selectElement } = useEditorStore();
+  const { project, currentPageId, previewDevice, updateRsvp, selectElement, setElementVisibility } = useEditorStore();
   const [paying, setPaying] = useState(false);
   const [paymentError, setPaymentError] = useState("");
   if (!project?.rsvp) return null;
@@ -69,6 +70,7 @@ export function RsvpFormEditor({ embedded = false }: { embedded?: boolean }) {
   return <div className={`${embedded ? "rsvp-properties-editor" : "sidebar-view"} rsvp-editor`}><div className="view-intro"><span>Option Formulaire</span><h2>Formulaire invité</h2><p>Composez le formulaire que vos invités rempliront directement dans le faire-part.</p></div>
     <PropertySection key={`${project.id}-form-options`} title="Options du formulaire">
     <label className="rsvp-visibility-toggle"><span><strong>Afficher le formulaire</strong><small>Afficher ou masquer le formulaire dans le faire-part.</small></span><input type="checkbox" checked={config.enabled} onChange={(event) => event.target.checked ? update({ enabled: true }) : removeFromDocument()} /></label>
+    {config.enabled && <button className="property-device-visibility" type="button" onClick={() => setElementVisibility(RSVP_EDITOR_ELEMENT_ID, !isRsvpVisibleOnDevice(config, previewDevice))}>{isRsvpVisibleOnDevice(config, previewDevice) ? <Eye size={15} /> : <EyeOff size={15} />}{isRsvpVisibleOnDevice(config, previewDevice) ? `Masquer sur ${PREVIEW_DEVICES[previewDevice].label}` : `Afficher sur ${PREVIEW_DEVICES[previewDevice].label}`}</button>}
     {!config.purchased && !isPublished && <section className="rsvp-purchase-card"><strong>Option Formulaire +{addonPrice}</strong><p>Activez-la librement : le supplément sera ajouté au paiement unique lors de la publication.</p></section>}
     {!config.purchased && isPublished && <section className="rsvp-purchase-card"><strong>Ajouter le formulaire — {addonPrice}</strong><p>Ce faire-part est déjà publié. Seul le supplément du formulaire sera facturé.</p>{config.enabled ? <button disabled={paying || !COMMERCE.rsvpAddonPriceCents} onClick={() => void checkout()}>{paying ? "Redirection…" : `Ajouter le formulaire — ${addonPrice}`}</button> : <small>Activez d’abord « Afficher le formulaire » pour continuer.</small>}{paymentError && <p className="form-error">{paymentError}</p>}</section>}
     {config.purchased && <section className="rsvp-purchase-card"><strong>Formulaire actif</strong><p>La collecte des réponses est disponible sur le faire-part public.</p></section>}

@@ -13,6 +13,10 @@ export interface ResponsiveElementLayout {
   width?: number;
   height?: number;
   rotation?: number;
+  visible?: boolean;
+  zIndex?: number;
+  /** null explicitly places this element outside every section on this device. */
+  sectionId?: string | null;
   fontSize?: number;
   /** Programme typography overrides in the same device layout as its geometry. */
   timeFontSize?: number;
@@ -429,6 +433,7 @@ export interface RsvpFormTypography {
 
 export interface RsvpFormConfig {
   enabled: boolean;
+  visibilityByDevice?: Partial<Record<"mobile" | "tablet" | "desktop", boolean>>;
   purchased: boolean;
   animation?: AnimationConfig;
   /** Optional parent section in the editor; commercial entitlement remains independent. */

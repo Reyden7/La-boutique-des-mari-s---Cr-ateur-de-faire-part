@@ -1,4 +1,4 @@
-import { AlignCenter, AlignLeft, AlignRight, Bold, Copy, Italic, Monitor, RotateCcw, Smartphone, Tablet, Trash2, Underline } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, Bold, Copy, Eye, EyeOff, Italic, Monitor, RotateCcw, Smartphone, Tablet, Trash2, Underline } from "lucide-react";
 import { useEditorStore } from "../../stores/editorStore";
 import { type DecorativeHeartStyle, type EditorElement } from "../../types/editor";
 import type { OpeningAnimationType } from "../../types/editor";
@@ -22,7 +22,7 @@ import { PropertySection } from "./PropertySection";
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => <label className="field"><span>{label}</span>{children}</label>;
 
 export function PropertiesPanel({ onPreviewOpening }: { onPreviewOpening: (type: OpeningAnimationType) => void }) {
-  const { project, currentPageId, selectedElementId, sidebarView, previewDevice, updateElement, updateElementLayout, resetElementLayout, duplicateElement, removeElement } = useEditorStore();
+  const { project, currentPageId, selectedElementId, sidebarView, previewDevice, updateElement, updateElementLayout, resetElementLayout, setElementVisibility, duplicateElement, removeElement } = useEditorStore();
   const page = project?.pages.find((item) => item.id === currentPageId);
   const editableElements = sidebarView === "introduction" && project?.introductionMode === "welcome" ? resolveWelcomePage(project.welcomePage).elements : page?.elements;
   const element = editableElements?.find((item) => item.id === selectedElementId);
@@ -102,7 +102,8 @@ export function PropertiesPanel({ onPreviewOpening }: { onPreviewOpening: (type:
         : <Field label="Décoration historique"><input value={element.icon} maxLength={4} onChange={(event) => update({ icon: event.target.value })} /></Field>}</PropertySection><PropertySection key={`${element.id}-apparence`} title="Apparence"><Field label="Couleur"><ColorAlphaInput value={element.color} onChange={(color) => update({ color })} /></Field>{appearance}</PropertySection></>}
       {(element.type === "scratch" || element.type === "carousel" || element.type === "location" || element.type === "schedule" || element.type === "button" || element.type === "section") && <RichElementProperties element={element} appearance={appearance} />}
       <PropertySection key={`${element.id}-animation`} title="Animation"><AnimationProperties animation={element.animation} onChange={(animation) => update({ animation })} /></PropertySection>
-      <div className="property-actions"><button onClick={() => duplicateElement(element.id)}><Copy size={15} /> Dupliquer</button><button className="danger" onClick={() => removeElement(element.id)}><Trash2 size={15} /> Supprimer</button></div>
+      <button className="property-device-visibility" type="button" onClick={() => setElementVisibility(element.id, !layout.visible)}>{layout.visible ? <Eye size={15} /> : <EyeOff size={15} />}{layout.visible ? `Masquer sur ${deviceLabel}` : `Afficher sur ${deviceLabel}`}</button>
+      <div className="property-actions"><button onClick={() => duplicateElement(element.id)}><Copy size={15} /> Dupliquer</button><button className="danger" onClick={() => { if (window.confirm("Supprimer cet élément de tous les formats ?")) removeElement(element.id); }}><Trash2 size={15} /> Supprimer</button></div>
     </aside>
   );
 }

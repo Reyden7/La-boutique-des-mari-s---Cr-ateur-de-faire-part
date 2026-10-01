@@ -5,6 +5,7 @@ import type { WelcomePageConfig } from "../../types/editor";
 import { getWelcomeArch, getWelcomeBackground } from "./welcomeCatalog";
 import { getWelcomeTransforms, resolveWelcomePage } from "./welcomeDefaults";
 import { RenderElement } from "../../components/renderer/WeddingRenderer";
+import { getElementZIndex } from "../../utils/responsiveLayout";
 
 export function WelcomePageRenderer({
   config: rawConfig,
@@ -80,8 +81,8 @@ export function WelcomePageRenderer({
         />
       )}
       {showElements && <>
-        <div className="welcome-elements-layer">{[...contentElements].sort((a, b) => a.zIndex - b.zIndex).map((element) => <RenderElement key={element.id} element={element} device={device} documentHeight={PREVIEW_DEVICES[device].height} playAnimation={interactive} />)}</div>
-        <div className="welcome-interaction-layer">{[...interactionElements].sort((a, b) => a.zIndex - b.zIndex).map((element) => <RenderElement key={element.id} element={element} device={device} documentHeight={PREVIEW_DEVICES[device].height} playAnimation={interactive} />)}</div>
+        <div className="welcome-elements-layer">{[...contentElements].sort((a, b) => getElementZIndex(a, device) - getElementZIndex(b, device)).map((element) => <RenderElement key={element.id} element={element} device={device} documentHeight={PREVIEW_DEVICES[device].height} playAnimation={interactive} />)}</div>
+        <div className="welcome-interaction-layer">{[...interactionElements].sort((a, b) => getElementZIndex(a, device) - getElementZIndex(b, device)).map((element) => <RenderElement key={element.id} element={element} device={device} documentHeight={PREVIEW_DEVICES[device].height} playAnimation={interactive} />)}</div>
       </>}
     </motion.section>
   );

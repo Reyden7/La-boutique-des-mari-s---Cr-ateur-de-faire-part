@@ -20,7 +20,7 @@ import {
   Upload,
 } from "lucide-react";
 import { makeShapeElement, makeTextElement, useEditorStore, type SidebarView } from "../../stores/editorStore";
-import type { EditorElement, OpeningAnimationType } from "../../types/editor";
+import type { EditorElement, OpeningAnimationType, RsvpFormConfig } from "../../types/editor";
 import { MusicPanel } from "../../features/music/MusicPanel";
 import { ParticlePanel } from "../../features/particles/ParticlePanel";
 import { isSupabaseConfigured } from "../../lib/supabase";
@@ -30,9 +30,9 @@ import { DECORATIVE_HEARTS, makeDecorativeHeartElement } from "../../features/he
 import { makeButtonElement, makeCarouselElement, makeLocationElement, makeScheduleElement, makeScratchElement, makeSectionElement } from "../../features/elements/elementFactories";
 import { IntroductionPanel } from "../../features/introduction/IntroductionPanel";
 import { RSVP_EDITOR_ELEMENT_ID } from "../../features/rsvp/rsvpEditorElement";
-import { getElementLayout } from "../../utils/responsiveLayout";
+import { getElementLayout, getElementSectionId, isElementVisibleOnDevice } from "../../utils/responsiveLayout";
 import { getSelectedTargetSection } from "../../utils/sectionLayout";
-import { getRsvpBlockHeight, setRsvpLayoutForDevice } from "../../utils/documentLayout";
+import { getRsvpBlockHeight, setRsvpLayoutForDevice, setRsvpSectionForDevice } from "../../utils/documentLayout";
 import { useGlobalAssets } from "../../hooks/useGlobalAssets";
 import { PublishGlobalAssetButton } from "../admin/PublishGlobalAssetButton";
 import { PREVIEW_DEVICES } from "../../config/previewDevices";
@@ -128,21 +128,21 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
       selectElement(RSVP_EDITOR_ELEMENT_ID);
       return;
     }
-    let next = { ...project.rsvp, enabled: true };
-    const targetSection = getSelectedTargetSection(page.elements, selectedElementIds);
+    let next: RsvpFormConfig = { ...project.rsvp, enabled: true, visibilityByDevice: { ...project.rsvp.visibilityByDevice, [previewDevice]: true } };
+    const targetSection = getSelectedTargetSection(page.elements, selectedElementIds, previewDevice);
     if (targetSection) {
       const sectionLayout = getElementLayout(targetSection, previewDevice);
       const childrenBottom = page.elements.reduce((bottom, element) => {
-        if (element.sectionId !== targetSection.id || !element.visible) return bottom;
+        if (getElementSectionId(element, previewDevice) !== targetSection.id || !isElementVisibleOnDevice(element, page.elements, previewDevice)) return bottom;
         const layout = getElementLayout(element, previewDevice);
         return Math.max(bottom, layout.y + layout.height);
       }, sectionLayout.y + targetSection.padding);
       const positionY = Math.max(sectionLayout.y + targetSection.padding, childrenBottom + 24);
-      next = setRsvpLayoutForDevice({ ...next, sectionId: targetSection.id }, previewDevice, {
+      next = setRsvpSectionForDevice(setRsvpLayoutForDevice(next, previewDevice, {
         x: sectionLayout.x + targetSection.padding,
         y: positionY,
         width: Math.max(120, sectionLayout.width - targetSection.padding * 2),
-      });
+      }), previewDevice, targetSection.id);
       const requiredHeight = positionY + getRsvpBlockHeight(next, previewDevice) + targetSection.padding - sectionLayout.y;
       if (requiredHeight > sectionLayout.height) updateElementLayout(targetSection.id, { height: requiredHeight });
     }
