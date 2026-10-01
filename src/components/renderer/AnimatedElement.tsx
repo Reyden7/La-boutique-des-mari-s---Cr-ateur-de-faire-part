@@ -10,10 +10,11 @@ export function AnimationViewportProvider({ root, children }: { root: RefObject<
 }
 
 /** Motion owns only the middle layer; layout coordinates and element rotation stay on separate DOM nodes. */
-export function AnimatedElement({ animation, opacity, rotation = 0, style, className, children, overlayChildren, play = true }: {
+export function AnimatedElement({ animation, opacity, rotation = 0, rotationOrigin = "top left", style, className, children, overlayChildren, play = true }: {
   animation?: AnimationConfig;
   opacity: number;
   rotation?: number;
+  rotationOrigin?: CSSProperties["transformOrigin"];
   style: CSSProperties;
   className?: string;
   children: ReactNode;
@@ -26,7 +27,7 @@ export function AnimatedElement({ animation, opacity, rotation = 0, style, class
   // A Section animates its group, but its configured opacity belongs to its own
   // surface. Applying it to the group would permanently dim every child.
   const { motionOpacity, contentOpacity } = animationOpacityPlacement(opacity, overlayChildren !== undefined);
-  const content = <div className={className} style={{ width: "100%", height: "100%", opacity: contentOpacity, transform: `rotate(${rotation}deg)`, transformOrigin: "top left" }}>{children}</div>;
+  const content = <div className={className} style={{ width: "100%", height: "100%", opacity: contentOpacity, transform: `rotate(${rotation}deg)`, transformOrigin: rotationOrigin }}>{children}</div>;
   return <div style={style}>
     {resolved ? <motion.div
       style={{ width: "100%", height: "100%", position: "relative", transformOrigin: "center" }}

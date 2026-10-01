@@ -9,7 +9,7 @@ import {
   PREVIEW_DEVICES,
   type PreviewDevice,
 } from "../../config/previewDevices";
-import { getElementLayout, getElementSectionId, getElementZIndex, isElementVisibleOnDevice } from "../../utils/responsiveLayout";
+import { getElementLayout, getElementSectionId, getElementZIndex, getImageRotationFrame, isElementVisibleOnDevice } from "../../utils/responsiveLayout";
 import { getDocumentHeight, getRsvpBlockHeight, getRsvpPositionX, getRsvpPositionY, getRsvpWidth, setRsvpLayoutForDevice } from "../../utils/documentLayout";
 import { ProjectFontLoader } from "../../features/fonts/ProjectFontLoader";
 import { useProjectFontRevision } from "../../features/fonts/projectFontRuntime";
@@ -174,8 +174,11 @@ function CanvasElement({
   const image = useLoadedImage(element.type === "image" ? element.src : element.type === "carousel" ? element.images[0]?.url : undefined);
   const layout = getElementLayout(element, device);
   const isCircle = element.type === "shape" && element.shape === "circle";
+  const imageRotationFrame = element.type === "image" ? getImageRotationFrame(layout) : null;
   const common = {
-    id: element.id, x: layout.x, y: layout.y, width: layout.width, height: layout.height,
+    id: element.id, x: imageRotationFrame?.x ?? layout.x, y: imageRotationFrame?.y ?? layout.y,
+    offsetX: imageRotationFrame?.offsetX ?? 0, offsetY: imageRotationFrame?.offsetY ?? 0,
+    width: layout.width, height: layout.height,
     rotation: layout.rotation, opacity: element.opacity, visible,
     draggable: isLockableElement(element) && !isElementLocked(element),
     onClick: (event: KonvaEventObject<MouseEvent>) => { event.cancelBubble = true; onSelect(event.evt.ctrlKey || event.evt.metaKey); },
@@ -191,8 +194,8 @@ function CanvasElement({
       const height = Math.max(12, node.height() * scaleY);
       node.scaleX(1); node.scaleY(1);
       useEditorStore.getState().updateElementLayout(element.id, {
-        x: node.x() - (isCircle ? width / 2 : 0),
-        y: node.y() - (isCircle ? height / 2 : 0),
+        x: node.x() - (isCircle || imageRotationFrame ? width / 2 : 0),
+        y: node.y() - (isCircle || imageRotationFrame ? height / 2 : 0),
         rotation: node.rotation(), width, height,
       });
     },

@@ -2,6 +2,15 @@ import type { ScratchElement, ScratchIndicatorConfig } from "../../types/editor"
 
 export type ScratchSurfacePalette = { light: string; base: string; dark: string };
 
+export function paintScratchSurface(context: CanvasRenderingContext2D, width: number, height: number, palette: ScratchSurfacePalette) {
+  const surface = context.createRadialGradient(width * .3, height * .24, 0, width * .52, height * .55, Math.max(width, height) * .82);
+  surface.addColorStop(0, palette.light);
+  surface.addColorStop(.48, palette.base);
+  surface.addColorStop(1, palette.dark);
+  context.fillStyle = surface;
+  context.fillRect(0, 0, width, height);
+}
+
 const SCRATCH_SURFACES: Record<Exclude<ScratchElement["surfaceStyle"], "custom">, ScratchSurfacePalette> = {
   gold: { light: "#ead58e", base: "#c5a452", dark: "#98752f" },
   silver: { light: "#f0f2f3", base: "#bfc3c8", dark: "#888e95" },

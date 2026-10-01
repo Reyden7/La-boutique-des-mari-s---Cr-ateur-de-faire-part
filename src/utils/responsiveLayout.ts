@@ -26,6 +26,18 @@ export interface ElementRenderBox {
   transformOrigin: "top left";
 }
 
+/** Image coordinates remain the unrotated top-left corner in project_data.
+ * Konva positions the node at its centre and offsets its local drawing back;
+ * DOM uses the same centre as its CSS transform origin.
+ */
+export const getImageRotationFrame = (layout: Pick<ResolvedElementLayout, "x" | "y" | "width" | "height">) => ({
+  x: layout.x + layout.width / 2,
+  y: layout.y + layout.height / 2,
+  offsetX: layout.width / 2,
+  offsetY: layout.height / 2,
+  transformOrigin: "center center" as const,
+});
+
 const getOverride = (element: EditorElement, device: PreviewDevice) => {
   if (device === "mobile") return undefined;
   return element.responsive?.[device];

@@ -261,7 +261,9 @@ export interface ScratchIndicatorConfig {
 export interface ScratchElement extends BaseElement {
   type: "scratch";
   content: string;
-  shape: "circle" | "rectangle" | "rounded-rectangle";
+  shape: "circle" | "rectangle" | "rounded-rectangle" | "custom";
+  /** Project asset used as an alpha silhouette, not as a visible picture. */
+  scratchModel?: { url: string; name: string; assetId?: string };
   surfaceStyle: "gold" | "silver" | "champagne" | "beige" | "rose" | "custom";
   surfaceColor: string;
   revealedBackgroundColor?: string;

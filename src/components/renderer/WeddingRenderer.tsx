@@ -2,7 +2,7 @@ import { type CSSProperties } from "react";
 import type { EditorElement, PageBackground, WeddingPage, WeddingProject } from "../../types/editor";
 import { PREVIEW_DEVICES, type PreviewDevice } from "../../config/previewDevices";
 import { useResponsiveDevice } from "../../hooks/useResponsiveDevice";
-import { getElementLayout, getElementRenderBox, getElementZIndex, isElementVisibleOnDevice } from "../../utils/responsiveLayout";
+import { getElementLayout, getElementRenderBox, getElementZIndex, getImageRotationFrame, isElementVisibleOnDevice } from "../../utils/responsiveLayout";
 import { getDocumentHeight, getRsvpBlockHeight, getRsvpPositionX, getRsvpPositionY, getRsvpWidth } from "../../utils/documentLayout";
 import { ProjectFontLoader } from "../../features/fonts/ProjectFontLoader";
 import { RsvpFormRenderer, shouldRenderRsvp, type RsvpRenderMode } from "../../features/rsvp/RsvpFormRenderer";
@@ -36,7 +36,7 @@ export function RenderElement({ element, device, documentHeight, playAnimation =
     display: layout.visible ? "flex" : "none", alignItems: "center",
   };
   const overlayChildren = element.type === "section" ? <>{[...sectionChildren].sort((a, b) => getElementZIndex(a, device) - getElementZIndex(b, device)).map((child) => <RenderElement key={child.id} element={child} device={device} documentHeight={documentHeight} playAnimation={playAnimation} origin={{ x: layout.x, y: layout.y, width: layout.width, height: layout.height }} />)}{sectionExtra}</> : undefined;
-  const wrap = (content: React.ReactNode, className?: string) => <AnimatedElement animation={element.animation} opacity={element.opacity ?? 1} rotation={layout.rotation} style={style} className={className} overlayChildren={overlayChildren} play={playAnimation}>{content}</AnimatedElement>;
+  const wrap = (content: React.ReactNode, className?: string) => <AnimatedElement animation={element.animation} opacity={element.opacity ?? 1} rotation={layout.rotation} rotationOrigin={element.type === "image" ? getImageRotationFrame(layout).transformOrigin : undefined} style={style} className={className} overlayChildren={overlayChildren} play={playAnimation}>{content}</AnimatedElement>;
   if (element.type === "text") return wrap(<div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", color: element.color, fontFamily: element.fontFamily, fontSize: `${(layout.fontSize ?? element.fontSize) / viewport.width * 100}cqw`, fontWeight: element.fontWeight, fontStyle: element.italic ? "italic" : "normal", textDecoration: element.underline ? "underline" : "none", textAlign: element.textAlign, lineHeight: element.lineHeight, letterSpacing: element.letterSpacing, whiteSpace: "pre-wrap", justifyContent: element.textAlign === "center" ? "center" : element.textAlign === "right" ? "flex-end" : "flex-start" }}>{element.text}</div>);
   if (element.type === "image") {
     const frame = resolveImageFrame(element.imageStyle?.frame);

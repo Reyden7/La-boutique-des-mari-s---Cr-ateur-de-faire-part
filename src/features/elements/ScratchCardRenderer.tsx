@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import type { ScratchElement } from "../../types/editor";
 import type { PreviewDevice } from "../../config/previewDevices";
 import { getElementLayout } from "../../utils/responsiveLayout";
-import { getScratchSurfacePalette, getScratchTextStyle, resolveScratchIndicator } from "./scratchDefaults";
+import { getScratchSurfacePalette, getScratchTextStyle, paintScratchSurface, resolveScratchIndicator } from "./scratchDefaults";
 import { ScratchIndicator } from "./ScratchIndicator";
+import { applyScratchMask, isScratchMaskPointActive } from "./scratchMask";
+import { useScratchMask } from "./useScratchMask";
 
 export function ScratchCardRenderer({ element, device }: { element: ScratchElement; device: PreviewDevice }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -11,8 +13,12 @@ export function ScratchCardRenderer({ element, device }: { element: ScratchEleme
   const scratchMoves = useRef(0);
   const scratching = useRef(false);
   const lastPoint = useRef<{ x: number; y: number } | undefined>(undefined);
+  const initialActiveSamples = useRef<number[]>([]);
   const [revealed, setRevealed] = useState(false);
   const [hasStartedScratching, setHasStartedScratching] = useState(false);
+  const layout = getElementLayout(element, device);
+  const mask = useScratchMask(element.shape === "custom" ? element.scratchModel?.url : undefined);
+  const customShape = element.shape === "custom" && Boolean(mask);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -25,26 +31,19 @@ export function ScratchCardRenderer({ element, device }: { element: ScratchEleme
     if (!context) return;
     contextRef.current = context;
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    const palette = getScratchSurfacePalette(element);
-    const surface = context.createRadialGradient(
-      rect.width * .3,
-      rect.height * .24,
-      0,
-      rect.width * .52,
-      rect.height * .55,
-      Math.max(rect.width, rect.height) * .82,
-    );
-    surface.addColorStop(0, palette.light);
-    surface.addColorStop(.48, palette.base);
-    surface.addColorStop(1, palette.dark);
-    context.fillStyle = surface;
-    context.fillRect(0, 0, rect.width, rect.height);
+    paintScratchSurface(context, rect.width, rect.height, getScratchSurfacePalette(element));
+    if (customShape && mask) applyScratchMask(context, mask, rect.width, rect.height);
+    const initialPixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    initialActiveSamples.current = [];
+    for (let index = 3; index < initialPixels.length; index += 4 * 24) {
+      if (initialPixels[index] > 40) initialActiveSamples.current.push(index);
+    }
     setRevealed(false);
     setHasStartedScratching(false);
     scratchMoves.current = 0;
     scratching.current = false;
     lastPoint.current = undefined;
-  }, [element.surfaceColor, element.surfaceStyle]);
+  }, [element.surfaceColor, element.surfaceStyle, element.shape, mask, customShape, layout.width, layout.height]);
 
   const scratch = (clientX: number, clientY: number) => {
     if (!scratching.current || revealed) return;
@@ -70,18 +69,18 @@ export function ScratchCardRenderer({ element, device }: { element: ScratchEleme
     if (scratchMoves.current % 12 === 0) {
       const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
       let transparent = 0;
-      let sampled = 0;
-      for (let index = 3; index < pixels.length; index += 4 * 24) {
-        sampled += 1;
-        if (pixels[index] < 40) transparent += 1;
-      }
-      if (sampled && transparent / sampled > .52) setRevealed(true);
+      for (const index of initialActiveSamples.current) if (pixels[index] < 40) transparent++;
+      if (initialActiveSamples.current.length && transparent / initialActiveSamples.current.length > .52) setRevealed(true);
     }
   };
 
   const startScratch = (event: React.PointerEvent<HTMLCanvasElement>) => {
     event.preventDefault();
     event.stopPropagation();
+    if (customShape && mask) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      if (!isScratchMaskPointActive(mask, event.clientX - rect.left, event.clientY - rect.top, rect.width, rect.height)) return;
+    }
     setHasStartedScratching(true);
     scratching.current = true;
     lastPoint.current = undefined;
@@ -104,10 +103,15 @@ export function ScratchCardRenderer({ element, device }: { element: ScratchEleme
   };
 
   const text = getScratchTextStyle(element);
-  const layout = getElementLayout(element, device);
   const indicator = resolveScratchIndicator(element.scratchIndicator);
 
-  return <div className={`scratch-card scratch-${element.shape}`} style={{ backgroundColor: element.revealedBackgroundColor ?? "#fffaf5" }} onDragStart={(event) => event.preventDefault()} onContextMenu={(event) => event.preventDefault()}>
+  const maskStyle = customShape && mask ? {
+    maskImage: `url("${mask.url}")`, WebkitMaskImage: `url("${mask.url}")`,
+    maskSize: "contain", WebkitMaskSize: "contain",
+    maskPosition: "center", WebkitMaskPosition: "center",
+    maskRepeat: "no-repeat", WebkitMaskRepeat: "no-repeat",
+  } : {};
+  return <div className={`scratch-card scratch-${customShape ? "custom" : element.shape === "custom" ? "circle" : element.shape}`} style={{ backgroundColor: element.revealedBackgroundColor ?? "#fffaf5", ...maskStyle }} onDragStart={(event) => event.preventDefault()} onContextMenu={(event) => event.preventDefault()}>
     <strong style={{ color: text.textColor, fontFamily: text.fontFamily, fontSize: `${text.fontSize / Math.max(1, layout.width) * 100}cqw`, fontWeight: text.fontWeight, textAlign: text.textAlign, transform: `translate(calc(-50% + ${text.textOffsetX / Math.max(1, layout.width) * 100}cqw), calc(-50% + ${text.textOffsetY / Math.max(1, layout.width) * 100}cqw))` }}>{element.content}</strong>
     <canvas ref={canvasRef}
       draggable={false}
