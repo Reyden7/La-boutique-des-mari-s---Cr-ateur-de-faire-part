@@ -13,5 +13,6 @@ export function useScratchMask(url?: string) {
     });
     return () => { cancelled = true; };
   }, [url]);
-  return loaded?.url === url ? loaded.mask : null;
+  if (!loaded || loaded.url !== url) return null;
+  return loaded.mask;
 }
