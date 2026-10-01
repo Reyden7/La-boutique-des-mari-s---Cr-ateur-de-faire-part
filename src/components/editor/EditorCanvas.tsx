@@ -18,6 +18,8 @@ import { getDecorativeHeart } from "../../features/hearts/heartRegistry";
 import { WelcomePageRenderer } from "../../features/welcome/WelcomePageRenderer";
 import { resolveWelcomePage } from "../../features/welcome/welcomeDefaults";
 import { getScratchSurfacePalette, getScratchTextStyle, resolveScratchIndicator } from "../../features/elements/scratchDefaults";
+import { makeMaskedScratchCanvas, paintScratchModelSurface } from "../../features/elements/scratchMask";
+import { useScratchMask } from "../../features/elements/useScratchMask";
 import {
   ALIGNMENT_THRESHOLD,
   calculateSnap,
@@ -173,6 +175,19 @@ function CanvasElement({
 }) {
   const image = useLoadedImage(element.type === "image" ? element.src : element.type === "carousel" ? element.images[0]?.url : undefined);
   const layout = getElementLayout(element, device);
+  const scratchMask = useScratchMask(element.type === "scratch" && element.shape === "custom" ? element.scratchModel?.url : undefined);
+  const scratchElement = element.type === "scratch" ? element : null;
+  const maskedScratchSurface = useMemo(() => {
+    if (scratchElement?.shape !== "custom" || !scratchMask) return null;
+    return makeMaskedScratchCanvas(scratchMask, layout.width, layout.height, (context) => paintScratchModelSurface(context, scratchMask, layout.width, layout.height));
+  }, [scratchElement?.shape, scratchMask, layout.width, layout.height]);
+  const maskedScratchReveal = useMemo(() => {
+    if (scratchElement?.shape !== "custom" || !scratchMask) return null;
+    return makeMaskedScratchCanvas(scratchMask, layout.width, layout.height, (context) => {
+      context.fillStyle = scratchElement.revealedBackgroundColor ?? "#fffaf5";
+      context.fillRect(0, 0, layout.width, layout.height);
+    });
+  }, [scratchElement?.shape, scratchElement?.revealedBackgroundColor, scratchMask, layout.width, layout.height]);
   const isCircle = element.type === "shape" && element.shape === "circle";
   const imageRotationFrame = element.type === "image" ? getImageRotationFrame(layout) : null;
   const common = {
@@ -257,11 +272,14 @@ function CanvasElement({
   if (element.type === "scratch") {
     const scratchText = getScratchTextStyle(element);
     const surface = getScratchSurfacePalette(element);
-    const cornerRadius = element.shape === "circle" ? Math.min(layout.width, layout.height) / 2 : element.shape === "rounded-rectangle" ? 18 : 0;
+    const cornerRadius = element.shape === "circle" || (element.shape === "custom" && !scratchMask) ? Math.min(layout.width, layout.height) / 2 : element.shape === "rounded-rectangle" ? 18 : 0;
     return <Group {...common}>
-      <Rect width={layout.width} height={layout.height} fill={element.revealedBackgroundColor ?? "#fffaf5"} cornerRadius={cornerRadius} />
-      <Text x={scratchText.textOffsetX} y={scratchText.textOffsetY} width={layout.width} height={layout.height} text={element.content} fill={scratchText.textColor} fontFamily={scratchText.fontFamily} fontSize={scratchText.fontSize} fontStyle={scratchText.fontWeight >= 600 ? "bold" : "normal"} align={scratchText.textAlign} verticalAlign="middle" padding={8} />
-      <Rect
+      {scratchMask && element.shape === "custom" && <Rect width={layout.width} height={layout.height} fill="rgba(0,0,0,0.001)" />}
+      {maskedScratchReveal
+        ? <KonvaImage image={maskedScratchReveal} width={layout.width} height={layout.height} listening={false} />
+        : <Rect width={layout.width} height={layout.height} fill={element.revealedBackgroundColor ?? "#fffaf5"} cornerRadius={cornerRadius} />}
+      {element.shape !== "custom" || !scratchMask ? <Text x={scratchText.textOffsetX} y={scratchText.textOffsetY} width={layout.width} height={layout.height} text={element.content} fill={scratchText.textColor} fontFamily={scratchText.fontFamily} fontSize={scratchText.fontSize} fontStyle={scratchText.fontWeight >= 600 ? "bold" : "normal"} align={scratchText.textAlign} verticalAlign="middle" padding={8} /> : null}
+      {maskedScratchSurface ? <KonvaImage image={maskedScratchSurface} width={layout.width} height={layout.height} listening={false} /> : <Rect
         width={layout.width}
         height={layout.height}
         cornerRadius={cornerRadius}
@@ -271,7 +289,7 @@ function CanvasElement({
         fillRadialGradientEndRadius={Math.max(layout.width, layout.height) * .82}
         fillRadialGradientColorStops={[0, surface.light, .48, surface.base, 1, surface.dark]}
         listening={false}
-      />
+      />}
       <ScratchIndicatorCanvas element={element} width={layout.width} height={layout.height} />
     </Group>;
   }

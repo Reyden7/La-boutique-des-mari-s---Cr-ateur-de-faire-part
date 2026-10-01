@@ -1,20 +1,24 @@
-import { ArrowDown, ArrowUp, ImagePlus, Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { ArrowDown, ArrowUp, ImagePlus, Plus, Trash2, Upload } from "lucide-react";
 import type { ButtonElement, CarouselElement, EditorElement, LocationElement, ScheduleElement, ScratchElement, SectionElement } from "../../types/editor";
 import { useEditorStore } from "../../stores/editorStore";
 import { isSupabaseConfigured } from "../../lib/supabase";
-import { uploadProjectAsset } from "../../services/assetRepository";
+import { deleteProjectAsset, deleteProjectAssetIfUnused, uploadProjectAsset } from "../../services/assetRepository";
 import { FontPicker } from "../fonts/FontPicker";
 import { getScratchTextStyle, resolveScratchIndicator } from "./scratchDefaults";
 import { ColorAlphaInput } from "../../components/ui/ColorAlphaInput";
 import { getElementLayout } from "../../utils/responsiveLayout";
 import { resolveScheduleTypography } from "../../config/scheduleStyle";
 import { PropertySection } from "../../components/properties/PropertySection";
+import { loadScratchMask, releaseScratchMask } from "./scratchMask";
 
 type RichElement = ScratchElement | CarouselElement | LocationElement | ScheduleElement | ButtonElement | SectionElement;
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => <label className="field"><span>{label}</span>{children}</label>;
 const asDataUrl = (file: File) => new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file); });
 
 export function RichElementProperties({ element, appearance }: { element: RichElement; appearance: React.ReactNode }) {
+  const [scratchUploadBusy, setScratchUploadBusy] = useState(false);
+  const [scratchUploadError, setScratchUploadError] = useState("");
   const project = useEditorStore((state) => state.project);
   const currentPageId = useEditorStore((state) => state.currentPageId);
   const previewDevice = useEditorStore((state) => state.previewDevice);
@@ -24,6 +28,53 @@ export function RichElementProperties({ element, appearance }: { element: RichEl
   const update = (changes: object) => updateElement(element.id, changes as Partial<EditorElement>);
 
   if (element.type === "scratch") {
+    const uploadScratchModel = async (file?: File) => {
+      if (!file || !project) return;
+      const extension = file.name.split(".").pop()?.toLowerCase();
+      if (!extension || !["png", "webp", "jpg", "jpeg"].includes(extension) || !["image/png", "image/webp", "image/jpeg"].includes(file.type)) {
+        setScratchUploadError("Choisissez une image PNG, WebP ou JPG valide."); return;
+      }
+      if (file.size <= 0 || file.size > 10 * 1024 * 1024) {
+        setScratchUploadError("Le modèle doit peser moins de 10 Mo."); return;
+      }
+      if (!isSupabaseConfigured) { setScratchUploadError("Le stockage du projet n’est pas disponible."); return; }
+      const localUrl = URL.createObjectURL(file);
+      let uploadedAssetId: string | undefined;
+      setScratchUploadBusy(true);
+      setScratchUploadError("");
+      try {
+        await loadScratchMask(localUrl);
+        const asset = await uploadProjectAsset(project, file, "image");
+        uploadedAssetId = asset.id;
+        await loadScratchMask(asset.url);
+        const previous = element.scratchModel;
+        update({ shape: "custom", scratchModel: { url: asset.url, name: file.name, assetId: asset.id } });
+        uploadedAssetId = undefined;
+        const currentProject = useEditorStore.getState().project;
+        if (previous?.assetId && currentProject) {
+          void deleteProjectAssetIfUnused(currentProject, previous.assetId, previous.url).catch(() => {
+            setScratchUploadError("Le nouveau modèle est enregistré, mais l’ancien fichier n’a pas pu être nettoyé.");
+          });
+        }
+      } catch (error) {
+        if (uploadedAssetId) await deleteProjectAsset(uploadedAssetId).catch(() => undefined);
+        setScratchUploadError(error instanceof Error ? error.message : "Impossible d’importer ce modèle.");
+      } finally {
+        releaseScratchMask(localUrl);
+        URL.revokeObjectURL(localUrl);
+        setScratchUploadBusy(false);
+      }
+    };
+    const removeScratchModel = () => {
+      const previous = element.scratchModel;
+      update({ shape: "circle", scratchModel: undefined });
+      const currentProject = useEditorStore.getState().project;
+      if (previous?.assetId && currentProject) {
+        void deleteProjectAssetIfUnused(currentProject, previous.assetId, previous.url).catch(() => {
+          setScratchUploadError("Le modèle a été retiré, mais son fichier n’a pas pu être nettoyé.");
+        });
+      }
+    };
     const text = getScratchTextStyle(element);
     const indicator = resolveScratchIndicator(element.scratchIndicator);
     const updateIndicator = (changes: Partial<typeof indicator>) => update({
@@ -36,7 +87,14 @@ export function RichElementProperties({ element, appearance }: { element: RichEl
       <div className="field-row"><Field label="Taille"><input type="number" min="8" max="180" value={text.fontSize} onChange={(e) => update({ fontSize: Number(e.target.value) })} /></Field><Field label="Graisse"><select value={text.fontWeight} onChange={(e) => update({ fontWeight: Number(e.target.value) })}><option value="300">Fine</option><option value="400">Normale</option><option value="500">Moyenne</option><option value="600">Demi-gras</option><option value="700">Gras</option></select></Field></div>
       <div className="field-row"><Field label="Couleur du texte"><ColorAlphaInput value={text.textColor} onChange={(value) => update({ textColor: value, contentColor: value })} /></Field><Field label="Alignement"><select value={text.textAlign} onChange={(e) => update({ textAlign: e.target.value })}><option value="left">Gauche</option><option value="center">Centre</option><option value="right">Droite</option></select></Field></div>
       <div className="field-row"><Field label="Position X locale"><input type="number" min="-500" max="500" value={text.textOffsetX} onChange={(e) => update({ textOffsetX: Number(e.target.value) })} /></Field><Field label="Position Y locale"><input type="number" min="-500" max="500" value={text.textOffsetY} onChange={(e) => update({ textOffsetY: Number(e.target.value) })} /></Field></div>
-      <div className="field-row"><Field label="Forme"><select value={element.shape} onChange={(e) => update({ shape: e.target.value })}><option value="circle">Cercle</option><option value="rectangle">Rectangle</option><option value="rounded-rectangle">Arrondi</option></select></Field><Field label="Matière"><select value={element.surfaceStyle} onChange={(e) => update({ surfaceStyle: e.target.value })}><option value="gold">Or</option><option value="silver">Argent</option><option value="champagne">Champagne</option><option value="beige">Beige</option><option value="rose">Rose</option><option value="custom">Personnalisée</option></select></Field></div>
+      <div className="field-row"><Field label="Forme"><select value={element.shape} onChange={(e) => update({ shape: e.target.value })}><option value="circle">Cercle</option><option value="rectangle">Rectangle</option><option value="rounded-rectangle">Arrondi</option><option value="custom">Modèle personnalisé</option></select></Field><Field label="Matière"><select value={element.surfaceStyle} onChange={(e) => update({ surfaceStyle: e.target.value })}><option value="gold">Or</option><option value="silver">Argent</option><option value="champagne">Champagne</option><option value="beige">Beige</option><option value="rose">Rose</option><option value="custom">Personnalisée</option></select></Field></div>
+      {element.shape === "custom" && <div className="scratch-model-controls">
+        {element.scratchModel && <div className="scratch-model-preview"><img src={element.scratchModel.url} alt={`Modèle ${element.scratchModel.name}`} loading="lazy" /><span>{element.scratchModel.name}</span></div>}
+        <label className="secondary-action"><Upload size={14} /> {scratchUploadBusy ? "Import en cours…" : element.scratchModel ? "Remplacer le modèle" : "Importer un modèle"}<input hidden type="file" accept=".png,.webp,.jpg,.jpeg,image/png,image/webp,image/jpeg" disabled={scratchUploadBusy} onChange={(e) => { void uploadScratchModel(e.target.files?.[0]); e.currentTarget.value = ""; }} /></label>
+        {element.scratchModel && <button className="secondary-action" type="button" disabled={scratchUploadBusy} onClick={removeScratchModel}><Trash2 size={14} /> Supprimer le modèle</button>}
+        <small>L’image en couleur remplace la matière avant grattage ; le fond révélé colore sa silhouette. PNG/WebP transparents recommandés. Un JPG doit avoir un fond uni distinct.</small>
+        {scratchUploadError && <p className="scratch-model-error" role="alert">{scratchUploadError}</p>}
+      </div>}
       <div className="field-row"><Field label="Couleur de surface"><ColorAlphaInput value={element.surfaceColor} onChange={(value) => update({ surfaceColor: value, surfaceStyle: "custom" })} /></Field><Field label="Fond révélé"><ColorAlphaInput value={element.revealedBackgroundColor ?? "#fffaf5"} onChange={(value) => update({ revealedBackgroundColor: value })} /></Field></div>
       {appearance}</PropertySection><PropertySection key={`${element.id}-indicator`} title="Indicateur de grattage"><div className="scratch-indicator-properties">
         <label className="compact-check"><input type="checkbox" checked={indicator.enabled} onChange={(e) => updateIndicator({ enabled: e.target.checked })} /> Afficher un indicateur de grattage</label>

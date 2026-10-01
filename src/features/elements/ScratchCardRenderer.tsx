@@ -4,7 +4,7 @@ import type { PreviewDevice } from "../../config/previewDevices";
 import { getElementLayout } from "../../utils/responsiveLayout";
 import { getScratchSurfacePalette, getScratchTextStyle, paintScratchSurface, resolveScratchIndicator } from "./scratchDefaults";
 import { ScratchIndicator } from "./ScratchIndicator";
-import { applyScratchMask, isScratchMaskPointActive } from "./scratchMask";
+import { applyScratchMask, isScratchMaskPointActive, paintScratchModelSurface } from "./scratchMask";
 import { useScratchMask } from "./useScratchMask";
 
 export function ScratchCardRenderer({ element, device }: { element: ScratchElement; device: PreviewDevice }) {
@@ -31,8 +31,12 @@ export function ScratchCardRenderer({ element, device }: { element: ScratchEleme
     if (!context) return;
     contextRef.current = context;
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    paintScratchSurface(context, rect.width, rect.height, getScratchSurfacePalette(element));
-    if (customShape && mask) applyScratchMask(context, mask, rect.width, rect.height);
+    if (customShape && mask) {
+      paintScratchModelSurface(context, mask, rect.width, rect.height);
+      applyScratchMask(context, mask, rect.width, rect.height);
+    } else {
+      paintScratchSurface(context, rect.width, rect.height, getScratchSurfacePalette(element));
+    }
     const initialPixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
     initialActiveSamples.current = [];
     for (let index = 3; index < initialPixels.length; index += 4 * 24) {

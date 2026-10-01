@@ -1,6 +1,8 @@
 /** A project image defines the scratch silhouette; only its alpha is retained. */
 export interface ScratchMask {
   canvas: HTMLCanvasElement;
+  /** Full-colour source, kept separately from the derived alpha silhouette. */
+  image: HTMLImageElement;
   url: string;
   alpha: Uint8ClampedArray;
   width: number;
@@ -85,18 +87,28 @@ export function applyScratchMask(context: CanvasRenderingContext2D, mask: Scratc
   context.restore();
 }
 
+/** Paint the original artwork without replacing its colours with a preset material. */
+export function paintScratchModelSurface(context: CanvasRenderingContext2D, mask: ScratchMask, width: number, height: number) {
+  const placement = getScratchMaskPlacement(mask, width, height);
+  context.drawImage(mask.image, placement.x, placement.y, placement.width, placement.height);
+}
+
 export function makeMaskedScratchCanvas(mask: ScratchMask, width: number, height: number, paint: (context: CanvasRenderingContext2D) => void) {
   const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(width));
-  canvas.height = Math.max(1, Math.round(height));
+  const ratio = 2;
+  canvas.width = Math.max(1, Math.round(width * ratio));
+  canvas.height = Math.max(1, Math.round(height * ratio));
   const context = canvas.getContext("2d");
   if (!context) return canvas;
+  context.scale(ratio, ratio);
   paint(context);
-  applyScratchMask(context, mask, canvas.width, canvas.height);
+  applyScratchMask(context, mask, width, height);
   return canvas;
 }
 
 const cache = new Map<string, Promise<ScratchMask>>();
+
+export function releaseScratchMask(url: string) { cache.delete(url); }
 
 export function loadScratchMask(url: string): Promise<ScratchMask> {
   const existing = cache.get(url);
@@ -128,7 +140,7 @@ export function loadScratchMask(url: string): Promise<ScratchMask> {
           data.data[p + 3] = analysis.alpha[i];
         }
         context.putImageData(data, 0, 0);
-        resolve({ canvas, url: canvas.toDataURL("image/png"), alpha: analysis.alpha, width, height, source: analysis.source });
+        resolve({ canvas, image, url: canvas.toDataURL("image/png"), alpha: analysis.alpha, width, height, source: analysis.source });
       } catch (error) { reject(error); }
     };
     image.onerror = () => reject(new Error("Impossible de charger le modèle à gratter."));

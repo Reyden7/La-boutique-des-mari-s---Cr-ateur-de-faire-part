@@ -746,6 +746,14 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 @media (prefers-reduced-motion: reduce) { .scratch-indicator.is-animated .scratch-indicator-motion { animation: none; } }
 .scratch-circle { border-radius: 50%; }
 .scratch-rounded-rectangle { border-radius: 18px; }
+.scratch-model-controls { display: grid; gap: 9px; margin: 10px 0 14px; }
+.scratch-model-controls .secondary-action { display: inline-flex; align-items: center; justify-content: center; gap: 7px; cursor: pointer; }
+.scratch-model-controls .secondary-action:has(input:disabled) { opacity: .55; cursor: wait; }
+.scratch-model-controls small { color: #806e63; line-height: 1.4; }
+.scratch-model-preview { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 7px; border: 1px solid #e7d8cd; border-radius: 9px; }
+.scratch-model-preview img { width: 54px; height: 54px; object-fit: contain; flex: none; background: #f6f1ed; border-radius: 5px; }
+.scratch-model-preview span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.scratch-model-error { margin: 0; color: #a33f35; font-size: 11px; }
 .photo-carousel { position: relative; overflow: hidden; background: #eee8e2; }
 .photo-carousel > img { width: 100%; height: 100%; display: block; animation: carousel-fade .35s ease; }
 .transition-slide > img { animation-name: carousel-slide; }
