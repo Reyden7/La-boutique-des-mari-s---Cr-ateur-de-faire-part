@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { getHierarchyRows, moveHierarchyElement } from "../src/utils/hierarchyOrder.ts";
-import { getRsvpLayerZIndex } from "../src/features/rsvp/rsvpEditorElement.ts";
+import { getRsvpLayerZIndex, RSVP_EDITOR_ELEMENT_ID, selectionAfterRsvpUpdate } from "../src/features/rsvp/rsvpEditorElement.ts";
 
 const elements = () => [
   { id: "section-a", type: "section", zIndex: 1, x: 0, y: 100 },
@@ -42,4 +42,19 @@ test("a section-owned form remains above its children but below higher root laye
   const data = elements();
   assert.equal(getRsvpLayerZIndex({ sectionId: "section-a" }, data), 2.5);
   assert.equal(getRsvpLayerZIndex({}, data), 5);
+});
+
+test("RSVP style changes keep the form selected; hiding it clears only its selection", () => {
+  assert.deepEqual(selectionAfterRsvpUpdate(true, RSVP_EDITOR_ELEMENT_ID, [RSVP_EDITOR_ELEMENT_ID]), {
+    selectedId: RSVP_EDITOR_ELEMENT_ID,
+    selectedIds: [RSVP_EDITOR_ELEMENT_ID],
+  });
+  assert.deepEqual(selectionAfterRsvpUpdate(false, RSVP_EDITOR_ELEMENT_ID, [RSVP_EDITOR_ELEMENT_ID]), {
+    selectedId: null,
+    selectedIds: [],
+  });
+  assert.deepEqual(selectionAfterRsvpUpdate(false, "text-1", ["text-1", RSVP_EDITOR_ELEMENT_ID]), {
+    selectedId: "text-1",
+    selectedIds: ["text-1"],
+  });
 });

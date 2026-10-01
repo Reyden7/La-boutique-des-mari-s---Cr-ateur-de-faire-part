@@ -9,3 +9,12 @@ export function getRsvpLayerZIndex(config: RsvpFormConfig | undefined, elements:
   if (!section) return Math.max(0, ...elements.map((element) => element.zIndex)) + 1;
   return Math.max(section.zIndex, ...elements.filter((element) => element.sectionId === section.id).map((element) => element.zIndex)) + 0.5;
 }
+
+/** Appearance edits must not unmount the selected RSVP properties panel. */
+export function selectionAfterRsvpUpdate(enabled: boolean, selectedId: string | null, selectedIds: string[]) {
+  if (enabled) return { selectedId, selectedIds };
+  return {
+    selectedId: selectedId === RSVP_EDITOR_ELEMENT_ID ? null : selectedId,
+    selectedIds: selectedIds.filter((id) => id !== RSVP_EDITOR_ELEMENT_ID),
+  };
+}

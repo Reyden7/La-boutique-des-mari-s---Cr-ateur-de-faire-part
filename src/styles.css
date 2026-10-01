@@ -1384,6 +1384,10 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .rsvp-style-card { padding: 13px; border: 1px solid #e2dad4; border-radius: 11px; background: #fff; }
 .rsvp-style-card > p { margin: 4px 0 13px; color: #938981; font: 8px/1.5 Lora, serif; }
 .rsvp-style-card .field { margin-bottom: 10px; }
+.rsvp-style-card .field-row > .field { min-width: 0; }
+.rsvp-style-card .color-alpha-input { grid-template-columns: 28px minmax(0, 1fr) 28px; gap: 3px; }
+.rsvp-style-card .color-alpha-input input[type="color"] { width: 28px; min-width: 28px; }
+.rsvp-style-card .color-alpha-input output { position: static; font-size: 8px; }
 .rsvp-style-reset { width: 100%; min-height: 32px; border: 1px solid #ddcfc4; border-radius: 7px; background: #faf7f4; color: #765746; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 8px; font-weight: 700; }
 .rsvp-field-list { display: grid; gap: 8px; }
 .rsvp-field-card { position: relative; padding: 34px 9px 9px; border: 1px solid #e2dad4; border-radius: 9px; display: grid; gap: 6px; background: #fff; }
@@ -1456,7 +1460,7 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 }
 .rsvp-public-form h2 { margin: -8px 0 8px; font: 500 var(--rsvp-title-size, clamp(31px, 8cqw, 48px)) var(--rsvp-font, "Cormorant Garamond", serif); text-align: center; line-height: 1.08; }
 .rsvp-public-form > .eyebrow { color: var(--rsvp-label, #5d514a); }
-.rsvp-public-form > p { margin: 0; text-align: center; color: var(--rsvp-text, #7b6e66); opacity: .78; font: var(--rsvp-field-size, 13px)/1.6 var(--rsvp-font, Lora, serif); }
+.rsvp-public-form > p { margin: 0; text-align: center; color: var(--rsvp-text, #7b6e66); font: var(--rsvp-field-size, 13px)/1.6 var(--rsvp-font, Lora, serif); }
 .rsvp-public-field { display: grid; gap: 7px; color: var(--rsvp-label, #5d514a); font: 600 var(--rsvp-label-size, 10px) var(--rsvp-font, Montserrat, sans-serif); letter-spacing: .03em; }
 .rsvp-public-field b { color: var(--rsvp-selection, #9f604f); }
 .rsvp-public-field > input, .rsvp-public-field > textarea, .rsvp-public-field > select { width: 100%; border: 1px solid var(--rsvp-field-border, #d9cec6); border-radius: 8px; padding: 11px; background: var(--rsvp-field-background, rgba(255,255,255,.78)); color: var(--rsvp-field-text, #443c37); font: var(--rsvp-field-size, 13px) var(--rsvp-font, Lora, serif); outline: none; }

@@ -33,7 +33,7 @@ import {
 import { resolveWelcomePage } from "../features/welcome/welcomeDefaults";
 import { isElementLocked, isLockableElement, normalizeElementLocks } from "../utils/elementLocking";
 import { getRsvpPositionX, getRsvpPositionY, getRsvpWidth, setRsvpLayoutForDevice } from "../utils/documentLayout";
-import { RSVP_EDITOR_ELEMENT_ID } from "../features/rsvp/rsvpEditorElement";
+import { RSVP_EDITOR_ELEMENT_ID, selectionAfterRsvpUpdate } from "../features/rsvp/rsvpEditorElement";
 import { moveHierarchyElement, type HierarchyPlacement } from "../utils/hierarchyOrder";
 
 type SaveStatus = "idle" | "saving" | "saved";
@@ -1089,11 +1089,12 @@ export const useEditorStore =
         ),
 
       updateRsvp: (rsvp) =>
-        set((state) =>
-          mutateProject(state, (project) => {
+        set((state) => {
+          const selection = selectionAfterRsvpUpdate(rsvp.enabled, state.selectedElementId, state.selectedElementIds);
+          return mutateProject(state, (project) => {
             project.rsvp = rsvp;
-          }, null)
-        ),
+          }, selection.selectedId, selection.selectedIds);
+        }),
 
       updateWelcomePage: (welcomePage) =>
         set((state) =>
