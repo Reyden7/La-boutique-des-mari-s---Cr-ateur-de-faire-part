@@ -2,8 +2,7 @@ import { Eye, PanelLeft, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { EditorCanvas } from "../components/editor/EditorCanvas";
-import { ZoomControls } from "../components/editor/ZoomControls";
-import { PreviewDeviceSwitcher } from "../components/editor/PreviewDeviceSwitcher";
+import { EditorWorkspace } from "../components/editor/EditorWorkspace";
 import { PreviewMode } from "../components/preview/PreviewMode";
 import { PropertiesPanel } from "../components/properties/PropertiesPanel";
 import { LeftSidebar } from "../components/sidebar/LeftSidebar";
@@ -70,7 +69,9 @@ export function EditorPage() {
         <button className="mobile-panel-close" onClick={() => setMobilePanel(null)} aria-label="Fermer les outils"><X size={18} /></button>
         <LeftSidebar onPreviewOpening={setOpeningPreview} />
       </div>
-      <main className="editor-main"><div className="editor-preview-toolbar"><div className="workspace-label">{project.pages.find((page) => page.id === useEditorStore.getState().currentPageId)?.name}</div><PreviewDeviceSwitcher /></div><EditorCanvas /><ZoomControls /></main>
+      <EditorWorkspace pageName={project.pages.find((page) => page.id === useEditorStore.getState().currentPageId)?.name}>
+        <EditorCanvas />
+      </EditorWorkspace>
       <div className={`editor-panel-host properties-panel-host ${mobilePanel === "properties" ? "mobile-open" : ""}`}>
         <button className="mobile-panel-close" onClick={() => setMobilePanel(null)} aria-label="Fermer les réglages"><X size={18} /></button>
         <PropertiesPanel onPreviewOpening={setOpeningPreview} />

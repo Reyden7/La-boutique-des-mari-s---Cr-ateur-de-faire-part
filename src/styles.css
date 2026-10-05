@@ -322,10 +322,13 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .layer-root-drop { min-height: 29px; padding: 8px 10px; border: 1px dashed #dbd1c9; border-radius: 7px; color: #9c8b7e; font-size: 9px; text-align: center; }
 .layer-root-drop.drop-active { border-color: #a9785b; background: #f9ece2; color: #79543f; }
 
+/* The grid cell starts below the topbar. Only editor-main scrolls: toolbar
+   coordinates therefore never depend on the document height/width or scroll. */
+.editor-workspace { --editor-toolbar-gap: 13px; position: relative; min-width: 0; min-height: 0; display: grid; isolation: isolate; overflow: hidden; }
 .editor-main { min-width: 0; min-height: 0; position: relative; display: block; overflow: auto; background-color: #eeeae5; background-image: radial-gradient(#d5cec7 .65px, transparent .65px); background-size: 14px 14px; }
-.editor-preview-toolbar { position: absolute; z-index: 20; top: 13px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; padding: 4px; border: 1px solid #dcd4cd; border-radius: 11px; background: rgba(255,255,255,.94); box-shadow: 0 7px 22px rgba(39,34,30,.09); backdrop-filter: blur(12px); }
-.workspace-label { padding: 0 8px 0 10px; color: #8f857d; font-size: 9px; text-transform: uppercase; letter-spacing: .13em; white-space: nowrap; }
-.preview-device-switcher { display: flex; align-items: center; padding: 2px; border-radius: 8px; background: #f0ece8; }
+.editor-preview-toolbar { position: absolute; z-index: 20; top: var(--editor-toolbar-gap); left: 50%; transform: translateX(-50%); max-width: calc(100% - 24px); display: flex; align-items: center; gap: 12px; padding: 4px; border: 1px solid #dcd4cd; border-radius: 11px; background: rgba(255,255,255,.94); box-shadow: 0 7px 22px rgba(39,34,30,.09); backdrop-filter: blur(12px); }
+.workspace-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; padding: 0 8px 0 10px; color: #8f857d; font-size: 9px; text-transform: uppercase; letter-spacing: .13em; white-space: nowrap; }
+.preview-device-switcher { flex-shrink: 0; display: flex; align-items: center; padding: 2px; border-radius: 8px; background: #f0ece8; }
 .preview-device-switcher button { height: 30px; padding: 0 9px; border: 0; border-radius: 6px; background: transparent; color: #777069; display: flex; align-items: center; gap: 5px; font-size: 9px; white-space: nowrap; }
 .preview-device-switcher button:hover { color: var(--accent-dark); }
 .preview-device-switcher button.active { background: #fff; color: var(--accent-dark); box-shadow: 0 2px 7px rgba(54,45,39,.11); }
@@ -633,9 +636,10 @@ button:disabled { cursor: not-allowed; opacity: .38; }
   .toolbar-actions .publish-button, .toolbar-actions .admin-template-button { width: 38px; min-height: 38px; justify-content: center; padding: 0; border-radius: 10px; }
   .publish-popover { top: 64px; right: 10px; left: 10px; width: auto; }
 
-  .editor-main { grid-column: 1; grid-row: 2; overscroll-behavior: contain; }
+  .editor-workspace { grid-column: 1; grid-row: 2; --editor-toolbar-gap: 8px; }
+  .editor-main { overscroll-behavior: contain; }
   .canvas-area { min-width: 100%; min-height: 100%; padding: 62px 18px 132px; }
-  .editor-preview-toolbar { position: fixed; top: 66px; gap: 0; }
+  .editor-preview-toolbar { gap: 0; }
   .workspace-label { display: none; }
   .preview-device-switcher button { width: 38px; justify-content: center; padding: 0; }
   .preview-device-switcher button span { display: none; }
