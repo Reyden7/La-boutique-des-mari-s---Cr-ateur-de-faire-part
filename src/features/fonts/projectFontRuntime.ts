@@ -1,15 +1,10 @@
 import { useSyncExternalStore } from "react";
 import type { CustomFontAsset } from "../../types/editor";
+import { getFontFaceFormat } from "../../../supabase/functions/_shared/fontFormats.ts";
 
 let fontRevision = 0;
 const listeners = new Set<() => void>();
 const pendingFonts = new Map<string, Promise<FontFace>>();
-
-const fontFormat = (font: CustomFontAsset) => font.format === "ttf"
-  ? "truetype"
-  : font.format === "otf"
-    ? "opentype"
-    : font.format;
 
 const notifyFontChange = () => {
   fontRevision += 1;
@@ -37,7 +32,7 @@ export const loadProjectFont = async (font: CustomFontAsset): Promise<FontFace> 
   if (existing) return existing;
 
   const promise = (async () => {
-    const source = `url(${JSON.stringify(font.url)}) format(${JSON.stringify(fontFormat(font))})`;
+    const source = `url(${JSON.stringify(font.url)}) format(${JSON.stringify(getFontFaceFormat(font.format))})`;
     const loadedFont = await new FontFace(font.family, source, { display: "swap" }).load();
     document.fonts.add(loadedFont);
     await document.fonts.ready;

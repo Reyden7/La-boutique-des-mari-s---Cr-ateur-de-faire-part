@@ -41,6 +41,13 @@ import { isElementLocked, isLockableElement, normalizeElementLocks } from "../ut
 import { getRsvpPositionX, getRsvpPositionY, getRsvpWidth, setRsvpLayoutForDevice, setRsvpSectionForDevice } from "../utils/documentLayout";
 import { RSVP_EDITOR_ELEMENT_ID, getRsvpSectionId, materializeRsvpComposition, selectionAfterRsvpUpdate } from "../features/rsvp/rsvpEditorElement";
 import { getHierarchyRows, moveHierarchyElement, type HierarchyPlacement } from "../utils/hierarchyOrder";
+import type { CanvasPoint } from "../utils/selectionDrag";
+
+interface ElementMoveOptions {
+  device?: PreviewDevice;
+  initialPositions?: Record<string, CanvasPoint>;
+  preserveSectionMembership?: boolean;
+}
 
 type SaveStatus = "idle" | "saving" | "saved";
 
@@ -110,7 +117,7 @@ interface EditorState {
     updates: ResponsiveElementLayout
   ) => void;
 
-  moveElements: (ids: string[], deltaX: number, deltaY: number) => void;
+  moveElements: (ids: string[], deltaX: number, deltaY: number, options?: ElementMoveOptions) => void;
 
   removeSelectedElements: () => void;
 
@@ -659,22 +666,23 @@ export const useEditorStore =
           )
         ),
 
-      moveElements: (ids, deltaX, deltaY) => {
+      moveElements: (ids, deltaX, deltaY, options = {}) => {
         if ((!deltaX && !deltaY) || ids.length === 0) return;
         set((state) =>
           mutateProject(state, (project) => {
             let editableElements = getEditableElements(project, state);
             if (!editableElements) return;
             const welcomeContext = isWelcomeContext(project, state);
+            const device = options.device ?? state.previewDevice;
 
             const movedIds = new Set<string>();
             for (const id of ids) {
               const element = editableElements.find((item) => item.id === id);
               if (!element || isElementLocked(element)) continue;
               movedIds.add(id);
-              if (!welcomeContext && element.type === "section") {
+              if (element.type === "section") {
                 editableElements.forEach((candidate) => {
-                  if (getElementSectionId(candidate, state.previewDevice) === id) movedIds.add(candidate.id);
+                  if (getElementSectionId(candidate, device) === id) movedIds.add(candidate.id);
                 });
               }
             }
@@ -683,29 +691,29 @@ export const useEditorStore =
 
             editableElements = editableElements.map((element) => {
               if (!movedIds.has(element.id)) return element;
-              const layout = getElementLayout(element, state.previewDevice);
-              return setElementLayoutForDevice(element, state.previewDevice, {
-                x: layout.x + deltaX,
-                y: layout.y + deltaY,
+              const initial = options.initialPositions?.[element.id] ?? getElementLayout(element, device);
+              return setElementLayoutForDevice(element, device, {
+                x: initial.x + deltaX,
+                y: initial.y + deltaY,
               });
             });
 
-            if (!welcomeContext) editableElements = editableElements.map((element) => {
+            if (!welcomeContext && !options.preserveSectionMembership) editableElements = editableElements.map((element) => {
               if (!movedIds.has(element.id) || element.type === "section") return element;
-              const parentId = getElementSectionId(element, state.previewDevice);
+              const parentId = getElementSectionId(element, device);
               const parentMoved = parentId ? movedIds.has(parentId) : false;
               if (parentMoved) return element;
-              const sectionId = findContainingSectionId(editableElements!, element, state.previewDevice);
-              return setElementLayoutForDevice(element, state.previewDevice, { sectionId: sectionId ?? null });
+              const sectionId = findContainingSectionId(editableElements!, element, device);
+              return setElementLayoutForDevice(element, device, { sectionId: sectionId ?? null });
             });
-            if (!welcomeContext && project.rsvp?.enabled && getRsvpSectionId(project.rsvp, state.previewDevice) && movedIds.has(getRsvpSectionId(project.rsvp, state.previewDevice)!)) {
+            if (!welcomeContext && project.rsvp?.enabled && getRsvpSectionId(project.rsvp, device) && movedIds.has(getRsvpSectionId(project.rsvp, device)!)) {
               const page = project.pages.find((item) => item.id === state.currentPageId);
               if (page) project.rsvp = setRsvpLayoutForDevice(
                 project.rsvp,
-                state.previewDevice,
+                device,
                 {
-                  x: getRsvpPositionX(project.rsvp, state.previewDevice) + deltaX,
-                  y: getRsvpPositionY(page, project.rsvp, state.previewDevice) + deltaY,
+                  x: (options.initialPositions?.[RSVP_EDITOR_ELEMENT_ID]?.x ?? getRsvpPositionX(project.rsvp, device)) + deltaX,
+                  y: (options.initialPositions?.[RSVP_EDITOR_ELEMENT_ID]?.y ?? getRsvpPositionY(page, project.rsvp, device)) + deltaY,
                 },
               );
             }

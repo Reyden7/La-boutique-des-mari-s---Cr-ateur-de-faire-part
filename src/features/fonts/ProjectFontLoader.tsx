@@ -1,13 +1,8 @@
 import { useEffect } from "react";
-import type { CustomFontAsset, WeddingProject } from "../../types/editor";
+import type { WeddingProject } from "../../types/editor";
 import { ensureGoogleFont } from "./fontCatalog";
 import { loadProjectFonts } from "./projectFontRuntime";
-
-const fontFormat = (font: CustomFontAsset) => font.format === "ttf"
-  ? "truetype"
-  : font.format === "otf"
-    ? "opentype"
-    : font.format;
+import { getFontFaceFormat } from "../../../supabase/functions/_shared/fontFormats";
 
 export function ProjectFontLoader({ project }: { project: WeddingProject }) {
   useEffect(() => {
@@ -31,6 +26,6 @@ export function ProjectFontLoader({ project }: { project: WeddingProject }) {
     return () => { active = false; };
   }, [project.customFonts]);
 
-  const css = (project.customFonts ?? []).map((font) => `@font-face{font-family:${JSON.stringify(font.family)};src:url(${JSON.stringify(font.url)}) format(${JSON.stringify(fontFormat(font))});font-display:swap;}`).join("\n");
+  const css = (project.customFonts ?? []).map((font) => `@font-face{font-family:${JSON.stringify(font.family)};src:url(${JSON.stringify(font.url)}) format(${JSON.stringify(getFontFaceFormat(font.format))});font-display:swap;}`).join("\n");
   return css ? <style data-project-fonts>{css}</style> : null;
 }

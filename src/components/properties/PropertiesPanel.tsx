@@ -63,7 +63,7 @@ export function PropertiesPanel({ onPreviewOpening }: { onPreviewOpening: (type:
   return (
     <aside className="properties-panel">
       <div className="properties-heading"><div><small>Élément sélectionné</small><h2>{element.name}</h2></div><span className="type-pill">{element.type}</span></div>
-      <PropertySection key={`${element.id}-disposition`} title="Disposition" defaultOpen><div className="responsive-layout-panel">
+      <PropertySection sectionKey="disposition" key={`${element.id}-disposition`} title="Disposition" defaultOpen><div className="responsive-layout-panel">
         <div className="responsive-layout-heading">
           <div><small>Support actif</small><strong><DeviceIcon size={14} /> {deviceLabel}</strong></div>
           {previewDevice !== "mobile" && <span className={hasOverride ? "active" : "inherited"}>{hasOverride ? "Personnalisation active" : "Disposition smartphone"}</span>}
@@ -72,7 +72,7 @@ export function PropertiesPanel({ onPreviewOpening }: { onPreviewOpening: (type:
         <div className="field-row"><Field label="Largeur"><input type="number" disabled={geometryLocked} min="12" value={Math.round(layout.width)} onChange={(event) => updateWidth(Number(event.target.value))} /></Field><Field label="Hauteur"><input type="number" disabled={geometryLocked} min="12" value={Math.round(layout.height)} onChange={(event) => updateHeight(Number(event.target.value))} /></Field></div>
         {previewDevice !== "mobile" && <button className="reset-responsive-layout" disabled={geometryLocked || !hasOverride} onClick={() => resetElementLayout(element.id)}><RotateCcw size={13} /> Réinitialiser pour ce support</button>}
       </div></PropertySection>
-      {element.type === "text" && <PropertySection key={`${element.id}-police`} title="Police">
+      {element.type === "text" && <PropertySection sectionKey="police" key={`${element.id}-police`} title="Police">
         <Field label="Contenu"><textarea rows={3} value={element.text} onChange={(event) => update({ text: event.target.value, name: event.target.value.slice(0, 28) || "Texte" })} /></Field>
         <Field label="Police"><FontPicker value={element.fontFamily} onChange={(fontFamily) => update({ fontFamily })} /></Field>
         <div className="field-row"><Field label="Taille"><input type="number" min="8" max="240" value={layout.fontSize ?? element.fontSize} onChange={(event) => updateLayout({ fontSize: Number(event.target.value) })} /></Field><Field label="Couleur"><ColorAlphaInput value={element.color} onChange={(color) => update({ color })} /></Field></div>
@@ -87,21 +87,21 @@ export function PropertiesPanel({ onPreviewOpening }: { onPreviewOpening: (type:
         <div className="field-row"><Field label="Interligne"><input type="number" min="0.7" max="3" step="0.05" value={element.lineHeight} onChange={(event) => update({ lineHeight: Number(event.target.value) })} /></Field><Field label="Espacement"><input type="number" min="-5" max="30" value={element.letterSpacing} onChange={(event) => update({ letterSpacing: Number(event.target.value) })} /></Field></div>
         {appearance}
       </PropertySection>}
-      {element.type === "image" && <><PropertySection key={`${element.id}-importation`} title="Importation"><div className="image-summary"><img src={element.src} alt="Aperçu" /><p>{element.alt}</p><small>Choisissez d’afficher l’image entière ou de remplir volontairement son cadre.</small></div></PropertySection><PropertySection key={`${element.id}-ajustement`} title="Ajustement"><ImageFrameProperties element={element} onChange={update} /><ImageTransformProperties key={`${element.id}-${previewDevice}`} element={element} device={previewDevice} width={layout.width} height={layout.height} onChange={update} />{appearance}</PropertySection></>}
-      {element.type === "shape" && <><PropertySection key={`${element.id}-forme`} title="Forme">
+      {element.type === "image" && <><PropertySection sectionKey="importation" key={`${element.id}-importation`} title="Importation"><div className="image-summary"><img src={element.src} alt="Aperçu" /><p>{element.alt}</p><small>Choisissez d’afficher l’image entière ou de remplir volontairement son cadre.</small></div></PropertySection><PropertySection sectionKey="ajustement" key={`${element.id}-ajustement`} title="Ajustement"><ImageFrameProperties element={element} onChange={update} /><ImageTransformProperties key={`${element.id}-${previewDevice}`} element={element} device={previewDevice} width={layout.width} height={layout.height} onChange={update} />{appearance}</PropertySection></>}
+      {element.type === "shape" && <><PropertySection sectionKey="forme" key={`${element.id}-forme`} title="Forme">
         <Field label="Type"><select value={element.shape} onChange={(event) => update({ shape: event.target.value as typeof element.shape })}><option value="rectangle">Rectangle</option><option value="rounded-rectangle">Arrondi</option><option value="circle">Cercle</option><option value="line">Ligne</option></select></Field>
         {element.shape === "rounded-rectangle" && <Field label="Coins arrondis"><input type="range" min="0" max="80" value={element.cornerRadius} onChange={(event) => update({ cornerRadius: Number(event.target.value) })} /></Field>}
-      </PropertySection><PropertySection key={`${element.id}-apparence`} title="Apparence">
+      </PropertySection><PropertySection sectionKey="apparence" key={`${element.id}-apparence`} title="Apparence">
         {element.shape !== "line" && <Field label="Remplissage"><ColorAlphaInput value={element.fill} onChange={(fill) => update({ fill })} /></Field>}
         <Field label="Bordure"><ColorAlphaInput value={element.stroke} onChange={(stroke) => update({ stroke })} /></Field>
         <Field label="Épaisseur"><input type="range" min="0" max="20" value={element.strokeWidth} onChange={(event) => update({ strokeWidth: Number(event.target.value) })} /><output>{element.strokeWidth}px</output></Field>
         {appearance}
       </PropertySection></>}
-      {element.type === "icon" && <><PropertySection key={`${element.id}-contenu`} title="Contenu">{element.heartStyle
+      {element.type === "icon" && <><PropertySection sectionKey="contenu" key={`${element.id}-contenu`} title="Contenu">{element.heartStyle
         ? <Field label="Style de cœur"><select value={element.heartStyle} onChange={(event) => { const heart = getDecorativeHeart(event.target.value as DecorativeHeartStyle); update({ heartStyle: heart.id, name: `Cœur ${heart.label}` }); }}>{DECORATIVE_HEARTS.map((heart) => <option key={heart.id} value={heart.id}>{heart.label}</option>)}</select></Field>
-        : <Field label="Décoration historique"><input value={element.icon} maxLength={4} onChange={(event) => update({ icon: event.target.value })} /></Field>}</PropertySection><PropertySection key={`${element.id}-apparence`} title="Apparence"><Field label="Couleur"><ColorAlphaInput value={element.color} onChange={(color) => update({ color })} /></Field>{appearance}</PropertySection></>}
+        : <Field label="Décoration historique"><input value={element.icon} maxLength={4} onChange={(event) => update({ icon: event.target.value })} /></Field>}</PropertySection><PropertySection sectionKey="apparence" key={`${element.id}-apparence`} title="Apparence"><Field label="Couleur"><ColorAlphaInput value={element.color} onChange={(color) => update({ color })} /></Field>{appearance}</PropertySection></>}
       {(element.type === "scratch" || element.type === "carousel" || element.type === "location" || element.type === "schedule" || element.type === "button" || element.type === "section") && <RichElementProperties element={element} appearance={appearance} />}
-      <PropertySection key={`${element.id}-animation`} title="Animation"><AnimationProperties animation={element.animation} onChange={(animation) => update({ animation })} /></PropertySection>
+      <PropertySection sectionKey="animation" key={`${element.id}-animation`} title="Animation"><AnimationProperties animation={element.animation} onChange={(animation) => update({ animation })} /></PropertySection>
       <button className="property-device-visibility" type="button" onClick={() => setElementVisibility(element.id, !layout.visible)}>{layout.visible ? <Eye size={15} /> : <EyeOff size={15} />}{layout.visible ? `Masquer sur ${deviceLabel}` : `Afficher sur ${deviceLabel}`}</button>
       <div className="property-actions"><button onClick={() => duplicateElement(element.id)}><Copy size={15} /> Dupliquer</button><button className="danger" onClick={() => { if (window.confirm("Supprimer cet élément de tous les formats ?")) removeElement(element.id); }}><Trash2 size={15} /> Supprimer</button></div>
     </aside>

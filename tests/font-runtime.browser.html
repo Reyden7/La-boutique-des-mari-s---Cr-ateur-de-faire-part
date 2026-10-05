@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="fr">
+  <head><meta charset="UTF-8" /><title>Régression polices personnalisées</title></head>
+  <body>
+    <label>Police locale <input id="font-file" type="file" accept=".ttf,.otf,.woff,.woff2" /></label>
+    <button id="run-font">Tester le rendu de la police</button>
+    <pre id="results">Aucun upload Storage : le fichier reste local à cet onglet.</pre>
+    <div id="fixture" style="width:1000px;height:650px;overflow:auto;border:1px solid #aaa"></div>
+    <script type="module" src="./font-runtime.browser.tsx"></script>
+  </body>
+</html>

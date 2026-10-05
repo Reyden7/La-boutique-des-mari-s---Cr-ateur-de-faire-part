@@ -44,6 +44,9 @@ import { getImageFrameMetrics, getImageFramePalette, resolveImageFrame } from ".
 import { RSVP_EDITOR_ELEMENT_ID, getRsvpLayerZIndex, getRsvpSectionId, isRsvpVisibleOnDevice } from "../../features/rsvp/rsvpEditorElement";
 import { setRsvpSectionForDevice } from "../../utils/documentLayout";
 import { getImageRenderLayout, resolveImageFit, resolveImageTransform } from "../../utils/imageLayout";
+import { getLogicalCanvasPointer, getPointerDragDelta, type CanvasPoint } from "../../utils/selectionDrag";
+
+type DragNodeSnapshot = { node: Konva.Node; x: number; y: number; bounds: AlignmentBounds };
 
 function useLoadedImage(src?: string) {
   const [image, setImage] = useState<HTMLImageElement>();
@@ -196,6 +199,7 @@ function CanvasElement({
     width: layout.width, height: layout.height,
     rotation: layout.rotation, opacity: element.opacity, visible,
     draggable: isLockableElement(element) && !isElementLocked(element),
+    dragDistance: 1,
     onClick: (event: KonvaEventObject<MouseEvent>) => { event.cancelBubble = true; onSelect(event.evt.ctrlKey || event.evt.metaKey); },
     onTap: (event: KonvaEventObject<TouchEvent>) => { event.cancelBubble = true; onSelect(false); },
     onDragStart: onElementDragStart,
@@ -335,16 +339,26 @@ export function EditorCanvas() {
   const stageRef = useRef<Konva.Stage>(null);
   const guideLayerRef = useRef<Konva.Layer>(null);
   const lockControlRef = useRef<Konva.Group>(null);
+  const multiSelectionHitRef = useRef<Konva.Rect>(null);
+  const multiSelectionOutlineRef = useRef<Konva.Rect>(null);
+  const dragPointerStartRef = useRef<{
+    stage: Konva.Stage;
+    pointer: CanvasPoint;
+    nodes: Map<string, DragNodeSnapshot>;
+    initialPositions: Record<string, CanvasPoint>;
+  } | null>(null);
   const [selectionBounds, setSelectionBounds] = useState<AlignmentBounds | null>(null);
+  const [additiveSelectionHeld, setAdditiveSelectionHeld] = useState(false);
   const fontRevision = useProjectFontRevision();
   const previousFitRef = useRef<number | undefined>(undefined);
   const previousDeviceRef = useRef(previewDevice);
   const groupDragRef = useRef<{
-    ids: string[];
     directIds: string[];
-    startX: number;
-    startY: number;
-    nodes: Map<string, { node: Konva.Node; x: number; y: number }>;
+    pointerStart: CanvasPoint;
+    device: PreviewDevice;
+    preserveSectionMembership: boolean;
+    initialPositions: Record<string, CanvasPoint>;
+    nodes: Map<string, DragNodeSnapshot>;
     selectionBounds: AlignmentBounds;
     candidates: AlignmentCandidate[];
     spacingReferences: SpacingReferences;
@@ -352,7 +366,7 @@ export function EditorCanvas() {
     deltaY: number;
   } | null>(null);
   const page = project?.pages.find((item) => item.id === currentPageId);
-  const welcomeConfig = project ? resolveWelcomePage(project.welcomePage) : undefined;
+  const welcomeConfig = useMemo(() => project ? resolveWelcomePage(project.welcomePage) : undefined, [project?.welcomePage]);
   const isWelcomeEditing = sidebarView === "introduction" && project?.introductionMode === "welcome";
   const activeElements = isWelcomeEditing ? welcomeConfig?.elements : page?.elements;
   const elements = useMemo(() => [...(activeElements ?? [])].sort((a, b) => getElementZIndex(a, previewDevice) - getElementZIndex(b, previewDevice)), [activeElements, previewDevice]);
@@ -421,9 +435,34 @@ export function EditorCanvas() {
     return [...expanded];
   };
 
-  const handleDragStart = (element: EditorElement, event: KonvaEventObject<DragEvent>) => {
-    const selection = selectedElementIds.includes(element.id) ? selectedElementIds : [element.id];
-    if (!selectedElementIds.includes(element.id)) selectElement(element.id);
+  const captureDragPointer = (event: KonvaEventObject<MouseEvent | TouchEvent>) => {
+    const stage = event.target.getStage();
+    if (!stage || groupDragRef.current) return;
+    const pointer = getLogicalCanvasPointer(stage);
+    if (!pointer) return;
+    const nodes = new Map<string, DragNodeSnapshot>();
+    const initialPositions: Record<string, CanvasPoint> = {};
+    elements.forEach((element) => {
+      const node = stage.findOne(`#${element.id}`);
+      if (!node) return;
+      nodes.set(element.id, { node, x: node.x(), y: node.y(), bounds: getNodeBounds(node, stage) });
+      const layout = getElementLayout(element, previewDevice);
+      initialPositions[element.id] = { x: layout.x, y: layout.y };
+    });
+    const formNode = !isWelcomeEditing && rsvpVisible ? stage.findOne(`#${RSVP_EDITOR_ELEMENT_ID}`) : undefined;
+    if (formNode) {
+      nodes.set(RSVP_EDITOR_ELEMENT_ID, { node: formNode, x: formNode.x(), y: formNode.y(), bounds: getNodeBounds(formNode, stage) });
+      initialPositions[RSVP_EDITOR_ELEMENT_ID] = { x: rsvpPositionX, y: rsvpPositionY };
+    }
+    dragPointerStartRef.current = { stage, pointer, nodes, initialPositions };
+  };
+
+  const handleDragStart = (element: EditorElement | undefined, event: KonvaEventObject<DragEvent>) => {
+    // Only one node drives a drag; secondary Konva drag events must never replace
+    // the pointer-down snapshot of an already moving selection.
+    if (groupDragRef.current) return;
+    const selection = !element || selectedElementIds.includes(element.id) ? selectedElementIds : [element.id];
+    if (element && !selectedElementIds.includes(element.id)) selectElement(element.id);
     const directIds = selection.filter((id) => {
       const selected = elements.find((candidate) => candidate.id === id);
       return selected && !isElementLocked(selected);
@@ -431,20 +470,28 @@ export function EditorCanvas() {
     const ids = expandSectionSelection(directIds);
     if (rsvpVisible && rsvpParentId && directIds.includes(rsvpParentId)) ids.push(RSVP_EDITOR_ELEMENT_ID);
     const stage = event.target.getStage();
-    const nodes = new Map<string, { node: Konva.Node; x: number; y: number }>();
+    const snapshot = dragPointerStartRef.current?.stage === stage ? dragPointerStartRef.current : null;
+    const pointerStart = snapshot?.pointer ?? (stage ? getLogicalCanvasPointer(stage) : null);
+    const nodes = new Map<string, DragNodeSnapshot>();
+    const initialPositions: Record<string, CanvasPoint> = {};
     ids.forEach((id) => {
       const node = stage?.findOne(`#${id}`);
-      if (node) nodes.set(id, { node, x: node.x(), y: node.y() });
+      if (!node || !stage) return;
+      const initial = snapshot?.nodes.get(id);
+      nodes.set(id, initial ?? { node, x: node.x(), y: node.y(), bounds: getNodeBounds(node, stage) });
+      const layout = elements.find((candidate) => candidate.id === id);
+      initialPositions[id] = snapshot?.initialPositions[id] ?? (layout ? getElementLayout(layout, previewDevice) : { x: rsvpPositionX, y: rsvpPositionY });
     });
-    if (!stage || nodes.size === 0) return;
-    const selectedBounds = element.type === "section"
-      ? [getNodeBounds(event.target, stage)]
-      : [...nodes.values()].map(({ node }) => getNodeBounds(node, stage));
-    const sectionId = getElementSectionId(element, previewDevice);
-    const sameSectionElements = element.type !== "section" && sectionId
+    if (!stage || !pointerStart || nodes.size === 0) return;
+    const singleSection = selection.length === 1 && element?.type === "section";
+    const selectedBounds = singleSection
+      ? [nodes.get(element.id)!.bounds]
+      : [...nodes.values()].map(({ bounds }) => bounds);
+    const sectionId = element ? getElementSectionId(element, previewDevice) : null;
+    const sameSectionElements = selection.length === 1 && element?.type !== "section" && sectionId
       ? elements.filter((candidate) => getElementSectionId(candidate, previewDevice) === sectionId && !ids.includes(candidate.id) && isElementVisibleOnDevice(candidate, elements, previewDevice))
       : [];
-    const candidateElements = element.type === "section"
+    const candidateElements = singleSection
       ? elements.filter((candidate) => candidate.type === "section" && !ids.includes(candidate.id) && isElementVisibleOnDevice(candidate, elements, previewDevice))
       : sameSectionElements.length > 0
         ? sameSectionElements
@@ -454,10 +501,11 @@ export function EditorCanvas() {
       return node ? [{ id: candidate.id, bounds: getNodeBounds(node, stage) }] : [];
     });
     groupDragRef.current = {
-      ids,
       directIds,
-      startX: event.target.x(),
-      startY: event.target.y(),
+      pointerStart,
+      device: previewDevice,
+      preserveSectionMembership: selection.length > 1,
+      initialPositions,
       nodes,
       selectionBounds: getSelectionBounds(selectedBounds),
       candidates,
@@ -467,11 +515,13 @@ export function EditorCanvas() {
     };
   };
 
-  const handleDragMove = (element: EditorElement, event: KonvaEventObject<DragEvent>) => {
+  const handleDragMove = (event: KonvaEventObject<DragEvent>) => {
     const drag = groupDragRef.current;
     if (!drag) return;
-    const rawDeltaX = event.target.x() - drag.startX;
-    const rawDeltaY = event.target.y() - drag.startY;
+    const stage = event.target.getStage();
+    const pointer = stage ? getLogicalCanvasPointer(stage) : null;
+    if (!pointer) return;
+    const { deltaX: rawDeltaX, deltaY: rawDeltaY } = getPointerDragDelta(drag.pointerStart, pointer);
     const snapDisabled = Boolean(event.evt.altKey);
     const snap = snapDisabled
       ? { deltaX: 0, deltaY: 0, guides: [] }
@@ -486,13 +536,14 @@ export function EditorCanvas() {
     const deltaY = rawDeltaY + snap.deltaY;
     drag.deltaX = deltaX;
     drag.deltaY = deltaY;
-    event.target.position({ x: drag.startX + deltaX, y: drag.startY + deltaY });
-    drag.nodes.forEach(({ node, x, y }, id) => {
-      if (id !== element.id) node.position({ x: x + deltaX, y: y + deltaY });
-    });
+    drag.nodes.forEach(({ node, x, y }) => node.position({ x: x + deltaX, y: y + deltaY }));
     const movedSelectionBounds = translateBounds(drag.selectionBounds, deltaX, deltaY);
     const currentBounds = getCurrentSelectionBounds();
-    if (currentBounds) positionSelectionLockControl(lockControlRef.current, currentBounds, selectionFullyLocked, zoom);
+    if (currentBounds) {
+      positionSelectionLockControl(lockControlRef.current, currentBounds, selectionFullyLocked, zoom);
+      multiSelectionHitRef.current?.setAttrs(currentBounds);
+      multiSelectionOutlineRef.current?.setAttrs(currentBounds);
+    }
     const canvasBounds = { x: 0, y: 0, width: viewport.width, height: isWelcomeEditing ? viewport.height : documentHeight };
     const distances = getDistanceGuides(
       movedSelectionBounds,
@@ -502,16 +553,34 @@ export function EditorCanvas() {
       12 / Math.max(.1, zoom),
     );
     drawEditorGuides(guideLayerRef.current, snap.guides, distances, zoom, previewDevice);
-    event.target.getLayer()?.batchDraw();
+    stage?.batchDraw();
   };
 
-  const handleDragEnd = (event: KonvaEventObject<DragEvent>) => {
+  const handleDragEnd = () => {
     const drag = groupDragRef.current;
     groupDragRef.current = null;
+    dragPointerStartRef.current = null;
     clearEditorGuides(guideLayerRef.current);
     if (!drag) return;
-    moveElements(drag.directIds, drag.deltaX, drag.deltaY);
+    moveElements(drag.directIds, drag.deltaX, drag.deltaY, {
+      device: drag.device,
+      initialPositions: drag.initialPositions,
+      preserveSectionMembership: drag.preserveSectionMembership,
+    });
   };
+
+  useEffect(() => {
+    const updateModifier = (event: KeyboardEvent) => setAdditiveSelectionHeld(event.ctrlKey || event.metaKey);
+    const clearModifier = () => setAdditiveSelectionHeld(false);
+    window.addEventListener("keydown", updateModifier);
+    window.addEventListener("keyup", updateModifier);
+    window.addEventListener("blur", clearModifier);
+    return () => {
+      window.removeEventListener("keydown", updateModifier);
+      window.removeEventListener("keyup", updateModifier);
+      window.removeEventListener("blur", clearModifier);
+    };
+  }, []);
 
   useEffect(() => {
     const canvasArea = canvasAreaRef.current;
@@ -545,7 +614,10 @@ export function EditorCanvas() {
     const stage = stageRef.current;
     if (!transformer || !stage) return;
     const selectedNodes = selectedElementIds.filter((id) => id !== RSVP_EDITOR_ELEMENT_ID).map((id) => stage.findOne(`#${id}`)).filter((node): node is Konva.Node => Boolean(node));
-    transformer.nodes(selectedNodes);
+    // Konva's Transformer proxies drag events to every attached node. Our
+    // selection controller moves all nodes itself, so only single selections
+    // attach to the Transformer; multi-selection uses its own visual frame.
+    transformer.nodes(selectedNodes.length === 1 ? selectedNodes : []);
     transformer.getLayer()?.batchDraw();
     const bounds = selectedNodes.length > 0
       ? getSelectionBounds(selectedNodes.map((node) => getNodeBounds(node, stage)))
@@ -594,6 +666,27 @@ export function EditorCanvas() {
 
   if (!page) return null;
 
+  const multiSelectionHit = selectionBounds && selectedElementIds.length > 1 ? <Rect
+    ref={multiSelectionHitRef}
+    {...selectionBounds}
+    fill="rgba(0,0,0,0.001)"
+    listening={!additiveSelectionHeld}
+    draggable={!selectionFullyLocked}
+    dragDistance={1}
+    onClick={(event) => { event.cancelBubble = true; }}
+    onTap={(event) => { event.cancelBubble = true; }}
+    onDragStart={(event) => handleDragStart(undefined, event)}
+    onDragMove={handleDragMove}
+    onDragEnd={handleDragEnd}
+  /> : null;
+  const multiSelectionOutline = selectionBounds && selectedElementIds.length > 1 ? <Rect
+    ref={multiSelectionOutlineRef}
+    {...selectionBounds}
+    stroke="#9a6d51"
+    strokeWidth={1.5 / zoom}
+    listening={false}
+  /> : null;
+
   if (isWelcomeEditing && welcomeConfig) {
     const welcomeContentElements = elements.filter((element) => !(element.type === "button" && element.welcomeAction === "enter"));
     const welcomeInteractionElements = elements.filter((element) => element.type === "button" && element.welcomeAction === "enter");
@@ -604,16 +697,18 @@ export function EditorCanvas() {
         <div className="welcome-editor-scale" style={{ width: viewport.width, height: viewport.height, transform: `scale(${zoom})` }}>
           <WelcomePageRenderer config={welcomeConfig} device={previewDevice} interactive={false} showElements={false} />
           <div className="welcome-editor-content-layer">
-          <Stage ref={stageRef} width={viewport.width} height={viewport.height} onMouseDown={(event) => { if (event.target === event.target.getStage()) selectElement(null); }}>
+          <Stage ref={stageRef} width={viewport.width} height={viewport.height} onMouseDown={(event) => { captureDragPointer(event); if (event.target === event.target.getStage()) selectElement(null); }} onTouchStart={(event) => { captureDragPointer(event); if (event.target === event.target.getStage()) selectElement(null); }}>
             <Layer>
-              {welcomeContentElements.map((element) => <CanvasElement key={element.id} element={element} device={previewDevice} visible={getElementLayout(element, previewDevice).visible} selected={selectedElementIds.includes(element.id)} onSelect={(additive) => { if (!additive && selectedElementIds.includes(element.id)) return; selectElement(element.id, additive); }} onElementDragStart={(event) => handleDragStart(element, event)} onElementDragMove={(event) => handleDragMove(element, event)} onElementDragEnd={handleDragEnd} />)}
+              {welcomeContentElements.map((element) => <CanvasElement key={element.id} element={element} device={previewDevice} visible={getElementLayout(element, previewDevice).visible} selected={selectedElementIds.includes(element.id)} onSelect={(additive) => { if (!additive && selectedElementIds.includes(element.id)) return; selectElement(element.id, additive); }} onElementDragStart={(event) => handleDragStart(element, event)} onElementDragMove={handleDragMove} onElementDragEnd={handleDragEnd} />)}
             </Layer>
             <Layer>
-              {welcomeInteractionElements.map((element) => <CanvasElement key={element.id} element={element} device={previewDevice} visible={getElementLayout(element, previewDevice).visible} selected={selectedElementIds.includes(element.id)} onSelect={(additive) => { if (!additive && selectedElementIds.includes(element.id)) return; selectElement(element.id, additive); }} onElementDragStart={(event) => handleDragStart(element, event)} onElementDragMove={(event) => handleDragMove(element, event)} onElementDragEnd={handleDragEnd} />)}
+              {welcomeInteractionElements.map((element) => <CanvasElement key={element.id} element={element} device={previewDevice} visible={getElementLayout(element, previewDevice).visible} selected={selectedElementIds.includes(element.id)} onSelect={(additive) => { if (!additive && selectedElementIds.includes(element.id)) return; selectElement(element.id, additive); }} onElementDragStart={(event) => handleDragStart(element, event)} onElementDragMove={handleDragMove} onElementDragEnd={handleDragEnd} />)}
             </Layer>
             <Layer ref={guideLayerRef} listening={false} />
             <Layer>
+              {multiSelectionHit}
               <Transformer ref={transformerRef} rotateEnabled={!selectionContainsLocked && selectedElementIds.length <= 1} resizeEnabled={!selectionContainsLocked} enabledAnchors={selectionContainsLocked || selectedElementIds.length > 1 ? [] : ["top-left", "top-right", "bottom-left", "bottom-right", "middle-left", "middle-right"]} anchorFill="#fff" anchorStroke="#9a6d51" borderStroke="#9a6d51" anchorSize={10 / zoom} borderStrokeWidth={1.5 / zoom} rotateAnchorOffset={28 / zoom} onTransform={syncSelectionControl} onTransformEnd={syncSelectionControl} boundBoxFunc={(oldBox, newBox) => newBox.width < 12 || newBox.height < 12 ? oldBox : newBox} />
+              {multiSelectionOutline}
               {selectionBounds && <SelectionLockControl ref={lockControlRef} bounds={selectionBounds} locked={selectionFullyLocked} zoom={zoom} onToggle={toggleSelectionLock} />}
             </Layer>
           </Stage>
@@ -655,9 +750,11 @@ export function EditorCanvas() {
             scaleX={zoom}
             scaleY={zoom}
             onMouseDown={(event) => {
+              captureDragPointer(event);
               if (event.target === event.target.getStage()) selectElement(null);
             }}
             onTouchStart={(event) => {
+              captureDragPointer(event);
               if (event.target === event.target.getStage()) selectElement(null);
             }}
           >
@@ -677,7 +774,7 @@ export function EditorCanvas() {
                     selectElement(element.id, additive);
                   }}
                   onElementDragStart={(event) => handleDragStart(element, event)}
-                  onElementDragMove={(event) => handleDragMove(element, event)}
+                  onElementDragMove={handleDragMove}
                   onElementDragEnd={handleDragEnd}
                 />
               ))}
@@ -738,6 +835,8 @@ export function EditorCanvas() {
             </Layer>
             <Layer ref={guideLayerRef} listening={false} />
             <Layer>
+              {multiSelectionHit}
+              {multiSelectionOutline}
               {selectionBounds && <SelectionLockControl ref={lockControlRef} bounds={selectionBounds} locked={selectionFullyLocked} zoom={zoom} onToggle={toggleSelectionLock} />}
               {rsvpSelectionBounds && <SelectionLockControl bounds={rsvpSelectionBounds} locked={rsvpLocked} zoom={zoom} onToggle={() => toggleElementLocked(RSVP_EDITOR_ELEMENT_ID)} />}
             </Layer>

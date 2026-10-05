@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 import { corsHeaders, jsonResponse } from "../_shared/http.ts";
+import { getGlobalFontMetadata } from "../_shared/fontFormats.ts";
 
 const TYPES = ["font", "welcome_arch", "welcome_background", "music", "particle", "decoration"] as const;
 type GlobalAssetType = typeof TYPES[number];
@@ -52,10 +53,7 @@ const expectedKind: Record<GlobalAssetType, SourceAsset["kind"]> = {
 
 const sanitizeMetadata = (type: GlobalAssetType, input: Record<string, unknown>, source: SourceAsset) => {
   if (type === "font") {
-    const family = typeof input.family === "string" ? input.family.trim() : "";
-    const format = typeof input.format === "string" ? input.format.toLowerCase() : "";
-    if (!family || !["ttf", "otf", "woff", "woff2"].includes(format)) throw new Error("Invalid font metadata");
-    return { family, format, mimeType: source.mime_type ?? "application/octet-stream" };
+    return getGlobalFontMetadata(input, source.storage_path);
   }
   if (type === "music") return {
     title: typeof input.title === "string" && input.title.trim() ? input.title.trim() : undefined,

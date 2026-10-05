@@ -7,6 +7,8 @@ import { FONT_CATALOG, ensureGoogleFont } from "./fontCatalog";
 import { loadProjectFont } from "./projectFontRuntime";
 import { useGlobalAssets } from "../../hooks/useGlobalAssets";
 import { PublishGlobalAssetButton } from "../../components/admin/PublishGlobalAssetButton";
+import { FONT_FILE_ACCEPT, getFontMimeType, normalizeFontFileFormat } from "../../../supabase/functions/_shared/fontFormats";
+import { getFontFileInfo } from "./fontFile";
 
 function FontPreview({ family, children, onClick, active }: { family: string; children: React.ReactNode; onClick: () => void; active: boolean }) {
   const ref = useRef<HTMLButtonElement>(null);
@@ -36,15 +38,12 @@ export function FontPicker({ value, onChange }: { value: string; onChange: (fami
 
   const upload = async (file?: File) => {
     if (!file || !project) return;
-    if (!/\.(ttf|otf|woff2?)$/i.test(file.name)) { setUploadError("Format accepté : TTF, OTF, WOFF ou WOFF2."); return; }
-    if (file.size <= 0 || file.size > 8 * 1024 * 1024) { setUploadError("La police doit peser moins de 8 Mo."); return; }
     setUploading(true);
     setUploadError("");
     try {
+      const { format, family } = getFontFileInfo(file);
       const uploaded = await uploadProjectAsset(project, file, "font");
-      const extension = file.name.split(".").pop()?.toLowerCase() as CustomFontAsset["format"];
-      const name = file.name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim();
-      const font: CustomFontAsset = { id: crypto.randomUUID(), assetId: uploaded.id, name, family: name, url: uploaded.url, format: extension };
+      const font: CustomFontAsset = { id: crypto.randomUUID(), assetId: uploaded.id, name: family, family, url: uploaded.url, format };
       await loadProjectFont(font);
       updateCustomFonts([...customFonts, font]);
       onChange(font.family);
@@ -74,12 +73,12 @@ export function FontPicker({ value, onChange }: { value: string; onChange: (fami
       <label className="font-search"><Search size={13} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Rechercher une police" /></label>
       <div className="font-options">
         {globalFonts.length > 0 && <><small>Bibliothèque générale</small>{globalFonts.filter((font) => font.name.toLocaleLowerCase("fr").includes(normalizedSearch)).map((font) => <FontPreview key={font.id} family={String(font.metadata.family ?? font.name)} active={String(font.metadata.family ?? font.name) === value} onClick={() => void selectGlobalFont(font)}>{font.name}</FontPreview>)}</>}
-        {customFonts.some((font) => !font.globalAssetId) && <><small>Polices du projet</small>{customFonts.filter((font) => !font.globalAssetId && font.name.toLocaleLowerCase("fr").includes(normalizedSearch)).map((font) => <div className="font-project-option" key={font.id}><FontPreview family={font.family} active={font.family === value} onClick={() => { onChange(font.family); setOpen(false); }}>{font.name}</FontPreview><PublishGlobalAssetButton compact input={font.assetId ? { sourceAssetId: font.assetId, type: "font", name: font.name, metadata: { family: font.family, format: font.format } } : undefined} /></div>)}</>}
+        {customFonts.some((font) => !font.globalAssetId) && <><small>Polices du projet</small>{customFonts.filter((font) => !font.globalAssetId && font.name.toLocaleLowerCase("fr").includes(normalizedSearch)).map((font) => <div className="font-project-option" key={font.id}><FontPreview family={font.family} active={font.family === value} onClick={() => { onChange(font.family); setOpen(false); }}>{font.name}</FontPreview><PublishGlobalAssetButton compact input={font.assetId ? { sourceAssetId: font.assetId, type: "font", name: font.name, metadata: { family: font.family, format: normalizeFontFileFormat(font.format), mimeType: getFontMimeType(font.format) } } : undefined} /></div>)}</>}
         {(["Élégantes", "Modernes", "Manuscrites"] as const).map((category) => <div key={category} className="font-category"><small>{category}</small>{fonts.filter((font) => font.category === category).map((font) => <FontPreview key={font.family} family={font.family} active={font.family === value} onClick={() => { onChange(font.family); setOpen(false); }}>{font.family}</FontPreview>)}</div>)}
       </div>
       <button type="button" className="font-upload" disabled={uploading} onClick={() => inputRef.current?.click()}><Upload size={14} /> {uploading ? "Import…" : "Importer une police"}</button>
       {uploadError && <small className="font-upload-error" role="alert">{uploadError}</small>}
-      <input ref={inputRef} type="file" hidden accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2" onChange={(event) => void upload(event.target.files?.[0])} />
+      <input ref={inputRef} type="file" hidden accept={FONT_FILE_ACCEPT} onChange={(event) => void upload(event.target.files?.[0])} />
     </div>}
   </div>;
 }
