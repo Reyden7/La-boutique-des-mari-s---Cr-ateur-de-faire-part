@@ -18,6 +18,7 @@ import { RsvpFormEditor } from "../../features/rsvp/RsvpFormEditor";
 import { RSVP_EDITOR_ELEMENT_ID } from "../../features/rsvp/rsvpEditorElement";
 import { AnimationProperties } from "./AnimationProperties";
 import { PropertySection } from "./PropertySection";
+import { DimensionInput } from "../ui/DimensionInput";
 
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => <label className="field"><span>{label}</span>{children}</label>;
 
@@ -69,7 +70,7 @@ export function PropertiesPanel({ onPreviewOpening }: { onPreviewOpening: (type:
           {previewDevice !== "mobile" && <span className={hasOverride ? "active" : "inherited"}>{hasOverride ? "Personnalisation active" : "Disposition smartphone"}</span>}
         </div>
         <div className="field-row"><Field label="Position X"><input type="number" disabled={geometryLocked} value={Math.round(layout.x)} onChange={(event) => updateLayout({ x: Number(event.target.value) })} /></Field><Field label="Position Y"><input type="number" disabled={geometryLocked} value={Math.round(layout.y)} onChange={(event) => updateLayout({ y: Number(event.target.value) })} /></Field></div>
-        <div className="field-row"><Field label="Largeur"><input type="number" disabled={geometryLocked} min="12" value={Math.round(layout.width)} onChange={(event) => updateWidth(Number(event.target.value))} /></Field><Field label="Hauteur"><input type="number" disabled={geometryLocked} min="12" value={Math.round(layout.height)} onChange={(event) => updateHeight(Number(event.target.value))} /></Field></div>
+        <div className="field-row"><Field label="Largeur"><DimensionInput key={`${element.id}-${previewDevice}-width`} disabled={geometryLocked} min={12} value={layout.width} onCommit={updateWidth} /></Field><Field label="Hauteur"><DimensionInput key={`${element.id}-${previewDevice}-height`} disabled={geometryLocked} min={12} value={layout.height} onCommit={updateHeight} /></Field></div>
         {previewDevice !== "mobile" && <button className="reset-responsive-layout" disabled={geometryLocked || !hasOverride} onClick={() => resetElementLayout(element.id)}><RotateCcw size={13} /> Réinitialiser pour ce support</button>}
       </div></PropertySection>
       {element.type === "text" && <PropertySection sectionKey="police" key={`${element.id}-police`} title="Police">

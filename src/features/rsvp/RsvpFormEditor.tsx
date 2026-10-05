@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { COMMERCE, formatPrice } from "../../config/commerce";
 import { PREVIEW_DEVICES } from "../../config/previewDevices";
 import { ColorAlphaInput } from "../../components/ui/ColorAlphaInput";
+import { DimensionInput } from "../../components/ui/DimensionInput";
 import { FontPicker } from "../fonts/FontPicker";
 import { AnimationProperties } from "../../components/properties/AnimationProperties";
 import { PropertySection } from "../../components/properties/PropertySection";
@@ -80,7 +81,7 @@ export function RsvpFormEditor({ embedded = false }: { embedded?: boolean }) {
       <div className="rsvp-position-heading"><div><MoveVertical size={15} /><span>Position dans le faire-part</span></div><small>{PREVIEW_DEVICES[previewDevice].label}</small></div>
       <p>{hasPositionOverride ? "Position personnalisée pour ce support." : hasExplicitPosition ? "Position héritée du Smartphone. Modifiez-la pour créer un override sur ce support." : "Placement automatique après le contenu. Modifiez la valeur ou glissez le formulaire dans le canvas."}</p>
       <div className="field-row"><label className="field"><span>Position X</span><input type="number" disabled={config.locked ?? false} min="0" step="10" value={positionX} onChange={(event) => setLayout({ x: Number(event.target.value) || 0 })} /></label><label className="field"><span>Position Y</span><input type="number" disabled={config.locked ?? false} min="0" step="10" value={positionY} onChange={(event) => setLayout({ y: Number(event.target.value) || 0 })} /></label></div>
-      <label className="field"><span>Largeur</span><input type="number" disabled={config.locked ?? false} min="120" max={PREVIEW_DEVICES[previewDevice].width} step="10" value={formWidth} onChange={(event) => setLayout({ width: Number(event.target.value) || 120 })} /></label>
+      <label className="field"><span>Largeur</span><DimensionInput key={`${project.id}-${previewDevice}-form-width`} disabled={config.locked ?? false} min={120} max={PREVIEW_DEVICES[previewDevice].width} step={1} value={formWidth} onCommit={(width) => setLayout({ width })} /></label>
       <div className="rsvp-position-actions"><button type="button" disabled={config.locked ?? false} onClick={() => setPosition(Math.max(0, positionY - 100))}><ArrowUp size={13} /> Monter</button><button type="button" disabled={config.locked ?? false} onClick={() => setPosition(positionY + 100)}><ArrowDown size={13} /> Descendre</button></div>
       <button className="rsvp-position-reset" type="button" disabled={(config.locked ?? false) || !hasPositionOverride} onClick={() => updateRsvp(resetRsvpPositionForDevice(config, previewDevice))}><RotateCcw size={13} /> {previewDevice === "mobile" ? "Revenir au placement automatique" : "Supprimer l’override de ce support"}</button>
     </section>
