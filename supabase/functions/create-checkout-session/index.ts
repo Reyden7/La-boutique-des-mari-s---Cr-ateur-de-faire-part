@@ -1,311 +1,137 @@
 import Stripe from "npm:stripe@22.6.0";
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 import { corsHeaders, jsonResponse } from "../_shared/http.ts";
+import { calculateGuestUpgrade, isValidGuestCount, PRICING } from "../_shared/pricing.ts";
+import { guestCheckoutMetadata, guestReceiptAmount, matchesGuestCheckout, type GuestPaymentReceipt } from "../_shared/guestPayment.ts";
 
-const PRICE_CENTS = 2490;
 const CURRENCY = "eur";
 const PRODUCTION_ORIGIN = "https://www.laboutiquedesmaries.fr";
 const integrationIdentifier = () => `lbm-publication-${Array.from(crypto.getRandomValues(new Uint8Array(8)), (value) => String.fromCharCode(97 + value % 26)).join("")}`;
-
 const requireEnvironment = (name: string) => {
   const value = Deno.env.get(name)?.trim();
   if (!value) throw new Error(`Missing server environment variable: ${name}`);
   return value;
 };
 
-const requireSiteOrigin = () => {
-  const configured = new URL(requireEnvironment("SITE_URL"));
-  if (configured.origin !== PRODUCTION_ORIGIN) {
-    throw new Error(`SITE_URL must be ${PRODUCTION_ORIGIN}`);
-  }
-  return configured.origin;
-};
-
-const requireStripeKey = () => {
-  const key = requireEnvironment("STRIPE_SECRET_KEY");
-  if (!/^(?:sk|rk)_(?:test|live)_/.test(key)) {
-    throw new Error("STRIPE_SECRET_KEY has an unsupported format");
-  }
-  return key;
-};
-
-const rsvpPrice = () => {
-  const amount = Number(requireEnvironment("RSVP_ADDON_PRICE_CENTS"));
-  if (!Number.isSafeInteger(amount) || amount <= 0) {
-    throw new Error("RSVP_ADDON_PRICE_CENTS must be a positive integer");
-  }
-  return amount;
-};
-
 Deno.serve(async (request) => {
-  if (request.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
-  if (request.method !== "POST") {
-    return jsonResponse({ error: "Method not allowed" }, 405, true);
-  }
-
+  if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (request.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405, true);
   try {
-    const supabaseUrl = requireEnvironment("SUPABASE_URL");
-    const serviceRoleKey = requireEnvironment("SUPABASE_SERVICE_ROLE_KEY");
-    const stripeSecretKey = requireStripeKey();
-    const siteUrl = requireSiteOrigin();
-
-    const authorization = request.headers.get("Authorization");
-    const accessToken = authorization?.replace(/^Bearer\s+/i, "");
-    if (!accessToken) {
-      return jsonResponse({ error: "Authentication required" }, 401, true);
-    }
-
-    const admin = createClient<any>(supabaseUrl, serviceRoleKey, {
+    const siteUrl = new URL(requireEnvironment("SITE_URL")).origin;
+    if (siteUrl !== PRODUCTION_ORIGIN) throw new Error("Invalid SITE_URL");
+    const key = requireEnvironment("STRIPE_SECRET_KEY");
+    if (!/^(?:sk|rk)_(?:test|live)_/.test(key)) throw new Error("Invalid Stripe key format");
+    const accessToken = request.headers.get("Authorization")?.replace(/^Bearer\s+/i, "");
+    if (!accessToken) return jsonResponse({ error: "Authentication required" }, 401, true);
+    const admin = createClient<any>(requireEnvironment("SUPABASE_URL"), requireEnvironment("SUPABASE_SERVICE_ROLE_KEY"), {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-    const { data: userData, error: userError } = await admin.auth.getUser(
-      accessToken,
-    );
-    if (userError || !userData.user) {
-      return jsonResponse({ error: "Invalid authentication" }, 401, true);
+    const { data: auth, error: authError } = await admin.auth.getUser(accessToken);
+    if (authError || !auth.user || auth.user.is_anonymous) return jsonResponse({ error: "Invalid authentication" }, 401, true);
+    let body: { projectId?: unknown; guestCount?: unknown };
+    try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON body" }, 400, true); }
+    if (!body || typeof body.projectId !== "string"
+      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.projectId)) {
+      return jsonResponse({ error: "A valid projectId is required" }, 400, true);
     }
-
-    let body: { projectId?: unknown };
-    try {
-      body = await request.json();
-    } catch {
-      return jsonResponse({ error: "Invalid JSON body" }, 400, true);
-    }
-    if (
-      typeof body.projectId !== "string" ||
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.projectId)
-    ) {
-      return jsonResponse(
-        { error: "A valid projectId is required" },
-        400,
-        true,
-      );
-    }
+    if (!isValidGuestCount(body.guestCount)) return jsonResponse({ error: "Invalid guestCount: use an integer between 1 and 100000" }, 400, true);
     const projectId = body.projectId;
-
-    const { data: project, error: projectError } = await admin
-      .from("projects")
-      .select("id, owner_id, status, payment_status, project_data")
-      .eq("id", projectId)
-      .maybeSingle();
+    const { data: project, error: projectError } = await admin.from("projects")
+      .select("id, owner_id, status, payment_status, project_data, purchased_guest_capacity, purchased_extra_blocks")
+      .eq("id", projectId).maybeSingle();
     if (projectError) throw projectError;
-    if (!project) {
-      return jsonResponse({ error: "Project not found" }, 404, true);
-    }
-    if (project.owner_id !== userData.user.id) {
-      return jsonResponse({ error: "Forbidden" }, 403, true);
-    }
-    if (project.payment_status === "paid") {
-      return jsonResponse(
-        { error: "Project already paid", code: "already_paid" },
-        409,
-        true,
-      );
-    }
-    if (project.status === "published") {
-      return jsonResponse({ error: "Project already published" }, 409, true);
-    }
-    if (project.payment_status === "refunded") {
-      return jsonResponse(
-        { error: "Refunded projects require support before a new payment" },
-        409,
-        true,
-      );
-    }
-
-    const stripe = new Stripe(stripeSecretKey, {
-      httpClient: Stripe.createFetchHttpClient(),
-    });
-    const { data: formPurchase, error: formPurchaseError } = await admin
-      .from("rsvp_addon_purchases")
-      .select("status")
-      .eq("project_id", projectId)
-      .maybeSingle();
-    if (formPurchaseError) throw formPurchaseError;
-    const formEnabled = project.project_data?.rsvp?.enabled === true;
-    const includesForm = formEnabled && formPurchase?.status !== "paid";
-    const formPriceCents = rsvpPrice();
-    const totalAmountCents = PRICE_CENTS + (includesForm ? formPriceCents : 0);
-
-    const { data: currentPayment, error: paymentReadError } = await admin
-      .from("project_payments")
-      .select("id, status, amount_cents, includes_rsvp, stripe_checkout_session_id, updated_at")
-      .eq("project_id", projectId)
-      .maybeSingle();
-    if (paymentReadError) throw paymentReadError;
-
-    if (currentPayment?.status === "paid") {
-      return jsonResponse(
-        { error: "Project already paid", code: "already_paid" },
-        409,
-        true,
-      );
-    }
-    if (
-      currentPayment?.status === "pending" &&
-      currentPayment.stripe_checkout_session_id
-    ) {
-      const existingSession = await stripe.checkout.sessions.retrieve(
-        currentPayment.stripe_checkout_session_id,
-      );
-      const existingIncludesForm = existingSession.metadata?.includes_form === "true";
-      if (
-        existingSession.status === "open" &&
-        existingSession.url &&
-        existingSession.amount_total === totalAmountCents &&
-        existingIncludesForm === includesForm
-      ) {
-        console.info("checkout_reused", {
-          projectId,
-          checkoutSessionId: existingSession.id,
-        });
-        return jsonResponse({ url: existingSession.url }, 200, true);
+    if (!project) return jsonResponse({ error: "Project not found" }, 404, true);
+    if (project.owner_id !== auth.user.id) return jsonResponse({ error: "Forbidden" }, 403, true);
+    if (project.payment_status === "refunded") return jsonResponse({ error: "Refunded projects require support" }, 409, true);
+    const isUpgrade = project.payment_status === "paid";
+    if (isUpgrade) {
+      if (project.status !== "published" || project.purchased_guest_capacity == null) {
+        return jsonResponse({ error: "Historical or inactive licence: no automatic guest charge", code: "already_paid" }, 409, true);
       }
-      if (existingSession.payment_status === "paid") {
-        return jsonResponse(
-          {
-            error: "Payment confirmation is in progress",
-            code: "confirmation_pending",
-          },
-          409,
-          true,
-        );
-      }
-      if (existingSession.status === "open") {
-        await stripe.checkout.sessions.expire(existingSession.id);
-      }
-    }
+      const upgrade = calculateGuestUpgrade(project.purchased_guest_capacity, body.guestCount);
+      if (!upgrade.additionalBlocks) return jsonResponse({ error: "Capacity already covered", code: "capacity_covered" }, 409, true);
+    } else if (project.status === "published") return jsonResponse({ error: "Project already published" }, 409, true);
 
-    let payment: { id: string; updated_at: string } | null = null;
-    if (currentPayment) {
-      const result = await admin
-        .from("project_payments")
-        .update({
-          status: "pending",
-          stripe_checkout_session_id: null,
-          stripe_payment_intent_id: null,
-          paid_at: null,
-          amount_cents: totalAmountCents,
-          includes_rsvp: includesForm,
-        })
-        .eq("id", currentPayment.id)
-        .in("status", ["unpaid", "pending"])
-        .select("id, updated_at")
-        .single();
-      if (result.error) throw result.error;
-      payment = result.data;
-    } else {
-      const result = await admin
-        .from("project_payments")
-        .insert({
-          project_id: projectId,
-          owner_id: userData.user.id,
-          amount_cents: totalAmountCents,
-          includes_rsvp: includesForm,
-          currency: CURRENCY,
-          status: "pending",
-        })
-        .select("id, updated_at")
-        .single();
-      if (result.error) throw result.error;
-      payment = result.data;
-    }
-
-    const { error: pendingError } = await admin
-      .from("projects")
-      .update({ payment_status: "pending" })
-      .eq("id", projectId)
-      .eq("owner_id", userData.user.id)
-      .eq("payment_status", "unpaid");
+    const stripe = new Stripe(key, { httpClient: Stripe.createFetchHttpClient() });
+    const { data: pending, error: pendingError } = await admin.from("guest_license_payments")
+      .select("*").eq("project_id", projectId).eq("status", "pending").maybeSingle();
     if (pendingError) throw pendingError;
-
-    try {
-      const metadata = {
-        purchase_type: "publication",
-        project_id: projectId,
-        owner_id: userData.user.id,
-        includes_form: String(includesForm),
-        form_amount_cents: String(includesForm ? formPriceCents : 0),
-      };
-      const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [{
-        quantity: 1,
-        price_data: {
-          currency: CURRENCY,
-          unit_amount: PRICE_CENTS,
-          product_data: { name: "Publication d’un faire-part numérique" },
-        },
-      }];
-      if (includesForm) {
-        lineItems.push({
-          quantity: 1,
-          price_data: {
-            currency: CURRENCY,
-            unit_amount: formPriceCents,
-            product_data: { name: "Formulaire invité et collecte des réponses" },
-          },
-        });
+    const { data: form, error: formError } = await admin.from("rsvp_addon_purchases")
+      .select("status").eq("project_id", projectId).maybeSingle();
+    if (formError) throw formError;
+    const includesForm = !isUpgrade && project.project_data?.rsvp?.enabled === true && form?.status !== "paid";
+    if (includesForm && Number(requireEnvironment("RSVP_ADDON_PRICE_CENTS")) !== PRICING.formPriceCents) {
+      throw new Error("Configured form price differs from guest-v1 pricing");
+    }
+    if (pending?.stripe_checkout_session_id) {
+      const existing = await stripe.checkout.sessions.retrieve(pending.stripe_checkout_session_id);
+      // A completed delayed-method session is still in progress even if unpaid.
+      if (existing.status === "complete" || existing.payment_status === "paid") {
+        return jsonResponse({ error: "Payment confirmation is in progress", code: "confirmation_pending" }, 409, true);
       }
-
+      if (existing.status === "open" && existing.url && pending.guest_count === body.guestCount
+        && pending.has_form === includesForm && pending.purchase_type === (isUpgrade ? "guest_capacity_upgrade" : "initial_publication")
+        && (!isUpgrade || pending.previous_extra_blocks === project.purchased_extra_blocks)
+        && matchesGuestCheckout(existing, pending)) return jsonResponse({ url: existing.url }, 200, true);
+      if (existing.status === "open") await stripe.checkout.sessions.expire(existing.id);
+    }
+    // Resolve/expire a legacy pending Checkout before switching prices.
+    if (!isUpgrade) {
+      const { data: legacy, error } = await admin.from("project_payments")
+        .select("id, status, stripe_checkout_session_id").eq("project_id", projectId).maybeSingle();
+      if (error) throw error;
+      if (legacy?.status === "paid" || legacy?.status === "refunded") return jsonResponse({ error: "Publication already settled" }, 409, true);
+      if (legacy?.status === "pending") {
+        if (!legacy.stripe_checkout_session_id) return jsonResponse({ error: "Previous Checkout is being prepared" }, 409, true);
+        const session = await stripe.checkout.sessions.retrieve(legacy.stripe_checkout_session_id);
+        if (session.status === "complete" || session.payment_status === "paid") return jsonResponse({ error: "Previous payment is being confirmed" }, 409, true);
+        if (session.status === "open") await stripe.checkout.sessions.expire(session.id);
+        const failed = await admin.rpc("fail_project_payment", {
+          p_project_id: projectId, p_owner_id: auth.user.id, p_checkout_session_id: session.id,
+        });
+        if (failed.error) throw failed.error;
+      }
+    }
+    const { data: receipt, error: reserveError } = await admin.rpc("reserve_guest_checkout", {
+      p_project_id: projectId, p_owner_id: auth.user.id, p_guest_count: body.guestCount,
+      p_previous_session_id: pending?.stripe_checkout_session_id ?? null,
+    });
+    if (reserveError) {
+      console.warn("guest_checkout_reservation_refused", { code: reserveError.code });
+      return jsonResponse({ error: "Checkout changed or is already being prepared. Refresh and retry.", code: "checkout_conflict" }, 409, true);
+    }
+    const payment = receipt as GuestPaymentReceipt;
+    try {
+      if (!payment || payment.amount_cents !== guestReceiptAmount(payment)) throw new Error("Server quote mismatch");
+      const metadata = guestCheckoutMetadata(payment);
+      const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
+      const addItem = (name: string, unitAmount: number, quantity = 1) => lineItems.push({
+        quantity, price_data: { currency: CURRENCY, unit_amount: unitAmount, product_data: { name } },
+      });
+      if (payment.purchase_type === "initial_publication") addItem("Faire-part — licence pour un événement, jusqu’à 40 invités", PRICING.basePriceCents);
+      if (payment.additional_blocks) addItem("Tranche de 7 invités supplémentaires", PRICING.extraBlockPriceCents, payment.additional_blocks);
+      if (payment.has_form) addItem("Formulaire invité et collecte des réponses", PRICING.formPriceCents);
       const session = await stripe.checkout.sessions.create({
-        mode: "payment",
-        managed_payments: { enabled: false },
-        integration_identifier: integrationIdentifier(),
-        client_reference_id: projectId,
-        line_items: lineItems,
-        metadata,
-        payment_intent_data: { metadata },
-        success_url: `${siteUrl}/payment/success?projectId=${
-          encodeURIComponent(projectId)
-        }&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${siteUrl}/payment/cancel?projectId=${
-          encodeURIComponent(projectId)
-        }`,
-      }, {
-        idempotencyKey: `project-payment-${payment.id}-${totalAmountCents}-${
-          new Date(payment.updated_at).getTime()
-        }`,
-      });
-
+        mode: "payment", managed_payments: { enabled: false }, integration_identifier: integrationIdentifier(),
+        client_reference_id: projectId, line_items: lineItems, metadata, payment_intent_data: { metadata },
+        success_url: `${siteUrl}/payment/success?projectId=${encodeURIComponent(projectId)}&kind=${payment.purchase_type}&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${siteUrl}/payment/cancel?projectId=${encodeURIComponent(projectId)}`,
+      }, { idempotencyKey: `guest-license-${payment.id}` });
       if (!session.url) throw new Error("Stripe Checkout Session has no URL");
-      const { error: attachError } = await admin
-        .from("project_payments")
-        .update({ stripe_checkout_session_id: session.id })
-        .eq("id", payment.id)
-        .eq("status", "pending");
-      if (attachError) throw attachError;
-
-      console.info("checkout_created", {
-        projectId,
-        checkoutSessionId: session.id,
-      });
+      const attached = await admin.from("guest_license_payments").update({ stripe_checkout_session_id: session.id })
+        .eq("id", payment.id).eq("status", "pending").is("stripe_checkout_session_id", null).select("id").single();
+      if (attached.error) {
+        await stripe.checkout.sessions.expire(session.id);
+        throw attached.error;
+      }
       return jsonResponse({ url: session.url }, 200, true);
-    } catch (stripeError) {
-      await admin.from("project_payments").update({ status: "unpaid" }).eq(
-        "id",
-        payment.id,
-      ).eq("status", "pending");
-      await admin.from("projects").update({ payment_status: "unpaid" }).eq(
-        "id",
-        projectId,
-      ).eq("payment_status", "pending");
-      console.error("checkout_failed", {
-        projectId,
-        result: stripeError instanceof Error
-          ? stripeError.message
-          : "unknown_error",
-      });
-      return jsonResponse(
-        { error: "Stripe Checkout Session creation failed" },
-        502,
-        true,
-      );
+    } catch {
+      await admin.rpc("fail_guest_checkout", { p_receipt_id: payment.id, p_session_id: null });
+      console.error("guest_checkout_failed", { projectId, receiptId: payment.id });
+      return jsonResponse({ error: "Stripe Checkout Session creation failed" }, 502, true);
     }
   } catch (error) {
-    console.error("checkout_server_error", {
-      result: error instanceof Error ? error.message : "unknown_error",
-    });
+    console.error("checkout_server_error", { result: error instanceof Error ? error.message : "unknown_error" });
     return jsonResponse({ error: "Internal server error" }, 500, true);
   }
 });

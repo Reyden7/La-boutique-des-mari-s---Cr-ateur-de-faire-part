@@ -16,6 +16,7 @@ import type {
 } from "../types/editor";
 import type { PreviewDevice } from "../config/previewDevices";
 import { PREVIEW_DEVICES } from "../config/previewDevices";
+import { isValidGuestCount } from "../config/pricing";
 
 import { startProjectCheckout } from "../services/projectRepository";
 import { getProject, remoteErrorSummary, syncProject, upsertProject } from "../utils/storage";
@@ -174,7 +175,7 @@ interface EditorState {
 
   save: () => void;
 
-  checkoutAndPublish: () => Promise<string | null>;
+  checkoutAndPublish: (guestCount: number) => Promise<string | null>;
 
   setSaveStatus: (
     status: SaveStatus
@@ -1293,7 +1294,8 @@ export const useEditorStore =
           );
       },
 
-      checkoutAndPublish: async () => {
+      checkoutAndPublish: async (guestCount) => {
+        if (!isValidGuestCount(guestCount)) throw new Error("Nombre d’invités invalide.");
         const state =
           get();
 
@@ -1308,6 +1310,7 @@ export const useEditorStore =
 
         const project = {
           ...state.project,
+          requestedGuestCount: guestCount,
           updatedAt: new Date().toISOString(),
         };
 
@@ -1334,12 +1337,13 @@ export const useEditorStore =
         if (
           normalized.paymentStatus === "paid" &&
           normalized.status === "published" &&
-          normalized.publicId
+          normalized.publicId &&
+          (normalized.purchasedGuestCapacity == null || guestCount <= normalized.purchasedGuestCapacity)
         ) {
           return null;
         }
 
-        return startProjectCheckout(normalized.id);
+        return startProjectCheckout(normalized.id, guestCount);
       },
 
       setSaveStatus: (

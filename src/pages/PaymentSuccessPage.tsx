@@ -1,7 +1,7 @@
 import { CheckCircle2, Clock3, ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { refreshRemoteProject } from "../services/projectRepository";
+import { guestCheckoutIsPaid, refreshRemoteProject } from "../services/projectRepository";
 import type { WeddingProject } from "../types/editor";
 import { upsertProject } from "../utils/storage";
 
@@ -11,6 +11,8 @@ export function PaymentSuccessPage() {
   const [searchParams] = useSearchParams();
   const projectId = searchParams.get("projectId");
   const purchaseKind = searchParams.get("kind");
+  const sessionId = searchParams.get("session_id");
+  const isGuestUpgrade = purchaseKind === "guest_capacity_upgrade";
   const [project, setProject] = useState<WeddingProject | null>(null);
   const [timedOut, setTimedOut] = useState(false);
 
@@ -33,7 +35,8 @@ export function PaymentSuccessPage() {
         if (
           remoteProject?.paymentStatus === "paid" &&
           remoteProject.status === "published" &&
-          remoteProject.publicId
+          remoteProject.publicId &&
+          (!isGuestUpgrade || (sessionId && await guestCheckoutIsPaid(projectId, sessionId)))
         ) {
           upsertProject(remoteProject);
           setProject(remoteProject);
@@ -56,14 +59,14 @@ export function PaymentSuccessPage() {
       active = false;
       if (timer) window.clearTimeout(timer);
     };
-  }, [projectId, purchaseKind]);
+  }, [projectId, purchaseKind, isGuestUpgrade, sessionId]);
 
   if (purchaseKind === "custom_invitation" || purchaseKind === "rsvp_addon") {
     return <main className="payment-result-page"><section className="payment-result-card success"><CheckCircle2 size={42} /><p className="eyebrow">Paiement reçu</p><h1>{purchaseKind === "custom_invitation" ? "Votre demande sur mesure est enregistrée" : "Le formulaire est en cours d’activation"}</h1><p>La confirmation définitive est traitée par notre webhook Stripe sécurisé. Elle apparaîtra dans votre espace dans quelques instants.</p><div className="payment-result-actions">{projectId && <Link to={`/studio/${projectId}`}>Retourner au Studio</Link>}<Link to="/">Mes projets</Link></div></section></main>;
   }
 
   if (project?.publicId) {
-    return <main className="payment-result-page"><section className="payment-result-card success"><CheckCircle2 size={42} /><p className="eyebrow">Paiement confirmé</p><h1>Votre faire-part est publié</h1><p>Votre lien est actif et restera identique après vos prochaines modifications.</p><div className="payment-result-actions"><a href={`/i/${project.publicId}`} target="_blank" rel="noreferrer">Voir le faire-part <ExternalLink size={15} /></a><Link to={`/studio/${project.id}`}>Retourner au Studio</Link></div></section></main>;
+    return <main className="payment-result-page"><section className="payment-result-card success"><CheckCircle2 size={42} /><p className="eyebrow">Paiement confirmé</p><h1>{isGuestUpgrade ? "Votre capacité a été augmentée" : "Votre faire-part est publié"}</h1><p>{isGuestUpgrade ? `Votre licence couvre désormais ${project.purchasedGuestCapacity} invités.` : "Votre lien est actif et restera identique après vos prochaines modifications."}</p><div className="payment-result-actions"><a href={`/i/${project.publicId}`} target="_blank" rel="noreferrer">Voir le faire-part <ExternalLink size={15} /></a><Link to={`/studio/${project.id}`}>Retourner au Studio</Link></div></section></main>;
   }
 
   return <main className="payment-result-page"><section className="payment-result-card"><Clock3 className={timedOut ? "" : "payment-spinner"} size={42} /><p className="eyebrow">Vérification sécurisée</p><h1>{timedOut ? "Confirmation toujours en cours" : "Paiement en cours de confirmation…"}</h1><p>{timedOut ? "Stripe peut parfois prendre un peu plus de temps. Votre projet est enregistré : revenez au Studio et actualisez dans quelques instants." : "Nous attendons la confirmation signée de Stripe. Ne fermez pas cette page."}</p><div className="payment-result-actions">{timedOut && projectId && <Link to={`/studio/${projectId}`}>Retourner au Studio</Link>}<Link to="/">Mes projets</Link></div></section></main>;

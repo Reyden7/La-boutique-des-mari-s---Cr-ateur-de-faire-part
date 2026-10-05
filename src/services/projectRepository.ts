@@ -13,6 +13,9 @@ export interface ProjectRow {
   updated_at: string;
   published_at: string | null;
   expires_at: string | null;
+  purchased_guest_capacity?: number | null;
+  purchased_extra_blocks?: number | null;
+  publication_license_id?: string | null;
 }
 
 interface CheckoutResponse {
@@ -39,6 +42,9 @@ export const projectFromRow = (row: ProjectRow): WeddingProject => ({
   updatedAt: row.updated_at,
   publishedAt: row.published_at ?? undefined,
   expiresAt: row.expires_at ?? undefined,
+  purchasedGuestCapacity: row.purchased_guest_capacity ?? undefined,
+  purchasedExtraBlocks: row.purchased_extra_blocks ?? undefined,
+  publicationLicenseId: row.publication_license_id ?? undefined,
 } as WeddingProject);
 
 const editableProjectData = (project: WeddingProject): Partial<WeddingProject> => {
@@ -48,6 +54,9 @@ const editableProjectData = (project: WeddingProject): Partial<WeddingProject> =
   delete data.paymentStatus;
   delete data.publicId;
   delete data.publishedAt;
+  delete data.purchasedGuestCapacity;
+  delete data.purchasedExtraBlocks;
+  delete data.publicationLicenseId;
   return data;
 };
 
@@ -140,15 +149,24 @@ export async function deleteRemoteProject(projectId: string) {
   if (error) throw error;
 }
 
-export async function startProjectCheckout(projectId: string) {
+export async function startProjectCheckout(projectId: string, guestCount: number) {
   if (!supabase) throw new Error("Supabase n’est pas configuré.");
   await requireSupabaseSession();
   const { data, error } = await supabase.functions.invoke<CheckoutResponse>("create-checkout-session", {
-    body: { projectId },
+    body: { projectId, guestCount },
   });
   if (error) throw error;
   if (!data?.url) throw new Error("Stripe n’a retourné aucune URL de paiement.");
   return data.url;
+}
+
+export async function guestCheckoutIsPaid(projectId: string, sessionId: string) {
+  if (!supabase) return false;
+  await requireSupabaseSession();
+  const { data, error } = await supabase.from("guest_license_payments").select("status")
+    .eq("project_id", projectId).eq("stripe_checkout_session_id", sessionId).maybeSingle<{ status: string }>();
+  if (error) throw error;
+  return data?.status === "paid";
 }
 
 export async function loadPublicProject(publicId: string) {

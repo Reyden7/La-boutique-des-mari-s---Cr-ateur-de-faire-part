@@ -1,10 +1,12 @@
 import Stripe from "npm:stripe@22.6.0";
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 import { jsonResponse } from "../_shared/http.ts";
+import { matchesGuestCheckout } from "../_shared/guestPayment.ts";
 
-const PRICE_CENTS = 2490;
+// Only historical sessions use the previous fixed tariff.
+const LEGACY_PRICE_CENTS = 2490;
 const CURRENCY = "eur";
-type PurchaseType = "publication" | "custom_invitation" | "rsvp_addon";
+type PurchaseType = "publication" | "initial_publication" | "guest_capacity_upgrade" | "custom_invitation" | "rsvp_addon";
 
 const requireEnvironment = (name: string) => {
   const value = Deno.env.get(name)?.trim();
@@ -17,9 +19,10 @@ const stripeId = (value: string | { id: string } | null) =>
 
 const purchaseTypeFromSession = (session: Stripe.Checkout.Session): PurchaseType | null => {
   const explicit = session.metadata?.purchase_type;
-  if (explicit === "publication" || explicit === "custom_invitation" || explicit === "rsvp_addon") {
+  if (explicit === "publication" || explicit === "initial_publication" || explicit === "guest_capacity_upgrade" || explicit === "custom_invitation" || explicit === "rsvp_addon") {
     return explicit;
   }
+  if (explicit) return null;
 
   // Transitional compatibility for Checkout Sessions created before the
   // explicit purchase_type metadata was deployed. Never infer from amount.
@@ -81,6 +84,27 @@ Deno.serve(async (request) => {
   }
 
   console.info("stripe_event_received", { eventType: event.type });
+  const processGuestPayment = async (session: Stripe.Checkout.Session, refund = false) => {
+    const receiptId = session.metadata?.receipt_id;
+    const ownerId = session.metadata?.owner_id;
+    const paymentIntentId = stripeId(session.payment_intent);
+    if (!receiptId || !ownerId || !paymentIntentId) return jsonResponse({ error: "Missing guest payment metadata" }, 400);
+    const { data: receipt, error } = await admin.from("guest_license_payments").select("*").eq("id", receiptId).maybeSingle();
+    if (error) throw error;
+    // Stripe can deliver the event before the session ID has been attached.
+    // Return 500 so Stripe retries; never grant rights using metadata alone.
+    if (!receipt || !receipt.stripe_checkout_session_id) throw new Error("Guest receipt attachment pending");
+    if (!matchesGuestCheckout(session, receipt)
+      || (receipt.stripe_payment_intent_id && receipt.stripe_payment_intent_id !== paymentIntentId)) {
+      return jsonResponse({ error: "Guest payment coherence check failed" }, 409);
+    }
+    const result = await admin.rpc(refund ? "refund_guest_checkout" : "finalize_guest_checkout", {
+      p_receipt_id: receiptId, p_owner_id: ownerId, p_session_id: session.id,
+      p_payment_intent_id: paymentIntentId, p_amount_cents: session.amount_total,
+    });
+    if (result.error) throw result.error;
+    return jsonResponse({ received: true });
+  };
   try {
     if (
       event.type === "checkout.session.completed" ||
@@ -98,6 +122,9 @@ Deno.serve(async (request) => {
       const purchaseType = purchaseTypeFromSession(session);
       if (!purchaseType) {
         return jsonResponse({ error: "Unknown purchase type" }, 400);
+      }
+      if (purchaseType === "initial_publication" || purchaseType === "guest_capacity_upgrade") {
+        return await processGuestPayment(session);
       }
       const commerceOwnerId = session.metadata?.owner_id;
       const commercePaymentIntentId = stripeId(session.payment_intent);
@@ -127,7 +154,7 @@ Deno.serve(async (request) => {
       if (!Number.isSafeInteger(formPriceCents) || formPriceCents <= 0) {
         throw new Error("Invalid configured form amount");
       }
-      const expectedPublicationAmount = PRICE_CENTS + (includesForm ? formPriceCents : 0);
+      const expectedPublicationAmount = LEGACY_PRICE_CENTS + (includesForm ? formPriceCents : 0);
       if (!projectId || !ownerId || !paymentIntentId) {
         console.error("checkout_metadata_missing", {
           checkoutSessionId: session.id,
@@ -196,6 +223,13 @@ Deno.serve(async (request) => {
       const session = event.data.object as Stripe.Checkout.Session;
       const purchaseType = purchaseTypeFromSession(session);
       if (!purchaseType) return jsonResponse({ error: "Unknown purchase type" }, 400);
+      if (purchaseType === "initial_publication" || purchaseType === "guest_capacity_upgrade") {
+        const receiptId = session.metadata?.receipt_id;
+        if (!receiptId) return jsonResponse({ error: "Missing guest receipt" }, 400);
+        const failed = await admin.rpc("fail_guest_checkout", { p_receipt_id: receiptId, p_session_id: session.id });
+        if (failed.error) throw failed.error;
+        return jsonResponse({ received: true });
+      }
       const commerceOwnerId = session.metadata?.owner_id;
       const commerceEntityId = purchaseType === "custom_invitation"
         ? session.metadata?.custom_request_id ?? session.metadata?.entity_id
@@ -241,6 +275,12 @@ Deno.serve(async (request) => {
       if (!session || !purchaseType) {
         return jsonResponse({ error: "Refund purchase type is missing" }, 400);
       }
+      if (purchaseType === "initial_publication" || purchaseType === "guest_capacity_upgrade") {
+        if (charge.currency !== CURRENCY || charge.amount_refunded !== session.amount_total) {
+          return jsonResponse({ error: "Guest refund amount mismatch" }, 400);
+        }
+        return await processGuestPayment(session, true);
+      }
       const commerceOwnerId = session?.metadata?.owner_id;
       const commerceEntityId = purchaseType === "custom_invitation"
         ? session.metadata?.custom_request_id ?? session.metadata?.entity_id
@@ -271,7 +311,7 @@ Deno.serve(async (request) => {
       if (!Number.isSafeInteger(formPriceCents) || formPriceCents <= 0) {
         throw new Error("Invalid configured form amount");
       }
-      const expectedPublicationAmount = PRICE_CENTS + (includesForm ? formPriceCents : 0);
+      const expectedPublicationAmount = LEGACY_PRICE_CENTS + (includesForm ? formPriceCents : 0);
       if (
         session.amount_total !== expectedPublicationAmount || session.currency !== CURRENCY
       ) {

@@ -6,6 +6,8 @@ const runtimeKeys = [
   "id", "ownerId", "owner_id", "name", "createdAt", "created_at", "updatedAt", "updated_at",
   "status", "paymentStatus", "payment_status", "publicId", "public_id", "publishedAt", "published_at",
   "expiresAt", "expires_at", "stripe_checkout_session_id", "stripe_payment_intent_id", "responses", "orders",
+  "requestedGuestCount", "purchasedGuestCapacity", "purchasedExtraBlocks", "publicationLicenseId",
+  "purchased_guest_capacity", "purchased_extra_blocks", "publication_license_id",
 ] as const;
 
 /** Client-side mirror for previews/tests. The RPC remains authoritative when publishing. */
@@ -22,7 +24,7 @@ export const instantiateProjectFromTemplate = (
 ): WeddingProject => {
   const timestamp = new Date().toISOString();
   const candidate = {
-    ...structuredClone(template.templateData),
+    ...sanitizeProjectForTemplate(template.templateData as WeddingProject),
     id: crypto.randomUUID(),
     ownerId,
     name: template.name,

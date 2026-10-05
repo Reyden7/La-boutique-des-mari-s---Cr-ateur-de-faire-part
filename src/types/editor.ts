@@ -551,6 +551,13 @@ export interface WeddingProject {
   publishedAt?: string;
   expiresAt?: string;
 
+  /** Editable commercial declaration; never grants paid rights. */
+  requestedGuestCount?: number;
+  /** Read-only server columns. Absent for historical purchases. */
+  purchasedGuestCapacity?: number;
+  purchasedExtraBlocks?: number;
+  publicationLicenseId?: string;
+
   pages: WeddingPage[];
 
   opening: OpeningAnimationConfig;

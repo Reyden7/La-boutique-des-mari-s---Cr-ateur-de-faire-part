@@ -71,6 +71,9 @@ export function HomePage() {
     delete copy.publicId;
     delete copy.publishedAt;
     delete copy.expiresAt;
+    delete copy.purchasedGuestCapacity;
+    delete copy.purchasedExtraBlocks;
+    delete copy.publicationLicenseId;
     upsertProject(copy);
     setProjects((values) => [copy, ...values]);
   };

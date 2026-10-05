@@ -1,12 +1,9 @@
-const parsedRsvpPrice = Number(import.meta.env.VITE_RSVP_ADDON_PRICE_CENTS ?? "");
-const DEFAULT_RSVP_ADDON_PRICE_CENTS = 990;
+import { PRICING } from "./pricing";
 
 export const COMMERCE = {
-  publicationPriceCents: 2490,
+  publicationPriceCents: PRICING.basePriceCents,
   customInvitationPriceCents: 5000,
-  rsvpAddonPriceCents: Number.isFinite(parsedRsvpPrice) && parsedRsvpPrice > 0
-    ? parsedRsvpPrice
-    : DEFAULT_RSVP_ADDON_PRICE_CENTS,
+  rsvpAddonPriceCents: PRICING.formPriceCents,
 } as const;
 
 export const formatPrice = (priceCents: number) => new Intl.NumberFormat("fr-FR", {
