@@ -37,7 +37,7 @@ import { useGlobalAssets } from "../../hooks/useGlobalAssets";
 import { PublishGlobalAssetButton } from "../admin/PublishGlobalAssetButton";
 import { PREVIEW_DEVICES } from "../../config/previewDevices";
 import { getImageInitialSize, loadImageDimensions, readImageFileDimensions, type ImageDimensions } from "../../utils/imageLayout";
-import { HierarchyList } from "./HierarchyList";
+import { HierarchyList, HierarchySectionActions } from "./HierarchyList";
 
 const uid = () => crypto.randomUUID();
 const navItems: { id: SidebarView; label: string; icon: ComponentType<{ size?: number }> }[] = [
@@ -193,7 +193,7 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
         </section>
         {documentSummary}
         <section className="layers-section">
-          <div className="panel-title"><Layers3 size={15} /> Calques</div>
+          <div className="layers-heading"><div className="panel-title"><Layers3 size={15} /> Calques</div><HierarchySectionActions elements={page?.elements ?? []} /></div>
           <HierarchyList elements={page?.elements ?? []} />
         </section>
       </div>

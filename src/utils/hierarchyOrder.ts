@@ -34,6 +34,15 @@ export function getHierarchyRows(elements: EditorElement[], device: PreviewDevic
       : [element]);
 }
 
+/** UI filtering only; renderers and ordering mutations keep using the complete hierarchy. */
+export function getVisibleHierarchyRows(elements: EditorElement[], device: PreviewDevice, collapsedSections: Readonly<Record<string, boolean>>) {
+  const sections = new Set(elements.filter((element) => element.type === "section").map((element) => element.id));
+  return getHierarchyRows(elements, device).filter((element) => {
+    const parent = getElementComposition(element, device).sectionId;
+    return !parent || !sections.has(parent) || !collapsedSections[parent];
+  });
+}
+
 export function moveHierarchyElement(elements: EditorElement[], sourceId: string, targetId: string | null, placement: HierarchyPlacement, device: PreviewDevice = "mobile") {
   const source = elements.find((element) => element.id === sourceId);
   const target = targetId ? elements.find((element) => element.id === targetId) : undefined;

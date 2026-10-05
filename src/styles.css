@@ -277,6 +277,11 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .page-list small { color: #a19891; font-size: 9px; }
 .page-list button.active { border-color: #dbc5b4; background: #faf4ef; color: var(--accent-dark); }
 .layers-section { min-height: 210px; min-width: 0; overflow-x: hidden; }
+.layers-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 7px; margin-bottom: 9px; }
+.layers-heading .panel-title { margin: 0; }
+.hierarchy-section-actions { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.hierarchy-section-actions button { display: inline-flex; align-items: center; gap: 2px; padding: 4px; border: 1px solid #e6ddd6; border-radius: 5px; background: #fbf8f5; color: #7a685c; font-size: 8px; cursor: pointer; }
+.hierarchy-section-actions button:disabled { opacity: .45; cursor: default; }
 .layers-list { min-width: 0; max-width: 100%; overflow-x: hidden; display: grid; gap: 3px; }
 .layers-list > div { min-width: 0; max-width: 100%; }
 .layer-row { box-sizing: border-box; width: 100%; min-width: 0; min-height: 36px; overflow: hidden; display: flex; align-items: center; gap: 5px; padding: 3px 3px 3px 8px; border-radius: 7px; border: 1px solid transparent; color: #6e6761; font-size: 10px; cursor: pointer; }
@@ -301,6 +306,12 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .layer-row:hover button, .layer-row.active button { visibility: visible; }
 .layer-row button.layer-lock-button { width: 28px; height: 28px; margin-left: auto; visibility: visible; flex: 0 0 28px; border: 1px solid #e1d7d0; border-radius: 6px; background: #f4efeb; color: #755c4d; }
 .layer-row button.layer-visibility-button { visibility: visible; flex: 0 0 21px; }
+.layer-row button.layer-collapse-button { visibility: visible; flex: 0 0 20px; width: 20px; height: 28px; color: #79543f; }
+/* Keep room for the section name and every existing action in a narrow sidebar. */
+.layer-row.section-row { gap: 3px; }
+.layer-row.section-row .layer-kind, .layer-row.section-row .layer-drag-handle { flex-basis: 12px; width: 12px; }
+.layer-row.section-row button:not(.layer-lock-button):not(.layer-collapse-button) { flex-basis: 18px; width: 18px; }
+.layer-row.section-row button.layer-lock-button { flex-basis: 24px; width: 24px; }
 .layer-row.locked button.layer-lock-button { background: #e9dfd8; color: #75513d; }
 .layer-row button:hover { color: #6d4833; }
 .layer-drag-handle { flex: 0 0 16px; width: 16px; display: grid; place-items: center; color: #a99c92; cursor: grab; touch-action: none; }
