@@ -14,6 +14,7 @@ import { useEditorStore } from "../../stores/editorStore";
 import type { RsvpField, RsvpFieldType, RsvpFormConfig, RsvpFormStyle, RsvpFormTypography } from "../../types/editor";
 import { getRsvpPositionX, getRsvpPositionY, getRsvpWidth, hasExplicitRsvpPosition, hasRsvpPositionOverride, resetRsvpPositionForDevice, setRsvpLayoutForDevice, setRsvpPositionForDevice } from "../../utils/documentLayout";
 import { RSVP_EDITOR_ELEMENT_ID, isRsvpVisibleOnDevice } from "./rsvpEditorElement";
+import { useRsvpBlockLayout } from "./useRsvpBlockLayout";
 
 const fieldTypes: { value: RsvpFieldType; label: string }[] = [
   { value: "short_text", label: "Texte court" }, { value: "long_text", label: "Texte long" },
@@ -27,6 +28,7 @@ export function RsvpFormEditor({ embedded = false }: { embedded?: boolean }) {
   const { project, currentPageId, previewDevice, updateRsvp, selectElement, setElementVisibility } = useEditorStore();
   const [paying, setPaying] = useState(false);
   const [paymentError, setPaymentError] = useState("");
+  const formLayout = useRsvpBlockLayout(project?.rsvp, previewDevice);
   if (!project?.rsvp) return null;
   const config = project.rsvp;
   const formStyle = resolveRsvpStyle(config.style);
@@ -38,7 +40,7 @@ export function RsvpFormEditor({ embedded = false }: { embedded?: boolean }) {
   const hasExplicitPosition = hasExplicitRsvpPosition(config, previewDevice);
   const hasPositionOverride = hasRsvpPositionOverride(config, previewDevice);
   const setPosition = (value: number) => updateRsvp(setRsvpPositionForDevice(config, previewDevice, value));
-  const setLayout = (changes: { x?: number; y?: number; width?: number }) => updateRsvp(setRsvpLayoutForDevice(config, previewDevice, changes));
+  const setLayout = (changes: { x?: number; y?: number; width?: number; height?: number }) => updateRsvp(setRsvpLayoutForDevice(config, previewDevice, changes));
   const updateStyle = (key: keyof RsvpFormStyle, value: string) => update({ style: { ...formStyle, [key]: value } });
   const updateTypography = (key: keyof RsvpFormTypography, value: string | number) => update({ typography: { ...config.typography, [key]: value } });
   const updateFontSize = (key: "titleFontSize" | "labelFontSize" | "fieldFontSize", raw: string, minimum: number, maximum: number) => {
@@ -81,7 +83,8 @@ export function RsvpFormEditor({ embedded = false }: { embedded?: boolean }) {
       <div className="rsvp-position-heading"><div><MoveVertical size={15} /><span>Position dans le faire-part</span></div><small>{PREVIEW_DEVICES[previewDevice].label}</small></div>
       <p>{hasPositionOverride ? "Position personnalisée pour ce support." : hasExplicitPosition ? "Position héritée du Smartphone. Modifiez-la pour créer un override sur ce support." : "Placement automatique après le contenu. Modifiez la valeur ou glissez le formulaire dans le canvas."}</p>
       <div className="field-row"><label className="field"><span>Position X</span><input type="number" disabled={config.locked ?? false} min="0" step="10" value={positionX} onChange={(event) => setLayout({ x: Number(event.target.value) || 0 })} /></label><label className="field"><span>Position Y</span><input type="number" disabled={config.locked ?? false} min="0" step="10" value={positionY} onChange={(event) => setLayout({ y: Number(event.target.value) || 0 })} /></label></div>
-      <label className="field"><span>Largeur</span><DimensionInput key={`${project.id}-${previewDevice}-form-width`} disabled={config.locked ?? false} min={120} max={PREVIEW_DEVICES[previewDevice].width} step={1} value={formWidth} onCommit={(width) => setLayout({ width })} /></label>
+      <div className="field-row"><label className="field"><span>Largeur</span><DimensionInput key={`${project.id}-${previewDevice}-form-width`} disabled={config.locked ?? false} min={120} max={PREVIEW_DEVICES[previewDevice].width} step={1} value={formWidth} onCommit={(width) => setLayout({ width })} /></label><label className="field"><span>Hauteur</span><DimensionInput key={`${project.id}-${previewDevice}-form-height`} disabled={config.locked ?? false} min={formLayout.minimumHeight} step={1} value={formLayout.height} onCommit={(height) => setLayout({ height })} /></label></div>
+      <small>Hauteur minimale pour préserver le contenu : {formLayout.minimumHeight} px. Réglage indépendant pour {PREVIEW_DEVICES[previewDevice].label}.</small>
       <div className="rsvp-position-actions"><button type="button" disabled={config.locked ?? false} onClick={() => setPosition(Math.max(0, positionY - 100))}><ArrowUp size={13} /> Monter</button><button type="button" disabled={config.locked ?? false} onClick={() => setPosition(positionY + 100)}><ArrowDown size={13} /> Descendre</button></div>
       <button className="rsvp-position-reset" type="button" disabled={(config.locked ?? false) || !hasPositionOverride} onClick={() => updateRsvp(resetRsvpPositionForDevice(config, previewDevice))}><RotateCcw size={13} /> {previewDevice === "mobile" ? "Revenir au placement automatique" : "Supprimer l’override de ce support"}</button>
     </section>
@@ -114,5 +117,6 @@ export function RsvpFormEditor({ embedded = false }: { embedded?: boolean }) {
       <button type="button" className="danger" onClick={removeFromDocument}><Trash2 size={15} /> Supprimer le formulaire du document</button>
       {config.purchased && <small>Le droit Formulaire reste acquis et les réponses existantes sont conservées.</small>}
     </section>
+    {formLayout.measurement}
   </div>;
 }

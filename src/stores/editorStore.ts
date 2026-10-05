@@ -36,6 +36,8 @@ import {
   normalizeSectionMembership,
   reflowSectionsInOrder,
   reorderSections,
+  setLastSectionForDevice,
+  clearLastSectionFlags,
 } from "../utils/sectionLayout";
 import { resolveWelcomePage } from "../features/welcome/welcomeDefaults";
 import { isElementLocked, isLockableElement, normalizeElementLocks } from "../utils/elementLocking";
@@ -43,6 +45,7 @@ import { getRsvpPositionX, getRsvpPositionY, getRsvpWidth, setRsvpLayoutForDevic
 import { RSVP_EDITOR_ELEMENT_ID, getRsvpSectionId, materializeRsvpComposition, selectionAfterRsvpUpdate } from "../features/rsvp/rsvpEditorElement";
 import { getHierarchyRows, moveHierarchyElement, type HierarchyPlacement } from "../utils/hierarchyOrder";
 import type { CanvasPoint } from "../utils/selectionDrag";
+import { getDuplicateEditorName, normalizeEditorName } from "../utils/editorNames";
 
 interface ElementMoveOptions {
   device?: PreviewDevice;
@@ -107,6 +110,8 @@ interface EditorState {
     updates: Partial<EditorElement>
   ) => void;
 
+  renameElement: (id: string, name: string) => void;
+
   setElementVisibility: (id: string, visible: boolean) => void;
 
   setElementsLocked: (ids: string[], locked: boolean) => void;
@@ -117,6 +122,8 @@ interface EditorState {
     id: string,
     updates: ResponsiveElementLayout
   ) => void;
+
+  setLastSection: (id: string, enabled: boolean) => void;
 
   moveElements: (ids: string[], deltaX: number, deltaY: number, options?: ElementMoveOptions) => void;
 
@@ -538,6 +545,23 @@ export const useEditorStore =
           )
         ),
 
+      renameElement: (id, name) => set((state) => {
+        const editorName = normalizeEditorName(name);
+        const target = id === RSVP_EDITOR_ELEMENT_ID ? state.project?.rsvp
+          : state.project?.pages.flatMap((page) => page.elements).find((element) => element.id === id)
+            ?? state.project?.welcomePage?.elements.find((element) => element.id === id);
+        if (!target || target.editorName === editorName) return state;
+        return mutateProject(state, (project) => {
+          const destination = id === RSVP_EDITOR_ELEMENT_ID ? project.rsvp
+            : project.pages.flatMap((page) => page.elements).find((element) => element.id === id)
+              ?? project.welcomePage?.elements.find((element) => element.id === id);
+          if (destination) {
+            if (editorName) destination.editorName = editorName;
+            else delete destination.editorName;
+          }
+        });
+      }),
+
       setElementVisibility: (id, visible) => set((state) => mutateProject(state, (project) => {
         if (id === RSVP_EDITOR_ELEMENT_ID) {
           if (project.rsvp) project.rsvp = { ...project.rsvp, visibilityByDevice: { ...project.rsvp.visibilityByDevice, [state.previewDevice]: visible } };
@@ -581,6 +605,12 @@ export const useEditorStore =
               : element
           ));
         })),
+
+      setLastSection: (id, enabled) => set((state) => mutateProject(state, (project) => {
+        if (isWelcomeContext(project, state)) return;
+        const page = project.pages.find((item) => item.id === state.currentPageId);
+        if (page) page.elements = setLastSectionForDevice(page.elements, id, state.previewDevice, enabled);
+      })),
 
       updateElementLayout: (
         id,
@@ -820,9 +850,10 @@ export const useEditorStore =
 
                     name:
                       `${element.name} copie`,
+                    editorName: getDuplicateEditorName(element, editableElements),
 
                   } as EditorElement);
-                  duplicated = offsetAllDeviceLayouts(duplicated);
+                  duplicated = clearLastSectionFlags(offsetAllDeviceLayouts(duplicated));
                   for (const device of ["mobile", "tablet", "desktop"] as const) {
                     const top = Math.max(0, ...editableElements.map((candidate) => getElementZIndex(candidate, device))) + 1;
                     duplicated = setElementLayoutForDevice(duplicated, device, { zIndex: top });
@@ -838,6 +869,7 @@ export const useEditorStore =
                         ...structuredClone(child),
                         id: uid(),
                         name: `${child.name} copie`,
+                        editorName: getDuplicateEditorName(child, editableElements),
                       } as EditorElement));
                       for (const device of ["mobile", "tablet", "desktop"] as const) {
                         const top = Math.max(0, ...editableElements.map((candidate) => getElementZIndex(candidate, device))) + 1;
@@ -898,7 +930,7 @@ export const useEditorStore =
         } = get();
 
         if (clipboard) {
-          const copy = {
+          const copy = clearLastSectionFlags({
             ...structuredClone(
               clipboard
             ),
@@ -907,8 +939,9 @@ export const useEditorStore =
 
             name:
               `${clipboard.name} copie`,
+            editorName: getDuplicateEditorName(clipboard, get().project ? getEditableElements(get().project!, get()) ?? [] : []),
 
-          } as EditorElement;
+          } as EditorElement);
           const layout = getElementLayout(copy, previewDevice);
 
           get().addElement(

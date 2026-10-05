@@ -11,6 +11,7 @@ export interface ResolvedElementLayout {
   visible: boolean;
   zIndex: number;
   sectionId: string | null;
+  isLastSection: boolean;
   fontSize?: number;
   timeFontSize?: number;
   titleFontSize?: number;
@@ -57,6 +58,7 @@ export const getElementLayout = (
     height: override?.height ?? element.height,
     rotation: override?.rotation ?? element.rotation,
     ...composition,
+    isLastSection: element.type === "section" ? override?.isLastSection ?? element.isLastSection ?? false : false,
     fontSize: element.type === "text" ? override?.fontSize ?? element.fontSize : undefined,
     timeFontSize: element.type === "schedule" ? override?.timeFontSize ?? element.timeFontSize : undefined,
     titleFontSize: element.type === "schedule" ? override?.titleFontSize ?? element.titleFontSize : undefined,
@@ -118,6 +120,7 @@ export const setElementLayoutForDevice = (
     ...(updates.visible !== undefined ? { visible: updates.visible } : {}),
     ...(updates.zIndex !== undefined ? { zIndex: updates.zIndex } : {}),
     ...(updates.sectionId !== undefined ? { sectionId: updates.sectionId } : {}),
+    ...(element.type === "section" && updates.isLastSection !== undefined ? { isLastSection: updates.isLastSection } : {}),
   };
   const typography = element.type === "text" && updates.fontSize !== undefined
     ? { fontSize: updates.fontSize }
@@ -143,6 +146,7 @@ export const setElementLayoutForDevice = (
     visible: current.visible,
     zIndex: current.zIndex,
     sectionId: current.sectionId,
+    ...(element.type === "section" ? { isLastSection: current.isLastSection } : {}),
     ...(element.type === "text" ? { fontSize: current.fontSize } : {}),
     ...(element.type === "schedule" ? {
       timeFontSize: current.timeFontSize,

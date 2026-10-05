@@ -30,7 +30,11 @@ export function RsvpFormRenderer({ config, publicId, mode, device }: { config: R
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   if (!shouldRenderRsvp(config, mode)) return null;
   const style = resolveRsvpStyle(config.style);
+  const deviceWidth = PREVIEW_DEVICES[device].width;
+  const logicalSize = (size: number) => `${size / deviceWidth * 100}cqw`;
   const styleVariables = {
+    "--rsvp-unit": logicalSize(1),
+    padding: `${logicalSize(Math.max(34, Math.min(64, deviceWidth * .12)))} ${logicalSize(Math.max(20, Math.min(48, deviceWidth * .07)))} ${logicalSize(Math.max(42, Math.min(76, deviceWidth * .14)))}`,
     "--rsvp-background": style.backgroundColor,
     "--rsvp-text": style.textColor,
     "--rsvp-label": style.labelColor,
@@ -43,9 +47,9 @@ export function RsvpFormRenderer({ config, publicId, mode, device }: { config: R
     "--rsvp-selection": style.selectionColor,
     "--rsvp-error": style.errorColor,
     ...(config.typography?.fontFamily ? { "--rsvp-font": `"${config.typography.fontFamily.replaceAll('"', '\\"')}"` } : {}),
-    ...(config.typography?.titleFontSize ? { "--rsvp-title-size": `${config.typography.titleFontSize / PREVIEW_DEVICES[device].width * 100}cqw` } : {}),
-    ...(config.typography?.labelFontSize ? { "--rsvp-label-size": `${config.typography.labelFontSize / PREVIEW_DEVICES[device].width * 100}cqw` } : {}),
-    ...(config.typography?.fieldFontSize ? { "--rsvp-field-size": `${config.typography.fieldFontSize / PREVIEW_DEVICES[device].width * 100}cqw` } : {}),
+    "--rsvp-title-size": logicalSize(config.typography?.titleFontSize ?? Math.max(31, Math.min(48, deviceWidth * .08))),
+    "--rsvp-label-size": logicalSize(config.typography?.labelFontSize ?? 10),
+    "--rsvp-field-size": logicalSize(config.typography?.fieldFontSize ?? 13),
   } as CSSProperties;
 
   const submit = async (event: React.FormEvent) => {

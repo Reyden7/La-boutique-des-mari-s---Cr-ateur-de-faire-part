@@ -6,6 +6,8 @@ import type { EditorElement } from "../../types/editor";
 import { getHierarchyRows, type HierarchyPlacement } from "../../utils/hierarchyOrder";
 import { getElementLayout, getElementSectionId, isElementVisibleOnDevice } from "../../utils/responsiveLayout";
 import { getRsvpSectionId, isRsvpVisibleOnDevice } from "../../features/rsvp/rsvpEditorElement";
+import { EditableElementName } from "../ui/EditableElementName";
+import { getEditorElementLabel, getRsvpEditorLabel } from "../../utils/editorNames";
 
 type DropTarget = { id: string | null; placement: HierarchyPlacement };
 
@@ -13,6 +15,8 @@ export function HierarchyList({ elements }: { elements: EditorElement[] }) {
   const { project, previewDevice, selectedElementIds, selectElement, toggleElementLocked, setElementVisibility, updateRsvp, removeElement, moveLayer, moveHierarchyItem } = useEditorStore();
   const [sourceId, setSourceId] = useState<string | null>(null);
   const [target, setTarget] = useState<DropTarget | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const editingName = (id: string) => (editing: boolean) => { setEditingId(editing ? id : null); if (editing) finish(); };
   const rows = getHierarchyRows(elements, previewDevice);
   const validSectionIds = new Set(elements.filter((item) => item.type === "section").map((item) => item.id));
   const rsvp = project?.rsvp?.enabled ? project.rsvp : undefined;
@@ -22,6 +26,7 @@ export function HierarchyList({ elements }: { elements: EditorElement[] }) {
 
   const finish = () => { setSourceId(null); setTarget(null); };
   const start = (event: DragEvent, id: string) => {
+    if (editingId) { event.preventDefault(); return; }
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", id);
     setSourceId(id);
@@ -60,8 +65,8 @@ export function HierarchyList({ elements }: { elements: EditorElement[] }) {
   const rsvpParentElement = elements.find((element) => element.id === rsvpParent);
   const rsvpEffectiveVisible = rsvpVisible && (!rsvpParentElement || isElementVisibleOnDevice(rsvpParentElement, elements, previewDevice));
   const rsvpRow = rsvp && <div key={RSVP_EDITOR_ELEMENT_ID} className={`layer-row ${rsvpParent ? "section-child" : ""} ${selectedElementIds.includes(RSVP_EDITOR_ELEMENT_ID) ? "active" : ""} ${rsvp.locked ? "locked" : ""} ${rsvpEffectiveVisible ? "" : "is-hidden"}`} onClick={() => selectElement(RSVP_EDITOR_ELEMENT_ID)}>
-    <span className="layer-drag-handle" draggable onDragStart={(event) => start(event, RSVP_EDITOR_ELEMENT_ID)} onDragEnd={finish} title="Déplacer le formulaire dans la hiérarchie"><GripVertical size={13} /></span>
-    <span className="layer-kind"><ClipboardCheck size={12} /></span><span className="layer-name">Formulaire invité</span>
+    <span className="layer-drag-handle" draggable={!editingId} onDragStart={(event) => start(event, RSVP_EDITOR_ELEMENT_ID)} onDragEnd={finish} title="Déplacer le formulaire dans la hiérarchie"><GripVertical size={13} /></span>
+    <span className="layer-kind"><ClipboardCheck size={12} /></span><EditableElementName key={RSVP_EDITOR_ELEMENT_ID} elementId={RSVP_EDITOR_ELEMENT_ID} label={getRsvpEditorLabel(rsvp)} onEditingChange={editingName(RSVP_EDITOR_ELEMENT_ID)} />
     <button className="layer-lock-button" title={rsvp.locked ? "Déverrouiller le formulaire" : "Verrouiller le formulaire"} onClick={(event) => { event.stopPropagation(); toggleElementLocked(RSVP_EDITOR_ELEMENT_ID); }}>{rsvp.locked ? <LockKeyhole size={14} /> : <LockKeyholeOpen size={14} />}</button>
     <button className="layer-visibility-button" disabled={rsvpVisible && !rsvpEffectiveVisible} title={rsvpVisible && !rsvpEffectiveVisible ? "Section masquée sur ce format" : rsvpVisible ? `Masquer sur ${previewDevice}` : `Afficher sur ${previewDevice}`} onClick={(event) => { event.stopPropagation(); setElementVisibility(RSVP_EDITOR_ELEMENT_ID, !rsvpVisible); }}>{rsvpEffectiveVisible ? <Eye size={14} /> : <EyeOff size={14} />}</button>
     <button title="Retirer le formulaire de tous les formats" onClick={(event) => { event.stopPropagation(); if (window.confirm("Retirer le formulaire de tous les formats ?")) { updateRsvp({ ...rsvp, enabled: false }); selectElement(null); } }}><Trash2 size={14} /></button>
@@ -79,9 +84,10 @@ export function HierarchyList({ elements }: { elements: EditorElement[] }) {
         <div className={`layer-row ${selectedElementIds.includes(element.id) ? "active" : ""} ${element.locked ? "locked" : ""} ${getElementSectionId(element, previewDevice) ? "section-child" : ""} ${effectiveVisible ? "" : "is-hidden"} ${dropClass}`} onClick={(event) => selectElement(element.id, event.ctrlKey || event.metaKey)}
           onDragOver={(event) => propose(event, rowTarget(event, element))}
           onDrop={(event) => { if (sourceId) drop(event, rowTarget(event, element)); }}>
-          <span className="layer-drag-handle" draggable onDragStart={(event) => start(event, element.id)} onDragEnd={finish} title={`Déplacer ${element.name}`}><GripVertical size={13} /></span>
+          <span className="layer-drag-handle" draggable={!editingId} onDragStart={(event) => start(event, element.id)} onDragEnd={finish} title={`Déplacer ${getEditorElementLabel(element)}`}><GripVertical size={13} /></span>
           <span className="layer-kind">{element.type === "text" ? "T" : element.type === "image" ? "▧" : element.type === "icon" && element.heartStyle ? <Heart size={12} /> : element.type === "icon" ? "❦" : "▱"}</span>
-          <span className="layer-name" title={element.name}>{element.name}</span>
+          <EditableElementName elementId={element.id} label={getEditorElementLabel(element)} onEditingChange={editingName(element.id)} />
+          {element.type === "section" && getElementLayout(element, previewDevice).isLastSection && <small title="Dernière section sur ce support">Dernière</small>}
           <button className="layer-lock-button" title={element.locked ? "Déverrouiller" : "Verrouiller"} onClick={(event) => { event.stopPropagation(); toggleElementLocked(element.id); }}>{element.locked ? <LockKeyhole size={14} /> : <LockKeyholeOpen size={14} />}</button>
           <button className="layer-visibility-button" disabled={hiddenBySection} title={hiddenBySection ? "Section masquée sur ce format" : ownVisible ? `Masquer sur ${previewDevice}` : `Afficher sur ${previewDevice}`} onClick={(event) => { event.stopPropagation(); setElementVisibility(element.id, !ownVisible); }}>{effectiveVisible ? <Eye size={14} /> : <EyeOff size={14} />}</button>
           <button title="Avancer" onClick={(event) => { event.stopPropagation(); moveLayer(element.id, "forward"); }}><ChevronUp size={14} /></button>

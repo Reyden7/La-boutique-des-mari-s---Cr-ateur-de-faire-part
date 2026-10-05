@@ -1,12 +1,29 @@
 import type { PreviewDevice } from "../config/previewDevices";
 import type { EditorElement, SectionElement } from "../types/editor";
-import { getElementLayout, getElementSectionId, isElementVisibleOnDevice, setElementLayoutForDevice } from "./responsiveLayout.ts";
+import { getElementLayout, getElementSectionId, isElementVisibleOnDevice, materializeElementLayouts, setElementLayoutForDevice } from "./responsiveLayout.ts";
 import { isElementLocked } from "./elementLocking.ts";
 
 export const SECTION_INSERT_GAP = 24;
 export const SECTION_PADDING_TOP = 30;
 export const SECTION_PADDING_BOTTOM = 30;
 export const SECTION_GAP = 40;
+
+/** Exactly one marker per device, without leaking mobile edits into legacy overrides. */
+export const setLastSectionForDevice = (elements: EditorElement[], id: string, device: PreviewDevice, enabled: boolean) => {
+  if (!elements.some((element) => element.type === "section" && element.id === id)) return elements;
+  return elements.map((element) => {
+    if (element.type !== "section" || (element.id !== id && !enabled)) return element;
+    return setElementLayoutForDevice(materializeElementLayouts(element), device, { isLastSection: element.id === id && enabled });
+  });
+};
+
+/** Copies never inherit end-of-document ownership on any device. */
+export const clearLastSectionFlags = (element: EditorElement): EditorElement => {
+  if (element.type !== "section") return element;
+  let next = materializeElementLayouts(element);
+  for (const device of ["mobile", "tablet", "desktop"] as const) next = setElementLayoutForDevice(next, device, { isLastSection: false });
+  return next;
+};
 
 const isInside = (element: EditorElement, section: EditorElement, device: PreviewDevice) => {
   const elementLayout = getElementLayout(element, device);

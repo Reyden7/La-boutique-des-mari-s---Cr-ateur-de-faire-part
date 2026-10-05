@@ -12,6 +12,8 @@ export interface ResponsiveElementLayout {
   y?: number;
   width?: number;
   height?: number;
+  /** Section-only end-of-document marker for this device. */
+  isLastSection?: boolean;
   rotation?: number;
   visible?: boolean;
   zIndex?: number;
@@ -122,6 +124,8 @@ export interface BaseElement {
   /** Parent section in the logical document. Coordinates remain document-based. */
   sectionId?: string | null;
   name: string;
+  /** Global editor-only label. Never replaces visible content or responsive geometry. */
+  editorName?: string;
   x: number;
   y: number;
   width: number;
@@ -358,6 +362,7 @@ export interface ButtonElement extends BaseElement {
 
 export interface SectionElement extends BaseElement {
   type: "section";
+  isLastSection?: boolean;
   background: PageBackground;
   padding: number;
   cornerRadius: number;
@@ -434,6 +439,8 @@ export interface RsvpFormTypography {
 }
 
 export interface RsvpFormConfig {
+  /** Global editor-only hierarchy label, independent of the public form title. */
+  editorName?: string;
   enabled: boolean;
   visibilityByDevice?: Partial<Record<"mobile" | "tablet" | "desktop", boolean>>;
   purchased: boolean;
@@ -449,6 +456,8 @@ export interface RsvpFormConfig {
   /** Mobile reference horizontal geometry. Undefined keeps the legacy full width. */
   positionX?: number;
   width?: number;
+  /** Requested mobile height. Effective height never clips form content. */
+  height?: number;
   /** Mobile reference position. Undefined keeps the legacy automatic placement. */
   positionY?: number;
   /** Tablet and desktop reuse the same responsive override model as canvas elements. */

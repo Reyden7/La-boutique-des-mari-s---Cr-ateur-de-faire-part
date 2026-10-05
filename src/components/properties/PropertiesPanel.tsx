@@ -19,6 +19,8 @@ import { RSVP_EDITOR_ELEMENT_ID } from "../../features/rsvp/rsvpEditorElement";
 import { AnimationProperties } from "./AnimationProperties";
 import { PropertySection } from "./PropertySection";
 import { DimensionInput } from "../ui/DimensionInput";
+import { EditableElementName } from "../ui/EditableElementName";
+import { getEditorElementLabel, getRsvpEditorLabel } from "../../utils/editorNames";
 
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => <label className="field"><span>{label}</span>{children}</label>;
 
@@ -30,7 +32,7 @@ export function PropertiesPanel({ onPreviewOpening }: { onPreviewOpening: (type:
 
   if (sidebarView === "introduction" && project?.introductionMode === "classic") return <OpeningProperties onPreview={onPreviewOpening} />;
   if (sidebarView === "music") return <AudioProperties />;
-  if (selectedElementId === RSVP_EDITOR_ELEMENT_ID && project?.rsvp) return <aside className="properties-panel rsvp-properties-panel"><div className="properties-heading"><div><small>Élément sélectionné</small><h2>Formulaire invité</h2></div><span className="type-pill">formulaire</span></div><RsvpFormEditor embedded /></aside>;
+  if (selectedElementId === RSVP_EDITOR_ELEMENT_ID && project?.rsvp) return <aside className="properties-panel rsvp-properties-panel"><div className="properties-heading"><div><small>Élément sélectionné</small><h2><EditableElementName key={RSVP_EDITOR_ELEMENT_ID} elementId={RSVP_EDITOR_ELEMENT_ID} label={getRsvpEditorLabel(project.rsvp)} variant="heading" /></h2></div><span className="type-pill">formulaire</span></div><RsvpFormEditor embedded /></aside>;
   if (sidebarView === "introduction" && !element) return <aside className="properties-panel"><div className="properties-heading"><div><small>Expérience invité</small><h2>{project?.introductionMode === "welcome" ? "Page d’accueil" : "Aucune introduction"}</h2></div><span className="type-pill">intro</span></div><div className="background-tip"><span>{project?.introductionMode === "welcome" ? "Canvas libre" : "Accès direct"}</span><p>{project?.introductionMode === "welcome" ? "Ajoutez puis sélectionnez un élément dans la Page d’accueil pour modifier ses propriétés." : "Les invités arrivent directement sur le document principal."}</p></div></aside>;
   if (!element) return <BackgroundPanel background={page?.background} />;
   const update = (values: Partial<EditorElement>) => updateElement(element.id, values);
@@ -63,7 +65,7 @@ export function PropertiesPanel({ onPreviewOpening }: { onPreviewOpening: (type:
 
   return (
     <aside className="properties-panel">
-      <div className="properties-heading"><div><small>Élément sélectionné</small><h2>{element.name}</h2></div><span className="type-pill">{element.type}</span></div>
+      <div className="properties-heading"><div><small>Élément sélectionné</small><h2><EditableElementName key={element.id} elementId={element.id} label={getEditorElementLabel(element)} variant="heading" /></h2></div><span className="type-pill">{element.type}</span></div>
       <PropertySection sectionKey="disposition" key={`${element.id}-disposition`} title="Disposition" defaultOpen><div className="responsive-layout-panel">
         <div className="responsive-layout-heading">
           <div><small>Support actif</small><strong><DeviceIcon size={14} /> {deviceLabel}</strong></div>

@@ -10,7 +10,8 @@ import {
   type PreviewDevice,
 } from "../../config/previewDevices";
 import { getElementLayout, getElementSectionId, getElementZIndex, getImageRotationFrame, isElementVisibleOnDevice } from "../../utils/responsiveLayout";
-import { getDocumentHeight, getRsvpBlockHeight, getRsvpPositionX, getRsvpPositionY, getRsvpWidth, setRsvpLayoutForDevice } from "../../utils/documentLayout";
+import { getDocumentHeight, getRsvpPositionX, getRsvpPositionY, getRsvpWidth, setRsvpLayoutForDevice } from "../../utils/documentLayout";
+import { useRsvpBlockLayout } from "../../features/rsvp/useRsvpBlockLayout";
 import { ProjectFontLoader } from "../../features/fonts/ProjectFontLoader";
 import { useProjectFontRevision } from "../../features/fonts/projectFontRuntime";
 import { resolveRsvpStyle } from "../../config/rsvpStyle";
@@ -371,7 +372,7 @@ export function EditorCanvas() {
   const activeElements = isWelcomeEditing ? welcomeConfig?.elements : page?.elements;
   const elements = useMemo(() => [...(activeElements ?? [])].sort((a, b) => getElementZIndex(a, previewDevice) - getElementZIndex(b, previewDevice)), [activeElements, previewDevice]);
   const viewport = PREVIEW_DEVICES[previewDevice];
-  const rsvpHeight = getRsvpBlockHeight(project?.rsvp, previewDevice);
+  const { height: rsvpHeight, measurement: rsvpMeasurement, editorText: rsvpTextLayout } = useRsvpBlockLayout(isWelcomeEditing ? undefined : project?.rsvp, previewDevice);
   const rsvpStyle = resolveRsvpStyle(project?.rsvp?.style);
   const rsvpLayerZIndex = getRsvpLayerZIndex(project?.rsvp, page?.elements ?? [], previewDevice);
   const rsvpParentId = getRsvpSectionId(project?.rsvp, previewDevice);
@@ -380,16 +381,8 @@ export function EditorCanvas() {
   const rsvpPositionX = project?.rsvp ? getRsvpPositionX(project.rsvp, previewDevice) : 0;
   const rsvpPositionY = page && project?.rsvp ? getRsvpPositionY(page, project.rsvp, previewDevice) : 0;
   const rsvpWidth = project?.rsvp ? Math.min(viewport.width, getRsvpWidth(project.rsvp, previewDevice)) : viewport.width;
-  const rsvpTextWidth = Math.max(32, rsvpWidth - 88);
-  const rsvpTitleSize = project?.rsvp?.typography?.titleFontSize ?? 34;
-  const rsvpFieldSize = project?.rsvp?.typography?.fieldFontSize ?? 13;
-  const rsvpLabelSize = project?.rsvp?.typography?.labelFontSize ?? 11;
-  const rsvpTitleHeight = Math.max(76, new Konva.Text({ text: project?.rsvp?.title ?? "", width: rsvpTextWidth, fontFamily: project?.rsvp?.typography?.fontFamily ?? "Cormorant Garamond", fontSize: rsvpTitleSize, lineHeight: 1.05 }).height());
-  const rsvpDescriptionY = 58 + rsvpTitleHeight + 12;
-  const rsvpDescriptionHeight = project?.rsvp?.description ? Math.max(44, new Konva.Text({ text: project.rsvp.description, width: rsvpTextWidth, fontFamily: project.rsvp.typography?.fontFamily ?? "Lora", fontSize: rsvpFieldSize, lineHeight: 1.5 }).height()) : 0;
-  const rsvpFieldsY = project?.rsvp?.description ? rsvpDescriptionY + rsvpDescriptionHeight + 15 : 58 + rsvpTitleHeight + 71;
-  const rsvpFieldStep = Math.max(82, rsvpLabelSize * 1.4 + 66);
-  const documentHeight = page ? getDocumentHeight(page, previewDevice, rsvpVisible ? project?.rsvp : undefined) : viewport.height;
+  const { textWidth: rsvpTextWidth, titleSize: rsvpTitleSize, fieldSize: rsvpFieldSize, labelSize: rsvpLabelSize, titleHeight: rsvpTitleHeight, descriptionY: rsvpDescriptionY, descriptionHeight: rsvpDescriptionHeight, fieldsY: rsvpFieldsY, fieldStep: rsvpFieldStep } = rsvpTextLayout;
+  const documentHeight = page ? getDocumentHeight(page, previewDevice, rsvpVisible ? project?.rsvp : undefined, rsvpVisible ? rsvpHeight : 0) : viewport.height;
   const rsvpSelected = Boolean(rsvpVisible && selectedElementId === RSVP_EDITOR_ELEMENT_ID);
   const rsvpLocked = project?.rsvp?.locked ?? false;
   const rsvpSelectionBounds = rsvpSelected
@@ -843,6 +836,7 @@ export function EditorCanvas() {
           </Stage>
         </div>
 
+        {rsvpMeasurement}
         {project?.particles?.enabled && project.particles.layer === "front" && <ParticleRenderer config={project.particles} />}
       </div>
     </div>

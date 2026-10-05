@@ -3,7 +3,8 @@ import type { EditorElement, PageBackground, WeddingPage, WeddingProject } from 
 import { PREVIEW_DEVICES, type PreviewDevice } from "../../config/previewDevices";
 import { useResponsiveDevice } from "../../hooks/useResponsiveDevice";
 import { getElementLayout, getElementRenderBox, getElementZIndex, getImageRotationFrame, isElementVisibleOnDevice } from "../../utils/responsiveLayout";
-import { getDocumentHeight, getRsvpBlockHeight, getRsvpPositionX, getRsvpPositionY, getRsvpWidth } from "../../utils/documentLayout";
+import { getDocumentHeight, getRsvpPositionX, getRsvpPositionY, getRsvpWidth } from "../../utils/documentLayout";
+import { useRsvpBlockLayout } from "../../features/rsvp/useRsvpBlockLayout";
 import { ProjectFontLoader } from "../../features/fonts/ProjectFontLoader";
 import { RsvpFormRenderer, shouldRenderRsvp, type RsvpRenderMode } from "../../features/rsvp/RsvpFormRenderer";
 import { getRsvpLayerZIndex, getRsvpSectionId, isRsvpVisibleOnDevice } from "../../features/rsvp/rsvpEditorElement";
@@ -72,11 +73,11 @@ export function WeddingRenderer({ project, device: forcedDevice, mode = "public"
   const rsvpParentId = getRsvpSectionId(project.rsvp, device);
   const rsvpParent = page?.elements.find((element) => element.type === "section" && element.id === rsvpParentId);
   const visibleRsvp = shouldRenderRsvp(project.rsvp, mode) && isRsvpVisibleOnDevice(project.rsvp, device) && (!rsvpParent || isElementVisibleOnDevice(rsvpParent, page?.elements ?? [], device)) ? project.rsvp : undefined;
-  const rsvpHeight = getRsvpBlockHeight(visibleRsvp, device);
+  const { height: rsvpHeight, measurement } = useRsvpBlockLayout(visibleRsvp, device);
   const rsvpPositionX = visibleRsvp ? getRsvpPositionX(visibleRsvp, device) : 0;
   const rsvpPositionY = page && visibleRsvp ? getRsvpPositionY(page, visibleRsvp, device) : 0;
   const rsvpWidth = visibleRsvp ? Math.min(viewport.width, getRsvpWidth(visibleRsvp, device)) : viewport.width;
-  const documentHeight = page ? getDocumentHeight(page, device, visibleRsvp) : viewport.height;
+  const documentHeight = page ? getDocumentHeight(page, device, visibleRsvp, rsvpHeight) : viewport.height;
   const rendererStyle = {
     "--renderer-max-width": `${viewport.width}px`,
     "--renderer-document-ratio": documentHeight / viewport.width,
@@ -85,6 +86,7 @@ export function WeddingRenderer({ project, device: forcedDevice, mode = "public"
   return (
     <div className={`renderer-wrap renderer-device-${device}`}>
       <ProjectFontLoader project={project} />
+      {measurement}
       <div className="renderer-document" style={rendererStyle}>
         {page && <RenderPage key={`${page.id}-${device}`} page={page} device={device} documentHeight={documentHeight} renderRsvp={renderRsvp} rsvpSectionId={getRsvpSectionId(visibleRsvp, device)} playAnimations={playAnimations} />}
       </div>

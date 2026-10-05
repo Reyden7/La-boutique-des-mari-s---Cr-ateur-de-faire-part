@@ -23,6 +23,7 @@ export function RichElementProperties({ element, appearance }: { element: RichEl
   const currentPageId = useEditorStore((state) => state.currentPageId);
   const previewDevice = useEditorStore((state) => state.previewDevice);
   const reorderSection = useEditorStore((state) => state.reorderSection);
+  const setLastSection = useEditorStore((state) => state.setLastSection);
   const updateElement = useEditorStore((state) => state.updateElement);
   const updateElementLayout = useEditorStore((state) => state.updateElementLayout);
   const update = (changes: object) => updateElement(element.id, changes as Partial<EditorElement>);
@@ -195,6 +196,8 @@ export function RichElementProperties({ element, appearance }: { element: RichEl
   return <div className="rich-properties">
     <PropertySection sectionKey="section" key={`${element.id}-section`} title="Section">
       <div className="section-order-actions"><button disabled={sectionIndex <= 0} onClick={() => reorderSection(element.id, -1)}><ArrowUp size={13} /> Monter la section</button><button disabled={sectionIndex < 0 || sectionIndex === sections.length - 1} onClick={() => reorderSection(element.id, 1)}><ArrowDown size={13} /> Descendre la section</button></div>
+      <label className="compact-check"><input type="checkbox" checked={getElementLayout(element, previewDevice).isLastSection} onChange={(event) => setLastSection(element.id, event.target.checked)} />Cette section est la dernière</label>
+      <small>Sur ce support uniquement : aucune marge ajoutée après la dernière section, sans couper les éléments placés plus bas.</small>
       <Field label="Padding"><input type="number" min="0" max="160" value={element.padding} onChange={(e) => update({ padding: Number(e.target.value) })} /></Field>
       <Field label="Coins arrondis"><input type="number" min="0" max="120" value={element.cornerRadius} onChange={(e) => update({ cornerRadius: Number(e.target.value) })} /></Field>
     </PropertySection>

@@ -13,6 +13,8 @@ import { useGlobalAssets } from "../../hooks/useGlobalAssets";
 import { PublishGlobalAssetButton } from "../../components/admin/PublishGlobalAssetButton";
 import { getImageInitialSize, readImageFileDimensions, type ImageDimensions } from "../../utils/imageLayout";
 import { getElementLayout, getElementZIndex } from "../../utils/responsiveLayout";
+import { EditableElementName } from "../../components/ui/EditableElementName";
+import { getEditorElementLabel } from "../../utils/editorNames";
 
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => <label className="field"><span>{label}</span>{children}</label>;
 
@@ -167,7 +169,14 @@ export function WelcomePageEditor({ embedded = false }: { embedded?: boolean }) 
       <div className="background-tip"><span>Canvas libre</span><p>Cliquez sur un élément dans l’aperçu pour le déplacer et afficher toutes ses propriétés à droite.</p></div>
       <div className="welcome-layer-list">{config.elements.filter((element) => !(element.type === "button" && element.welcomeAction === "enter")).sort((a, b) => getElementZIndex(b, previewDevice) - getElementZIndex(a, previewDevice)).map((element) => {
         const visible = getElementLayout(element, previewDevice).visible;
-        return <div className={`${selectedElementIds.includes(element.id) ? "active" : ""} ${element.locked ? "locked" : ""} ${visible ? "" : "is-hidden"}`} key={element.id} onClick={(event) => selectElement(element.id, event.ctrlKey || event.metaKey)}><span title={element.name}>{element.name}</span><button style={{ display: "grid" }} className="layer-lock-button" title={element.locked ? "Déverrouiller l’élément" : "Verrouiller l’élément"} aria-label={element.locked ? `Déverrouiller ${element.name}` : `Verrouiller ${element.name}`} onClick={(event) => { event.stopPropagation(); toggleElementLocked(element.id); }}>{element.locked ? <LockKeyhole size={13} /> : <LockKeyholeOpen size={13} />}</button><button title={visible ? "Masquer sur ce format" : "Afficher sur ce format"} onClick={(event) => { event.stopPropagation(); setElementVisibility(element.id, !visible); }}>{visible ? <Eye size={12} /> : <EyeOff size={12} />}</button><button onClick={(event) => { event.stopPropagation(); moveLayer(element.id, "forward"); }}><ChevronUp size={12} /></button><button onClick={(event) => { event.stopPropagation(); moveLayer(element.id, "backward"); }}><ChevronDown size={12} /></button><button onClick={(event) => { event.stopPropagation(); if (window.confirm("Supprimer cet élément de tous les formats ?")) removeElement(element.id); }}><Trash2 size={12} /></button></div>;
+        return <div className={`${selectedElementIds.includes(element.id) ? "active" : ""} ${element.locked ? "locked" : ""} ${visible ? "" : "is-hidden"}`} key={element.id} onClick={(event) => selectElement(element.id, event.ctrlKey || event.metaKey)}>
+          <EditableElementName elementId={element.id} label={getEditorElementLabel(element)} />
+          <button style={{ display: "grid" }} className="layer-lock-button" title={element.locked ? "Déverrouiller l’élément" : "Verrouiller l’élément"} aria-label={element.locked ? `Déverrouiller ${getEditorElementLabel(element)}` : `Verrouiller ${getEditorElementLabel(element)}`} onClick={(event) => { event.stopPropagation(); toggleElementLocked(element.id); }}>{element.locked ? <LockKeyhole size={13} /> : <LockKeyholeOpen size={13} />}</button>
+          <button title={visible ? "Masquer sur ce format" : "Afficher sur ce format"} onClick={(event) => { event.stopPropagation(); setElementVisibility(element.id, !visible); }}>{visible ? <Eye size={12} /> : <EyeOff size={12} />}</button>
+          <button onClick={(event) => { event.stopPropagation(); moveLayer(element.id, "forward"); }}><ChevronUp size={12} /></button>
+          <button onClick={(event) => { event.stopPropagation(); moveLayer(element.id, "backward"); }}><ChevronDown size={12} /></button>
+          <button onClick={(event) => { event.stopPropagation(); if (window.confirm("Supprimer cet élément de tous les formats ?")) removeElement(element.id); }}><Trash2 size={12} /></button>
+        </div>;
       })}</div>
     </section>
     <section><h3>Bouton d’entrée</h3>{enterButton ? <button className="welcome-reset" onClick={() => selectElement(enterButton.id)}>Sélectionner et personnaliser le bouton</button> : <button className="secondary-action" onClick={addEnterButton}>Ajouter le bouton Entrer</button>}</section>

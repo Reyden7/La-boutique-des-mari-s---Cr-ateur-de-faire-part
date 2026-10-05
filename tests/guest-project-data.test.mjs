@@ -52,6 +52,18 @@ test("loading cannot trust forged rights inside editable JSON; Checkout sends on
   calls.length=0;await repository.startProjectCheckout("project",53);
   assert.deepEqual(calls[0].body,{projectId:"project",guestCount:53});
 });
+test("remote project_data save and reload retain editor-only names without changing content",async()=>{
+  calls.length=0;exists=true;
+  const project={...repository.projectFromRow(row),pages:[{id:"page",elements:[{id:"text",type:"text",name:"Emma & Lucas",editorName:"Titre principal",text:"Emma & Lucas"}]}],rsvp:{...row.project_data.rsvp,title:"Confirmez votre présence",editorName:"Réponses invités"},welcomePage:{elements:[{id:"welcome",type:"text",editorName:"Titre accueil",text:"Bienvenue"}]}};
+  await repository.saveRemoteProject(project);
+  const saved=calls.find(call=>call.kind==="update").value.project_data;
+  const loaded=repository.projectFromRow({...row,project_data:JSON.parse(JSON.stringify(saved))});
+  assert.equal(loaded.pages[0].elements[0].editorName,"Titre principal");
+  assert.equal(loaded.pages[0].elements[0].text,"Emma & Lucas");
+  assert.equal(loaded.rsvp.editorName,"Réponses invités");
+  assert.equal(loaded.rsvp.title,"Confirmez votre présence");
+  assert.equal(loaded.welcomePage.elements[0].editorName,"Titre accueil");
+});
 test("template snapshots and instantiation never inherit a source licence or purchased capacity",()=>{
   const project={...repository.projectFromRow(row),requestedGuestCount:53};
   const snapshot=sanitizeProjectForTemplate(project);
@@ -61,5 +73,19 @@ test("template snapshots and instantiation never inherit a source licence or pur
   assert.notEqual(created.id,project.id);assert.equal(created.ownerId,"another-owner");
   assert.equal(created.status,"draft");assert.equal(created.paymentStatus,"unpaid");assert.equal(created.rsvp.purchased,false);
   assert.equal(created.purchasedGuestCapacity,undefined);assert.equal(created.publicationLicenseId,undefined);
+});
+test("template snapshot and instantiation preserve responsive last sections and form heights",()=>{
+  const project={...repository.projectFromRow(row),pages:[{id:"page",elements:[{id:"section",type:"section",isLastSection:true,responsive:{tablet:{isLastSection:false},desktop:{isLastSection:true}}}]}],rsvp:{...row.project_data.rsvp,height:900,responsive:{tablet:{height:1200},desktop:{height:1800}}}};
+  const snapshot=sanitizeProjectForTemplate(project);
+  const created=instantiateProjectFromTemplate({name:"Modèle",templateData:snapshot},"another-owner");
+  for(const target of [snapshot,created]) {
+    assert.equal(target.pages[0].elements[0].isLastSection,true);
+    assert.equal(target.pages[0].elements[0].responsive.tablet.isLastSection,false);
+    assert.equal(target.pages[0].elements[0].responsive.desktop.isLastSection,true);
+    assert.equal(target.rsvp.height,900);
+    assert.equal(target.rsvp.responsive.tablet.height,1200);
+    assert.equal(target.rsvp.responsive.desktop.height,1800);
+    assert.equal(target.rsvp.purchased,false);
+  }
 });
 test.after(()=>{hooks.deregister();delete globalThis.__guestDataMock;});
