@@ -1,0 +1,1306 @@
+{
+  "preview": [
+    {
+      "device": "mobile",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "none",
+      "averageDifference": 0.5778401122019635,
+      "maxDifference": 7,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "tear",
+      "averageDifference": 0.5778401122019635,
+      "maxDifference": 7,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "none",
+      "averageDifference": 0.4887798036465638,
+      "maxDifference": 5,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "tear",
+      "averageDifference": 0.4887798036465638,
+      "maxDifference": 5,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "none",
+      "averageDifference": 0.3425666199158485,
+      "maxDifference": 4,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "tear",
+      "averageDifference": 0.3425666199158485,
+      "maxDifference": 4,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "none",
+      "averageDifference": 0.27419354838709675,
+      "maxDifference": 3,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "tear",
+      "averageDifference": 0.27419354838709675,
+      "maxDifference": 3,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "none",
+      "averageDifference": 0.2717391304347826,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.2717391304347826,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "none",
+      "averageDifference": 0.6309288537549407,
+      "maxDifference": 5,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "tear",
+      "averageDifference": 0.6309288537549407,
+      "maxDifference": 5,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "none",
+      "averageDifference": 0.22117918313570487,
+      "maxDifference": 5,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "tear",
+      "averageDifference": 0.22117918313570487,
+      "maxDifference": 5,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "none",
+      "averageDifference": 0.34897891963109356,
+      "maxDifference": 3,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "tear",
+      "averageDifference": 0.34897891963109356,
+      "maxDifference": 3,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "none",
+      "averageDifference": 0.12450592885375494,
+      "maxDifference": 3,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "tear",
+      "averageDifference": 0.12450592885375494,
+      "maxDifference": 3,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "none",
+      "averageDifference": 0.269433465085639,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.269433465085639,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "none",
+      "averageDifference": 0.5019685039370079,
+      "maxDifference": 9,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "tear",
+      "averageDifference": 0.5019685039370079,
+      "maxDifference": 9,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "none",
+      "averageDifference": 0.11323176994180076,
+      "maxDifference": 4,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "tear",
+      "averageDifference": 0.11323176994180076,
+      "maxDifference": 4,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "none",
+      "averageDifference": 0.27867168777815815,
+      "maxDifference": 5,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "tear",
+      "averageDifference": 0.27867168777815815,
+      "maxDifference": 5,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "none",
+      "averageDifference": 0.06307771311194796,
+      "maxDifference": 2,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "tear",
+      "averageDifference": 0.06307771311194796,
+      "maxDifference": 2,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "none",
+      "averageDifference": 0.26934269085929474,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.26934269085929474,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "soft-paper",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.2699859747545582,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "crumpled-paper",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.24614305750350632,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "watercolor-paper",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.26367461430575034,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "vintage-paper",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.2808555399719495,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "light-grain",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.25,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.2717391304347826,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "soft-cloud",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.2535063113604488,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "organic",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.24193548387096775,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "fine-noise",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.23772791023842918,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "parchment",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.2605189340813464,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "wet-paper",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.26928471248246844,
+      "maxDifference": 1,
+      "passed": true
+    }
+  ],
+  "public": [
+    {
+      "device": "mobile",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "none",
+      "averageDifference": 0.5778401122019635,
+      "maxDifference": 7,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "tear",
+      "averageDifference": 0.5778401122019635,
+      "maxDifference": 7,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "none",
+      "averageDifference": 0.4887798036465638,
+      "maxDifference": 5,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "tear",
+      "averageDifference": 0.4887798036465638,
+      "maxDifference": 5,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "none",
+      "averageDifference": 0.3425666199158485,
+      "maxDifference": 4,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "tear",
+      "averageDifference": 0.3425666199158485,
+      "maxDifference": 4,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "none",
+      "averageDifference": 0.27419354838709675,
+      "maxDifference": 3,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "tear",
+      "averageDifference": 0.27419354838709675,
+      "maxDifference": 3,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "none",
+      "averageDifference": 0.2717391304347826,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.2717391304347826,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "none",
+      "averageDifference": 0.6309288537549407,
+      "maxDifference": 5,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "tear",
+      "averageDifference": 0.6309288537549407,
+      "maxDifference": 5,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "none",
+      "averageDifference": 0.22117918313570487,
+      "maxDifference": 5,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "tear",
+      "averageDifference": 0.22117918313570487,
+      "maxDifference": 5,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "none",
+      "averageDifference": 0.34897891963109356,
+      "maxDifference": 3,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "tear",
+      "averageDifference": 0.34897891963109356,
+      "maxDifference": 3,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "none",
+      "averageDifference": 0.12450592885375494,
+      "maxDifference": 3,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "tear",
+      "averageDifference": 0.12450592885375494,
+      "maxDifference": 3,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "none",
+      "averageDifference": 0.269433465085639,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "tablet",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.269433465085639,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "none",
+      "averageDifference": 0.5019685039370079,
+      "maxDifference": 9,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "tear",
+      "averageDifference": 0.5019685039370079,
+      "maxDifference": 9,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "none",
+      "averageDifference": 0.11323176994180076,
+      "maxDifference": 4,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "tear",
+      "averageDifference": 0.11323176994180076,
+      "maxDifference": 4,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "none",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0,
+      "maxDifference": 0,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "none",
+      "averageDifference": 0.27867168777815815,
+      "maxDifference": 5,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "cover",
+      "edge": "tear",
+      "averageDifference": 0.27867168777815815,
+      "maxDifference": 5,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "none",
+      "averageDifference": 0.06307771311194796,
+      "maxDifference": 2,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "contain",
+      "edge": "tear",
+      "averageDifference": 0.06307771311194796,
+      "maxDifference": 2,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "none",
+      "averageDifference": 0.26934269085929474,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "desktop",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.26934269085929474,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "soft-paper",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.2699859747545582,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "crumpled-paper",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.24614305750350632,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "watercolor-paper",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.26367461430575034,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "vintage-paper",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.2808555399719495,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "light-grain",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.25,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "canvas",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.2717391304347826,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "soft-cloud",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.2535063113604488,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "organic",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.24193548387096775,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "fine-noise",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.23772791023842918,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "parchment",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.2605189340813464,
+      "maxDifference": 1,
+      "passed": true
+    },
+    {
+      "device": "mobile",
+      "type": "color-texture",
+      "texture": "wet-paper",
+      "fit": "repeat",
+      "edge": "tear",
+      "averageDifference": 0.26928471248246844,
+      "maxDifference": 1,
+      "passed": true
+    }
+  ]
+}

@@ -441,6 +441,13 @@ export interface SectionElement extends BaseElement {
   type: "section";
   isLastSection?: boolean;
   background: PageBackground;
+  /** Absent in legacy projects: preserve the existing color/gradient/image. */
+  backgroundType?: "color" | "texture" | "color-texture";
+  textureId?: string;
+  /** Material strength in color-texture mode; image opacity in texture mode. */
+  textureOpacity?: number;
+  textureScale?: number;
+  textureFit?: "cover" | "contain" | "repeat";
   padding: number;
   cornerRadius: number;
   topEdge?: SectionEdgeConfig;
@@ -592,6 +599,10 @@ export interface EnvelopeOpeningSettings {
   sealColor: string;
   backgroundColor: string;
   hintText: string;
+  /** Original bitmap, never tinted or used as an alpha mask. */
+  sealImageUrl?: string;
+  sealImageName?: string;
+  sealAssetId?: string;
   duration?: number;
   variant?: string;
 }

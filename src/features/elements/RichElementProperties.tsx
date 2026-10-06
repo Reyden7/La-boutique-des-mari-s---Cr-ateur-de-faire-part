@@ -17,6 +17,7 @@ import { resolveScheduleOrientation } from "../../utils/scheduleLayout";
 import { DimensionInput } from "../../components/ui/DimensionInput";
 import { SectionEdgeControls } from "./SectionEdgeControls";
 import { getSectionContentInsets } from "../../utils/sectionEdges";
+import { SectionBackgroundControls } from "./SectionBackgroundControls";
 
 type RichElement = ScratchElement | CarouselElement | LocationElement | ScheduleElement | ButtonElement | SectionElement;
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => <label className="field"><span>{label}</span>{children}</label>;
@@ -234,8 +235,7 @@ export function RichElementProperties({ element, appearance }: { element: RichEl
       <Field label="Coins arrondis"><input type="number" min="0" max="120" value={element.cornerRadius} onChange={(e) => update({ cornerRadius: Number(e.target.value) })} /></Field>
     </PropertySection>
     <PropertySection sectionKey="fond" key={`${element.id}-background`} title="Fond">
-      <Field label="Type de fond"><select value={element.background.type} onChange={(e) => update({ background: { ...element.background, type: e.target.value } })}><option value="color">Couleur</option><option value="gradient">Dégradé</option><option value="image">Image</option></select></Field>
-      {element.background.type === "color" ? <Field label="Couleur"><ColorAlphaInput value={element.background.color ?? "#f7f1eb"} onChange={(value) => update({ background: { ...element.background, color: value } })} /></Field> : element.background.type === "gradient" ? <div className="field-row"><Field label="Début"><ColorAlphaInput value={element.background.gradient?.color1 ?? "#f7f1eb"} onChange={(value) => update({ background: { type: "gradient", gradient: { type: "linear", color1: value, color2: element.background.gradient?.color2 ?? "#ded0c3", angle: 135 } } })} /></Field><Field label="Fin"><ColorAlphaInput value={element.background.gradient?.color2 ?? "#ded0c3"} onChange={(value) => update({ background: { type: "gradient", gradient: { type: "linear", color1: element.background.gradient?.color1 ?? "#f7f1eb", color2: value, angle: 135 } } })} /></Field></div> : <label className="carousel-upload"><ImagePlus size={16} /> Choisir une image<input hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => { void uploadSectionBackground(e.target.files?.[0]); e.currentTarget.value = ""; }} /></label>}
+      <SectionBackgroundControls element={element} onChange={update} onUpload={(file) => { void uploadSectionBackground(file); }} />
     </PropertySection>
     <PropertySection sectionKey="apparence" key={`${element.id}-appearance`} title="Apparence">
       <small className="section-edge-support">Bordures sur {previewDevice === "mobile" ? "Smartphone" : previewDevice === "tablet" ? "Tablette" : "PC"} uniquement.</small>

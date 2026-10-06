@@ -41,6 +41,9 @@ export function InvitationExperience({ project, device, mode = "public" }: { pro
     else { await controller.resume(); setPlaying(true); }
   };
   const onInteract = () => {
+    // Start element entrances behind the opening paper, not after its removal.
+    // This avoids revealing hidden elements and then flashing them into view.
+    if (introductionMode === "classic" && project.opening.type === "envelope") setDocumentAnimationReady(true);
     if (project.audio.startMode === "opening-interaction") void start();
   };
   const enterWelcome = () => {
