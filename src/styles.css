@@ -332,6 +332,20 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .preview-device-switcher button { height: 30px; padding: 0 9px; border: 0; border-radius: 6px; background: transparent; color: #777069; display: flex; align-items: center; gap: 5px; font-size: 9px; white-space: nowrap; }
 .preview-device-switcher button:hover { color: var(--accent-dark); }
 .preview-device-switcher button.active { background: #fff; color: var(--accent-dark); box-shadow: 0 2px 7px rgba(54,45,39,.11); }
+.responsive-transfer { position: relative; border-right: 1px solid #dcd4cd; padding-right: 3px; margin-right: 3px; }
+.responsive-transfer-popover { position: fixed; z-index: 40; box-sizing: border-box; padding: 16px; border: 1px solid #dcd4cd; border-radius: 12px; background: #fffdf9; box-shadow: 0 10px 28px #28231f26; color: #57483f; font-size: 12px; max-height: calc(100dvh - 130px); overflow-y: auto; }
+.responsive-transfer-popover p, .responsive-transfer-popover small { display: block; line-height: 1.5; margin: 9px 0; }
+.responsive-transfer-popover label { display: flex; align-items: center; gap: 9px; padding: 7px 0; cursor: pointer; }
+.responsive-transfer-popover input { accent-color: #a9785b; }
+.responsive-transfer-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.responsive-transfer-actions button { width: auto; min-width: 76px; min-height: 34px; padding: 8px 12px; border: 1px solid #ded3ca; border-radius: 7px; background: #faf7f4; color: #755744; cursor: pointer; font-size: 12px; }
+.responsive-transfer-actions button:last-child { background: #79543f; color: white; }
+.responsive-transfer-actions button:disabled, .responsive-transfer-trigger:disabled { opacity: .45; cursor: not-allowed; }
+.responsive-transfer-dialog { width: min(440px, calc(100vw - 32px)); padding: 24px; border: 1px solid #dcd4cd; border-radius: 14px; color: #57483f; background: #fffdf9; }
+.responsive-transfer-dialog::backdrop { background: #28231f66; }
+.responsive-transfer-dialog h2 { font-size: 20px; }
+.responsive-transfer-dialog p { font-size: 13px; line-height: 1.6; }
+.responsive-transfer-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 32px); z-index: 100; padding: 13px 18px; border-radius: 9px; background: #443c35; color: white; box-shadow: 0 6px 20px #28231f26; font-size: 12px; }
 .canvas-area { box-sizing: border-box; width: 100%; min-width: 100%; min-height: 100%; padding: 70px 48px 74px; display: flex; align-items: flex-start; justify-content: flex-start; }
 /* Auto margins center a small preview, but resolve to zero on an overflowing
    axis. A tall document therefore starts after the top padding instead of

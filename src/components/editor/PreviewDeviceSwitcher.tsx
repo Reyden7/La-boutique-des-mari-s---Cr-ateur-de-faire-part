@@ -6,6 +6,7 @@ import {
   type PreviewDevice,
 } from "../../config/previewDevices";
 import { useEditorStore } from "../../stores/editorStore";
+import { ResponsiveTransferButton } from "./ResponsiveTransferButton";
 
 const deviceIcons: Record<PreviewDevice, ComponentType<{ size?: number }>> = {
   mobile: Smartphone,
@@ -19,6 +20,7 @@ export function PreviewDeviceSwitcher() {
 
   return (
     <div className="preview-device-switcher" role="group" aria-label="Support de prévisualisation">
+      <ResponsiveTransferButton />
       {PREVIEW_DEVICE_ORDER.map((device) => {
         const Icon = deviceIcons[device];
         const { label } = PREVIEW_DEVICES[device];

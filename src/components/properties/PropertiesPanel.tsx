@@ -1,5 +1,6 @@
 import { AlignCenter, AlignLeft, AlignRight, Bold, Copy, Eye, EyeOff, Italic, Monitor, RotateCcw, Smartphone, Tablet, Trash2, Underline } from "lucide-react";
 import { useEditorStore } from "../../stores/editorStore";
+import { resolveElementVisualStyle } from "../../utils/responsiveVisualStyle";
 import { type DecorativeHeartStyle, type EditorElement } from "../../types/editor";
 import type { OpeningAnimationType } from "../../types/editor";
 import { OpeningProperties } from "../../features/openings/OpeningProperties";
@@ -31,7 +32,8 @@ export function PropertiesPanel({ onPreviewOpening }: { onPreviewOpening: (type:
   const { project, currentPageId, selectedElementId, sidebarView, previewDevice, updateElement, updateElementLayout, resetElementLayout, setElementVisibility, duplicateElement, removeElement } = useEditorStore();
   const page = project?.pages.find((item) => item.id === currentPageId);
   const editableElements = sidebarView === "introduction" && project?.introductionMode === "welcome" ? resolveWelcomePage(project.welcomePage).elements : page?.elements;
-  const element = editableElements?.find((item) => item.id === selectedElementId);
+  const rawElement = editableElements?.find((item) => item.id === selectedElementId);
+  const element = rawElement && resolveElementVisualStyle(rawElement, previewDevice);
 
   if (sidebarView === "introduction" && project?.introductionMode === "classic") return <OpeningProperties onPreview={onPreviewOpening} />;
   if (sidebarView === "music") return <AudioProperties />;

@@ -1,6 +1,7 @@
 import { PREVIEW_DEVICES, type PreviewDevice } from "../config/previewDevices.ts";
 import type { BackgroundSection, RsvpField, RsvpFormConfig, WeddingPage } from "../types/editor";
 import { getElementLayout, isElementVisibleOnDevice } from "./responsiveLayout.ts";
+import { resolveRsvpTypography } from "./responsiveVisualStyle.ts";
 
 export const DOCUMENT_BOTTOM_MARGIN = 120;
 // An explicit last section ends flush; its own padding still protects its content.
@@ -21,9 +22,10 @@ export const getRsvpAutomaticHeight = (config?: RsvpFormConfig | null, device: P
     (height, field) => height + getRsvpFieldHeight(field),
     0,
   );
-  const typographyExtra = Math.max(0, (config.typography?.titleFontSize ?? 34) - 34) * 2.3
-    + Math.max(0, (config.typography?.labelFontSize ?? 11) - 11) * config.fields.length * 1.4
-    + Math.max(0, (config.typography?.fieldFontSize ?? 13) - 13) * config.fields.length * 1.4;
+  const typography = resolveRsvpTypography(config, device);
+  const typographyExtra = Math.max(0, (typography?.titleFontSize ?? 34) - 34) * 2.3
+    + Math.max(0, (typography?.labelFontSize ?? 11) - 11) * config.fields.length * 1.4
+    + Math.max(0, (typography?.fieldFontSize ?? 13) - 13) * config.fields.length * 1.4;
   const deviceFactor = device === "desktop" ? 2.2 : device === "tablet" ? 1.35 : 1;
   return Math.ceil(Math.max(RSVP_BLOCK_MIN_HEIGHT, 330 + fieldsHeight + typographyExtra) * deviceFactor);
 };
@@ -49,7 +51,7 @@ const getContentBottom = (page: WeddingPage, device: PreviewDevice, includeOverf
   if (!includeOverflow) return Math.max(maximum, layout.y + layout.height);
   // A protruding child belongs to its section's content and needs bottom padding too.
   const parent = page.elements.find((candidate) => candidate.type === "section" && candidate.id === layout.sectionId);
-  const padding = parent?.type === "section" ? Math.max(0, parent.padding ?? 0) : 0;
+  const padding = parent?.type === "section" ? Math.max(0, getElementLayout(parent, device).padding ?? 0) : 0;
   const radians = layout.rotation * Math.PI / 180;
   const rotatedBottom = element.type === "image"
     ? layout.y + layout.height / 2 + (Math.abs(Math.sin(radians)) * layout.width + Math.abs(Math.cos(radians)) * layout.height) / 2
@@ -203,7 +205,7 @@ export const getDocumentHeight = (
   const formBottom = getRsvpPositionY(page, rsvp, device) + rsvpHeight;
   const sectionId = device === "mobile" ? rsvp?.sectionId : rsvp?.responsive?.[device]?.sectionId !== undefined ? rsvp.responsive[device]!.sectionId : rsvp?.sectionId;
   const parent = page.elements.find((element) => element.type === "section" && element.id === sectionId);
-  const padding = hasVisibleLastSection(page, device) && parent?.type === "section" ? Math.max(0, parent.padding ?? 0) : 0;
+  const padding = hasVisibleLastSection(page, device) && parent?.type === "section" ? Math.max(0, getElementLayout(parent, device).padding ?? 0) : 0;
   return Math.max(contentHeight, formBottom + padding + (hasVisibleLastSection(page, device) ? LAST_SECTION_BOTTOM_GAP : DOCUMENT_BOTTOM_MARGIN));
 };
 

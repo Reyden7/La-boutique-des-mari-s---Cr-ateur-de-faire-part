@@ -3,6 +3,7 @@ import type { RsvpField, RsvpFormConfig } from "../../types/editor";
 import { submitRsvpResponse } from "../../services/rsvpRepository";
 import { resolveRsvpStyle } from "../../config/rsvpStyle";
 import { PREVIEW_DEVICES, type PreviewDevice } from "../../config/previewDevices";
+import { getFormSpacingScale, resolveRsvpTypography } from "../../utils/responsiveVisualStyle";
 
 export type RsvpRenderMode = "preview" | "public";
 
@@ -25,6 +26,7 @@ function RsvpInput({ field, value, onChange }: { field: RsvpField; value: unknow
 }
 
 export function RsvpFormRenderer({ config, publicId, mode, device }: { config: RsvpFormConfig; publicId?: string; mode: RsvpRenderMode; device: PreviewDevice }) {
+  config = { ...config, typography: resolveRsvpTypography(config, device) };
   const startedAt = useMemo(() => Date.now(), []);
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
@@ -33,7 +35,7 @@ export function RsvpFormRenderer({ config, publicId, mode, device }: { config: R
   const deviceWidth = PREVIEW_DEVICES[device].width;
   const logicalSize = (size: number) => `${size / deviceWidth * 100}cqw`;
   const styleVariables = {
-    "--rsvp-unit": logicalSize(1),
+    "--rsvp-unit": logicalSize(getFormSpacingScale(config, device)),
     padding: `${logicalSize(Math.max(34, Math.min(64, deviceWidth * .12)))} ${logicalSize(Math.max(20, Math.min(48, deviceWidth * .07)))} ${logicalSize(Math.max(42, Math.min(76, deviceWidth * .14)))}`,
     "--rsvp-background": style.backgroundColor,
     "--rsvp-text": style.textColor,

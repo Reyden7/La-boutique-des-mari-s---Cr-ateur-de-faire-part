@@ -15,6 +15,7 @@ import type { RsvpField, RsvpFieldType, RsvpFormConfig, RsvpFormStyle, RsvpFormT
 import { getRsvpPositionX, getRsvpPositionY, getRsvpWidth, hasExplicitRsvpPosition, hasRsvpPositionOverride, resetRsvpPositionForDevice, setRsvpLayoutForDevice, setRsvpPositionForDevice } from "../../utils/documentLayout";
 import { RSVP_EDITOR_ELEMENT_ID, isRsvpVisibleOnDevice } from "./rsvpEditorElement";
 import { useRsvpBlockLayout } from "./useRsvpBlockLayout";
+import { resolveRsvpTypography } from "../../utils/responsiveVisualStyle";
 
 const fieldTypes: { value: RsvpFieldType; label: string }[] = [
   { value: "short_text", label: "Texte court" }, { value: "long_text", label: "Texte long" },
@@ -31,6 +32,7 @@ export function RsvpFormEditor({ embedded = false }: { embedded?: boolean }) {
   const formLayout = useRsvpBlockLayout(project?.rsvp, previewDevice);
   if (!project?.rsvp) return null;
   const config = project.rsvp;
+  const typography = resolveRsvpTypography(config, previewDevice);
   const formStyle = resolveRsvpStyle(config.style);
   const page = project.pages.find((item) => item.id === currentPageId) ?? project.pages[0];
   const update = (changes: Partial<RsvpFormConfig>) => updateRsvp({ ...config, ...changes });
@@ -42,7 +44,11 @@ export function RsvpFormEditor({ embedded = false }: { embedded?: boolean }) {
   const setPosition = (value: number) => updateRsvp(setRsvpPositionForDevice(config, previewDevice, value));
   const setLayout = (changes: { x?: number; y?: number; width?: number; height?: number }) => updateRsvp(setRsvpLayoutForDevice(config, previewDevice, changes));
   const updateStyle = (key: keyof RsvpFormStyle, value: string) => update({ style: { ...formStyle, [key]: value } });
-  const updateTypography = (key: keyof RsvpFormTypography, value: string | number) => update({ typography: { ...config.typography, [key]: value } });
+  const updateTypography = (key: keyof RsvpFormTypography, value: string | number) => {
+    if (previewDevice !== "mobile" && config.responsive?.[previewDevice]?.formTypography) {
+      update({ responsive: { ...config.responsive, [previewDevice]: { ...config.responsive[previewDevice], formTypography: { ...typography, [key]: value } } } });
+    } else update({ typography: { ...config.typography, [key]: value } });
+  };
   const updateFontSize = (key: "titleFontSize" | "labelFontSize" | "fieldFontSize", raw: string, minimum: number, maximum: number) => {
     const size = Number(raw);
     if (Number.isFinite(size)) updateTypography(key, Math.max(minimum, Math.min(maximum, size)));
@@ -95,10 +101,13 @@ export function RsvpFormEditor({ embedded = false }: { embedded?: boolean }) {
     </PropertySection>
     <PropertySection sectionKey="police" key={`${project.id}-form-typography`} title="Police">
     <section className="rsvp-style-card">
-      <label className="field"><span>Police</span><FontPicker value={config.typography?.fontFamily ?? "Cormorant Garamond"} onChange={(family) => updateTypography("fontFamily", family)} /></label>
-      <div className="field-row"><label className="field"><span>Taille du titre</span><input type="number" min="16" max="96" value={config.typography?.titleFontSize ?? 34} onChange={(event) => updateFontSize("titleFontSize", event.target.value, 16, 96)} /></label><label className="field"><span>Questions / labels</span><input type="number" min="8" max="40" value={config.typography?.labelFontSize ?? 11} onChange={(event) => updateFontSize("labelFontSize", event.target.value, 8, 40)} /></label></div>
-      <label className="field"><span>Champs / options</span><input type="number" min="8" max="40" value={config.typography?.fieldFontSize ?? 13} onChange={(event) => updateFontSize("fieldFontSize", event.target.value, 8, 40)} /></label>
-      <button className="rsvp-style-reset" type="button" onClick={() => update({ typography: undefined })}><RotateCcw size={13} /> Restaurer la typographie par défaut</button>
+      <label className="field"><span>Police</span><FontPicker value={typography?.fontFamily ?? "Cormorant Garamond"} onChange={(family) => updateTypography("fontFamily", family)} /></label>
+      <div className="field-row"><label className="field"><span>Taille du titre</span><input type="number" min="16" max="96" value={typography?.titleFontSize ?? 34} onChange={(event) => updateFontSize("titleFontSize", event.target.value, 16, 96)} /></label><label className="field"><span>Questions / labels</span><input type="number" min="8" max="40" value={typography?.labelFontSize ?? 11} onChange={(event) => updateFontSize("labelFontSize", event.target.value, 8, 40)} /></label></div>
+      <label className="field"><span>Champs / options</span><input type="number" min="8" max="40" value={typography?.fieldFontSize ?? 13} onChange={(event) => updateFontSize("fieldFontSize", event.target.value, 8, 40)} /></label>
+      <button className="rsvp-style-reset" type="button" onClick={() => {
+        if (previewDevice !== "mobile" && config.responsive?.[previewDevice]?.formTypography) update({ responsive: { ...config.responsive, [previewDevice]: { ...config.responsive[previewDevice], formTypography: {} } } });
+        else update({ typography: undefined });
+      }}><RotateCcw size={13} /> Restaurer la typographie par défaut</button>
     </section></PropertySection>
     <PropertySection sectionKey="apparence" key={`${project.id}-form-appearance`} title="Apparence">
     <section className="rsvp-style-card"><p>Les couleurs sont identiques dans l’éditeur, l’aperçu et le faire-part public.</p>

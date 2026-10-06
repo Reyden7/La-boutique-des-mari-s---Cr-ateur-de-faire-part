@@ -15,6 +15,7 @@ import { useRsvpBlockLayout } from "../../features/rsvp/useRsvpBlockLayout";
 import { ProjectFontLoader } from "../../features/fonts/ProjectFontLoader";
 import { useProjectFontRevision } from "../../features/fonts/projectFontRuntime";
 import { resolveRsvpStyle } from "../../config/rsvpStyle";
+import { resolveElementVisualStyle, resolveRsvpTypography } from "../../utils/responsiveVisualStyle";
 import { getDecorativeHeart } from "../../features/hearts/heartRegistry";
 import { WelcomePageRenderer } from "../../features/welcome/WelcomePageRenderer";
 import { resolveWelcomePage } from "../../features/welcome/welcomeDefaults";
@@ -192,6 +193,7 @@ function CanvasElement({
   onElementDragMove: (event: KonvaEventObject<DragEvent>) => void;
   onElementDragEnd: (event: KonvaEventObject<DragEvent>) => void;
 }) {
+  element = resolveElementVisualStyle(element, device);
   const image = useLoadedImage(element.type === "image" ? element.src : element.type === "carousel" ? element.images[0]?.url : undefined, element.type === "image" && hasImageAppearance(resolveImageAppearance(element, device)));
   const layout = getElementLayout(element, device);
   const scratchMask = useScratchMask(element.type === "scratch" && element.shape === "custom" ? element.scratchModel?.url : undefined);
@@ -315,7 +317,10 @@ function CanvasElement({
     </Group>;
   }
   if (element.type === "carousel") return <Group {...common}><Rect width={layout.width} height={layout.height} fill="#eee8e2" cornerRadius={element.cornerRadius} />{image ? <KonvaImage image={image} width={layout.width} height={layout.height} cornerRadius={element.cornerRadius} /> : <Text width={layout.width} height={layout.height} text="CARROUSEL\nAjoutez des photos" fill="#8a7c72" fontFamily="Montserrat" fontSize={12} align="center" verticalAlign="middle" lineHeight={1.6} />}</Group>;
-  if (element.type === "location") return <Group {...common}><Rect width={layout.width} height={layout.height} fill={element.backgroundColor} cornerRadius={16} /><Rect x={12} y={12} width={layout.width - 24} height={layout.height * .48} fill="#e5ded6" cornerRadius={11} /><Text x={24} y={layout.height * .54} width={layout.width - 48} text={`${element.venueName}\n${element.address}`} fill={element.textColor} fontFamily="Cormorant Garamond" fontSize={20} lineHeight={1.4} /><Rect x={24} y={layout.height - 52} width={layout.width - 48} height={34} fill={element.accentColor} cornerRadius={8} /><Text x={24} y={layout.height - 43} width={layout.width - 48} text={element.buttonLabel} fill="#fff" fontFamily="Montserrat" fontSize={10} align="center" /></Group>;
+  if (element.type === "location") {
+    const scale = layout.visualStyle?.locationScale ?? 1;
+    return <Group {...common}><Rect width={layout.width} height={layout.height} fill={element.backgroundColor} cornerRadius={16 * scale} /><Rect x={12 * scale} y={12 * scale} width={layout.width - 24 * scale} height={layout.height * .48} fill="#e5ded6" cornerRadius={11 * scale} /><Text x={24 * scale} y={layout.height * .54} width={layout.width - 48 * scale} text={`${element.venueName}\n${element.address}`} fill={element.textColor} fontFamily="Cormorant Garamond" fontSize={20 * scale} lineHeight={1.4} /><Rect x={24 * scale} y={layout.height - 52 * scale} width={layout.width - 48 * scale} height={34 * scale} fill={element.accentColor} cornerRadius={8 * scale} /><Text x={24 * scale} y={layout.height - 43 * scale} width={layout.width - 48 * scale} text={element.buttonLabel} fill="#fff" fontFamily="Montserrat" fontSize={10 * scale} align="center" /></Group>;
+  }
   if (element.type === "schedule") {
     return <Group {...common}><ScheduleCanvasContent element={element} layout={layout} /></Group>;
   }
@@ -368,6 +373,7 @@ export function EditorCanvas() {
   const viewport = PREVIEW_DEVICES[previewDevice];
   const { height: rsvpHeight, measurement: rsvpMeasurement, editorText: rsvpTextLayout } = useRsvpBlockLayout(isWelcomeEditing ? undefined : project?.rsvp, previewDevice);
   const rsvpStyle = resolveRsvpStyle(project?.rsvp?.style);
+  const rsvpTypography = resolveRsvpTypography(project?.rsvp, previewDevice);
   const rsvpLayerZIndex = getRsvpLayerZIndex(project?.rsvp, page?.elements ?? [], previewDevice);
   const rsvpParentId = getRsvpSectionId(project?.rsvp, previewDevice);
   const rsvpParent = elements.find((element) => element.type === "section" && element.id === rsvpParentId);
@@ -375,7 +381,7 @@ export function EditorCanvas() {
   const rsvpPositionX = project?.rsvp ? getRsvpPositionX(project.rsvp, previewDevice) : 0;
   const rsvpPositionY = page && project?.rsvp ? getRsvpPositionY(page, project.rsvp, previewDevice) : 0;
   const rsvpWidth = project?.rsvp ? Math.min(viewport.width, getRsvpWidth(project.rsvp, previewDevice)) : viewport.width;
-  const { textWidth: rsvpTextWidth, titleSize: rsvpTitleSize, fieldSize: rsvpFieldSize, labelSize: rsvpLabelSize, titleHeight: rsvpTitleHeight, descriptionY: rsvpDescriptionY, descriptionHeight: rsvpDescriptionHeight, fieldsY: rsvpFieldsY, fieldStep: rsvpFieldStep } = rsvpTextLayout;
+  const { inset: rsvpInset, spacing: rsvpSpacing, titleY: rsvpTitleY, textWidth: rsvpTextWidth, titleSize: rsvpTitleSize, fieldSize: rsvpFieldSize, labelSize: rsvpLabelSize, titleHeight: rsvpTitleHeight, descriptionY: rsvpDescriptionY, descriptionHeight: rsvpDescriptionHeight, fieldsY: rsvpFieldsY, fieldStep: rsvpFieldStep } = rsvpTextLayout;
   const documentHeight = page ? getDocumentHeight(page, previewDevice, rsvpVisible ? project?.rsvp : undefined, rsvpVisible ? rsvpHeight : 0) : viewport.height;
   const rsvpSelected = Boolean(rsvpVisible && selectedElementId === RSVP_EDITOR_ELEMENT_ID);
   const rsvpLocked = project?.rsvp?.locked ?? false;
@@ -809,15 +815,15 @@ export function EditorCanvas() {
                 onMouseLeave={(event) => { event.target.getStage()!.container().style.cursor = "default"; }}
               >
                 <Rect width={rsvpWidth} height={rsvpHeight} fill={rsvpStyle.backgroundColor} stroke={rsvpSelected ? rsvpStyle.selectionColor : undefined} strokeWidth={rsvpSelected ? 3 / zoom : 0} />
-                <Text x={44} y={18} width={rsvpWidth - 88} text="↕ GLISSER POUR DÉPLACER" fontFamily="Montserrat" fontSize={9} letterSpacing={1.2} align="center" fill={rsvpStyle.labelColor} opacity={0.7} />
-                <Text x={44} y={58} width={rsvpTextWidth} height={rsvpTitleHeight} text={project.rsvp.title} fontFamily={project.rsvp.typography?.fontFamily ?? "Cormorant Garamond"} fontSize={rsvpTitleSize} lineHeight={1.05} align="center" verticalAlign="top" fill={rsvpStyle.textColor} />
-                {project.rsvp.description && <Text x={44} y={rsvpDescriptionY} width={rsvpTextWidth} height={rsvpDescriptionHeight} text={project.rsvp.description} fontFamily={project.rsvp.typography?.fontFamily ?? "Lora"} fontSize={rsvpFieldSize} lineHeight={1.5} align="center" verticalAlign="top" fill={rsvpStyle.textColor} />}
+                <Text x={rsvpInset} y={18 * rsvpSpacing} width={rsvpTextWidth} text="↕ GLISSER POUR DÉPLACER" fontFamily="Montserrat" fontSize={9 * rsvpSpacing} letterSpacing={1.2} align="center" fill={rsvpStyle.labelColor} opacity={0.7} />
+                <Text x={rsvpInset} y={rsvpTitleY} width={rsvpTextWidth} height={rsvpTitleHeight} text={project.rsvp.title} fontFamily={rsvpTypography?.fontFamily ?? "Cormorant Garamond"} fontSize={rsvpTitleSize} lineHeight={1.05} align="center" verticalAlign="top" fill={rsvpStyle.textColor} />
+                {project.rsvp.description && <Text x={rsvpInset} y={rsvpDescriptionY} width={rsvpTextWidth} height={rsvpDescriptionHeight} text={project.rsvp.description} fontFamily={rsvpTypography?.fontFamily ?? "Lora"} fontSize={rsvpFieldSize} lineHeight={1.5} align="center" verticalAlign="top" fill={rsvpStyle.textColor} />}
                 {project.rsvp.fields.map((field, index) => <Group key={field.id} y={rsvpFieldsY + index * rsvpFieldStep}>
-                  <Text x={44} width={rsvpTextWidth} text={`${field.label}${field.required ? " *" : ""}`} fontFamily={project.rsvp?.typography?.fontFamily ?? "Montserrat"} fontSize={rsvpLabelSize} fill={rsvpStyle.labelColor} />
-                  <Rect x={44} y={24} width={rsvpWidth - 88} height={42} cornerRadius={8} fill={rsvpStyle.fieldBackgroundColor} stroke={rsvpStyle.fieldBorderColor} />
+                  <Text x={rsvpInset} width={rsvpTextWidth} text={`${field.label}${field.required ? " *" : ""}`} fontFamily={rsvpTypography?.fontFamily ?? "Montserrat"} fontSize={rsvpLabelSize} fill={rsvpStyle.labelColor} />
+                  <Rect x={rsvpInset} y={24 * rsvpSpacing} width={rsvpTextWidth} height={42 * rsvpSpacing} cornerRadius={8 * rsvpSpacing} fill={rsvpStyle.fieldBackgroundColor} stroke={rsvpStyle.fieldBorderColor} />
                 </Group>)}
-                <Rect x={44} y={rsvpHeight - 86} width={rsvpWidth - 88} height={44} cornerRadius={9} fill={rsvpStyle.buttonBackgroundColor} />
-                <Text x={44} y={rsvpHeight - 72} width={rsvpWidth - 88} text={project.rsvp.submitLabel.toUpperCase()} fontFamily={project.rsvp.typography?.fontFamily ?? "Montserrat"} fontSize={10} fontStyle="bold" letterSpacing={1} align="center" fill={rsvpStyle.buttonTextColor} />
+                <Rect x={rsvpInset} y={rsvpHeight - 86 * rsvpSpacing} width={rsvpTextWidth} height={44 * rsvpSpacing} cornerRadius={9 * rsvpSpacing} fill={rsvpStyle.buttonBackgroundColor} />
+                <Text x={rsvpInset} y={rsvpHeight - 72 * rsvpSpacing} width={rsvpTextWidth} text={project.rsvp.submitLabel.toUpperCase()} fontFamily={rsvpTypography?.fontFamily ?? "Montserrat"} fontSize={10 * rsvpSpacing} fontStyle="bold" letterSpacing={1} align="center" fill={rsvpStyle.buttonTextColor} />
               </Group>}
             </Layer>
             <Layer ref={guideLayerRef} listening={false} />

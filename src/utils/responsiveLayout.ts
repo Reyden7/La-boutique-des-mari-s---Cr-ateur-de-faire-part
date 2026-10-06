@@ -4,8 +4,11 @@ import { getElementComposition, isCompositionVisible } from "./hierarchyOrder.ts
 import { getScheduleLayout } from "./scheduleLayout.ts";
 import { resolveSectionEdge } from "./sectionEdges.ts";
 import type { SectionEdgeConfig } from "../types/editor";
+import { resolveElementVisualStyle } from "./responsiveVisualStyle.ts";
 
 export interface ResolvedElementLayout {
+  visualStyle?: ResponsiveElementLayout["visualStyle"];
+  padding?: number;
   topEdge?: SectionEdgeConfig;
   bottomEdge?: SectionEdgeConfig;
   x: number;
@@ -58,6 +61,8 @@ export const getElementLayout = (
   const composition = getElementComposition(element, device);
 
   const resolved: ResolvedElementLayout = {
+    ...(override?.visualStyle ? { visualStyle: override.visualStyle } : {}),
+    ...(element.type === "section" ? { padding: override?.visualStyle?.padding ?? element.padding } : {}),
     ...(element.type === "section" ? {
       topEdge: resolveSectionEdge(override?.topEdge ?? element.topEdge),
       bottomEdge: resolveSectionEdge(override?.bottomEdge ?? element.bottomEdge),
@@ -76,7 +81,7 @@ export const getElementLayout = (
     stepGap: element.type === "schedule" ? override?.stepGap ?? element.stepGap : undefined,
   };
   if (element.type === "schedule") {
-    const schedule = getScheduleLayout(element, resolved);
+    const schedule = getScheduleLayout(resolveElementVisualStyle(element, device), resolved);
     resolved.height = schedule.height;
     // Keep the user's requested spacing. Rendering may cap it in a narrow box,
     // but moving/resizing/saving must not silently replace the configured value.
@@ -132,6 +137,7 @@ export const setElementLayoutForDevice = (
   updates: ResponsiveElementLayout,
 ): EditorElement => {
   const geometry = {
+    ...(device !== "mobile" && "visualStyle" in updates ? { visualStyle: updates.visualStyle } : {}),
     ...(element.type === "section" && updates.topEdge !== undefined ? { topEdge: resolveSectionEdge(updates.topEdge) } : {}),
     ...(element.type === "section" && updates.bottomEdge !== undefined ? { bottomEdge: resolveSectionEdge(updates.bottomEdge) } : {}),
     ...(updates.x !== undefined ? { x: updates.x } : {}),
@@ -161,6 +167,7 @@ export const setElementLayoutForDevice = (
 
   const current = getElementLayout(element, device);
   const nextOverride: ResponsiveElementLayout = {
+    ...element.responsive?.[device],
     x: current.x,
     y: current.y,
     width: current.width,
@@ -202,6 +209,7 @@ export const resetElementLayoutForDevice = (
     timeFontSize: mobile.timeFontSize, titleFontSize: mobile.titleFontSize,
     descriptionFontSize: mobile.descriptionFontSize,
     stepGap: mobile.stepGap,
+    visualStyle: undefined,
     ...(element.type === "section" ? { topEdge: mobile.topEdge, bottomEdge: mobile.bottomEdge } : {}),
   });
 };

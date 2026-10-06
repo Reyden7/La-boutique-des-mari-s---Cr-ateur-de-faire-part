@@ -48,11 +48,12 @@ export function wrapScheduleText(text: string, width: number, size: number, fami
 }
 
 /** No project writes: an undersized box has a safe computed content minimum. */
-export function getScheduleLayout(element: ScheduleElement, layout: Pick<ResolvedElementLayout, "width" | "height" | "timeFontSize" | "titleFontSize" | "descriptionFontSize" | "stepGap">): ScheduleLayout {
+export function getScheduleLayout(element: ScheduleElement, layout: Pick<ResolvedElementLayout, "width" | "height" | "timeFontSize" | "titleFontSize" | "descriptionFontSize" | "stepGap" | "visualStyle">): ScheduleLayout {
   const orientation = resolveScheduleOrientation(element);
   const items = Array.isArray(element.items) ? element.items : [];
   const width = Math.max(12, layout.width);
-  const padding = Math.min(DEFAULT_SCHEDULE_STYLE.contentPadding, width * .08);
+  const spacing = Math.max(1, Math.min(3, layout.visualStyle?.spacingScale ?? 1));
+  const padding = Math.min(DEFAULT_SCHEDULE_STYLE.contentPadding * spacing, width * .08);
   const innerWidth = Math.max(1, width - padding * 2);
   const typography = resolveScheduleTypography(element, layout as ResolvedElementLayout);
   const size = (role: ScheduleTextRole) => {
@@ -90,14 +91,14 @@ export function getScheduleLayout(element: ScheduleElement, layout: Pick<Resolve
     for (const item of items) {
       const icon = resolveProgramStepIcon(item.icon);
       const iconSize = verticalIconSize;
-      const leading = icon ? iconSize + 8 : hasLine && !elegant ? 22 : 0;
+      const leading = icon ? iconSize + 8 * spacing : hasLine && !elegant ? 22 * spacing : 0;
       const timeX = padding + leading;
-      const timeWidth = elegant ? Math.max(1, width * .3 - leading) : Math.min(58, innerWidth * .24);
-      const copyX = elegant ? width * .44 : timeX + timeWidth + 8;
+      const timeWidth = elegant ? Math.max(1, width * .3 - leading) : Math.min(58 * spacing, innerWidth * .24);
+      const copyX = elegant ? width * .44 : timeX + timeWidth + 8 * spacing;
       const copyWidth = Math.max(1, width - padding - copyX);
       const time = makeText("time", item.time, timeX, 0, timeWidth, elegant ? "right" : "left");
       const title = makeText("title", item.title, copyX, 0, copyWidth, "left");
-      const description = item.description ? makeText("description", item.description, copyX, title.height + 4, copyWidth, "left") : undefined;
+      const description = item.description ? makeText("description", item.description, copyX, title.height + 4 * spacing, copyWidth, "left") : undefined;
       steps.push({ id: item.id, x: padding, y: 0, width: innerWidth, height: Math.max(time.height, description ? description.y + description.height : title.height, icon ? iconSize : 11),
         icon: icon ? { id: getProgramIconKey(icon), source: icon, x: padding, y: 0, size: iconSize } : undefined,
         marker: hasLine && (elegant || !icon) ? { x: elegant ? width * .38 : padding + 6, y: 7, size: elegant ? 9 : 10, diamond: elegant } : undefined,
@@ -105,13 +106,13 @@ export function getScheduleLayout(element: ScheduleElement, layout: Pick<Resolve
     }
   } else {
     const iconSize = horizontalIconSize;
-    const leadingHeight = anyIcons ? iconSize + 8 : hasLine ? 20 : 0;
+    const leadingHeight = anyIcons ? iconSize + 8 * spacing : hasLine ? 20 * spacing : 0;
     items.forEach((item, index) => {
       const x = padding + (index % columns) * (columnWidth + columnGap);
       const icon = resolveProgramStepIcon(item.icon);
       const time = makeText("time", item.time, x, leadingHeight, columnWidth, "center");
-      const title = makeText("title", item.title, x, time.y + time.height + 8, columnWidth, "center");
-      const description = item.description ? makeText("description", item.description, x, title.y + title.height + 4, columnWidth, "center") : undefined;
+      const title = makeText("title", item.title, x, time.y + time.height + 8 * spacing, columnWidth, "center");
+      const description = item.description ? makeText("description", item.description, x, title.y + title.height + 4 * spacing, columnWidth, "center") : undefined;
       steps.push({ id: item.id, x, y: 0, width: columnWidth, height: description ? description.y + description.height : title.y + title.height,
         icon: icon ? { id: getProgramIconKey(icon), source: icon, x: x + (columnWidth - iconSize) / 2, y: 0, size: iconSize } : undefined,
         marker: hasLine && !icon ? { x: x + columnWidth / 2, y: anyIcons ? iconSize / 2 : 6, size: elegant ? 9 : 10, diamond: elegant } : undefined,

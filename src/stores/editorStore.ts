@@ -46,6 +46,7 @@ import { RSVP_EDITOR_ELEMENT_ID, getRsvpSectionId, materializeRsvpComposition, s
 import { getHierarchyRows, moveHierarchyElement, type HierarchyPlacement } from "../utils/hierarchyOrder";
 import type { CanvasPoint } from "../utils/selectionDrag";
 import { getDuplicateEditorName, normalizeEditorName } from "../utils/editorNames";
+import { getCustomizedTransferTargets, transferMobileLayouts, TRANSFER_TARGETS, type TransferTarget } from "../utils/responsiveTransfer";
 
 interface ElementMoveOptions {
   device?: PreviewDevice;
@@ -102,6 +103,7 @@ interface EditorState {
   setFitZoom: (zoom: number) => void;
 
   setPreviewDevice: (device: PreviewDevice) => void;
+  transferResponsiveLayouts: (targets: readonly TransferTarget[], confirmed?: boolean) => boolean;
 
   addElement: (element: EditorElement) => void;
 
@@ -450,6 +452,18 @@ export const useEditorStore =
       setPreviewDevice: (previewDevice) =>
         set({ previewDevice }),
 
+      transferResponsiveLayouts: (requested, confirmed = false) => {
+        const targets = [...new Set(requested.filter((target) => TRANSFER_TARGETS.includes(target)))];
+        let transferred = false;
+        set((state) => {
+          if (!state.project || !targets.length || (!confirmed && getCustomizedTransferTargets(state.project, targets).length)) return state;
+          const adapted = transferMobileLayouts(state.project, targets);
+          transferred = true;
+          return mutateProject(state, (project) => Object.assign(project, adapted));
+        });
+        return transferred;
+      },
+
       addElement: (element) =>
         set((state) =>
           mutateProject(
@@ -536,9 +550,30 @@ export const useEditorStore =
                 const safeUpdates = isElementLocked(current)
                   ? Object.fromEntries(Object.entries(updates).filter(([key]) => !["x", "y", "width", "height", "rotation", "responsive"].includes(key)))
                   : updates;
+                // Generated pixel styles become ordinary independent device
+                // overrides: manual corrections must not edit Smartphone.
+                const device = state.previewDevice;
+                const visual = device === "mobile" ? undefined : current.responsive?.[device]?.visualStyle;
+                const nextUpdates = { ...safeUpdates };
+                const nextVisual = { ...visual };
+                if (visual) for (const key of Object.keys(visual)) {
+                  if (key in nextUpdates && key !== "locationScale") {
+                    Object.assign(nextVisual, { [key]: (nextUpdates as Record<string, unknown>)[key] });
+                    delete (nextUpdates as Record<string, unknown>)[key];
+                  }
+                }
+                if (visual && "imageStyle" in nextUpdates && current.type === "image") {
+                  const imageStyle = (nextUpdates as Partial<typeof current>).imageStyle;
+                  if (imageStyle?.frame && visual.frame) {
+                    nextVisual.frame = imageStyle.frame;
+                    Object.assign(nextUpdates, { imageStyle: { ...imageStyle, frame: current.imageStyle?.frame } });
+                  }
+                }
                 editableElements[index] = {
                   ...current,
-                  ...safeUpdates,
+                  ...nextUpdates,
+                  ...(visual && device !== "mobile" ? { responsive: { ...current.responsive, ...("responsive" in nextUpdates ? nextUpdates.responsive : {}),
+                    [device]: { ...current.responsive?.[device], ...("responsive" in nextUpdates ? nextUpdates.responsive?.[device] : {}), visualStyle: nextVisual } } } : {}),
                 } as EditorElement;
               }
             }

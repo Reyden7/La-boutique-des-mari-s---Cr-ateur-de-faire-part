@@ -85,7 +85,7 @@ export const insertElementInSection = (
   device: PreviewDevice,
 ) => {
   const sectionLayout = getElementLayout(section, device);
-  const insets = getSectionContentInsets(section.padding, sectionLayout.topEdge, sectionLayout.bottomEdge);
+  const insets = getSectionContentInsets(sectionLayout.padding ?? section.padding, sectionLayout.topEdge, sectionLayout.bottomEdge);
   const elementLayout = getElementLayout(element, device);
   const children = elements.filter((candidate) => getElementSectionId(candidate, device) === section.id && isElementVisibleOnDevice(candidate, elements, device));
   const childrenBottom = children.reduce((bottom, child) => {
@@ -94,7 +94,7 @@ export const insertElementInSection = (
   }, sectionLayout.y);
   const safeTop = sectionLayout.y + Math.max(SECTION_PADDING_TOP, insets.top);
   const y = children.length > 0 ? Math.max(safeTop, childrenBottom + SECTION_INSERT_GAP) : safeTop;
-  const horizontalPadding = Math.max(0, section.padding ?? SECTION_PADDING_TOP);
+  const horizontalPadding = Math.max(0, sectionLayout.padding ?? section.padding ?? SECTION_PADDING_TOP);
   const centeredX = sectionLayout.x + (sectionLayout.width - elementLayout.width) / 2;
   const x = Math.max(sectionLayout.x + horizontalPadding, centeredX);
   const positionedElement = setElementLayoutForDevice(element, device, { x, y, sectionId: section.id });

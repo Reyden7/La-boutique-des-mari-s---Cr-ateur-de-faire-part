@@ -17,6 +17,7 @@ import { resolveImageFrame } from "../../config/imageFrames";
 import { resolveImageFit, resolveImageTransform } from "../../utils/imageLayout";
 import { AnimatedElement } from "./AnimatedElement";
 import { getSectionRenderGroups } from "../../utils/sectionRenderGroups";
+import { resolveElementVisualStyle } from "../../utils/responsiveVisualStyle";
 
 const backgroundStyle = (background: PageBackground): CSSProperties => {
   if (background.type === "image") return { backgroundImage: `url(${background.imageUrl})`, backgroundSize: "cover", backgroundPosition: "center" };
@@ -30,6 +31,7 @@ const backgroundStyle = (background: PageBackground): CSSProperties => {
 };
 
 export function RenderElement({ element, device, documentHeight, playAnimation = true, sectionChildren = [], sectionExtra, origin }: { element: EditorElement; device: PreviewDevice; documentHeight: number; playAnimation?: boolean; sectionChildren?: EditorElement[]; sectionExtra?: React.ReactNode; origin?: { x: number; y: number; width: number; height: number } }) {
+  element = resolveElementVisualStyle(element, device);
   const layout = getElementLayout(element, device);
   const viewport = PREVIEW_DEVICES[device];
   const renderBox = getElementRenderBox({ ...layout, x: layout.x - (origin?.x ?? 0), y: layout.y - (origin?.y ?? 0) }, origin?.width ?? viewport.width, origin?.height ?? documentHeight);
