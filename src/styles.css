@@ -741,6 +741,7 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .render-image-frame > * { width: 100%; height: 100%; }
 .image-content-viewport { position: absolute; inset: 0; overflow: hidden; user-select: none; }
 .image-content-viewport > img { position: absolute; display: block; max-width: none; transform-origin: center; user-select: none; }
+.image-content-viewport > .image-appearance-canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; pointer-events: none; }
 .image-transform-properties { margin-top: 18px; padding-top: 15px; border-top: 1px solid #e8e0da; }
 .image-transform-device { display: block; margin: -3px 0 10px; color: #938780; font-size: 9px; line-height: 1.4; }
 .image-transform-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 9px 0 15px; }
@@ -802,23 +803,35 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .location-copy h3 { margin: 4px 0; font: 600 clamp(20px, 7cqw, 34px) "Cormorant Garamond", serif; line-height: 1; }
 .location-copy address, .location-copy p { margin: 2px 0; font: 10px/1.4 Lora, serif; }
 .location-copy a { margin-top: auto; padding: 8px 12px; border-radius: 7px; display: inline-flex; align-items: center; gap: 6px; color: #fff; font: 700 8px Montserrat, sans-serif; text-decoration: none; }
-.schedule-block { position: relative; box-sizing: border-box; height: 100%; padding: var(--schedule-padding); overflow: hidden; border-radius: 14px; display: flex; flex-direction: column; justify-content: space-between; }
-.schedule-block:not(.schedule-list)::before { content: ""; position: absolute; z-index: 0; top: var(--schedule-padding); bottom: var(--schedule-padding); left: calc(var(--schedule-padding) + var(--schedule-line-x)); width: 1px; background: var(--schedule-line); }
-.schedule-item { position: relative; z-index: 1; flex: 0 0 auto; min-width: 0; display: grid; grid-template-columns: var(--schedule-marker-size) var(--schedule-time-column) minmax(0, 1fr); gap: var(--schedule-column-gap); align-items: start; }
-.schedule-item > div { min-width: 0; }
-.schedule-dot { z-index: 1; box-sizing: border-box; width: var(--schedule-marker-size); height: var(--schedule-marker-size); border: var(--schedule-marker-border) solid var(--schedule-accent); border-radius: 50%; background: inherit; color: var(--schedule-accent); font-size: 0; }
-.schedule-item time { color: var(--schedule-time); font: 700 var(--schedule-time-size)/1.2 Montserrat, sans-serif; }
-.schedule-item strong { display: block; color: var(--schedule-title); font: 600 var(--schedule-title-size)/1.05 "Cormorant Garamond", serif; }
-.schedule-item p { margin: .3em 0 0; color: var(--schedule-description); font: var(--schedule-description-size)/1.35 Lora, serif; opacity: .72; }
-.schedule-list .schedule-dot { display: none; }
-.schedule-list .schedule-item { grid-template-columns: calc(var(--schedule-time-column) + var(--schedule-marker-size)) minmax(0, 1fr); }
-.schedule-timeline .schedule-dot { border-radius: 50%; }
-.schedule-elegant::before { left: 38% !important; opacity: .65; }
-.schedule-elegant .schedule-item { grid-template-columns: 30% var(--schedule-elegant-marker-column) minmax(0, 1fr); grid-template-areas: "time marker copy"; gap: var(--schedule-elegant-gap); align-items: start; }
-.schedule-elegant .schedule-dot { grid-area: marker; width: var(--schedule-elegant-marker-size); height: var(--schedule-elegant-marker-size); margin: .15em auto 0; border-width: 1px; border-radius: 1px; transform: rotate(45deg); }
-.schedule-elegant time { grid-area: time; font-family: "Cormorant Garamond", serif; font-weight: 500; text-align: right; letter-spacing: .04em; }
-.schedule-elegant .schedule-item > div { grid-area: copy; }
-.schedule-elegant .schedule-item strong { font-weight: 500; }
+.schedule-block { position: relative; box-sizing: border-box; width: 100%; height: 100%; overflow: hidden; border-radius: 14px; }
+.schedule-connectors { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.schedule-step { position: static; }
+.schedule-step time, .schedule-step strong, .schedule-step p { display: block; margin: 0; padding: 0; white-space: pre; letter-spacing: normal; }
+.program-step-icon-picker { min-width: 0; margin: 8px 0; }
+.program-icon-field-label { display: block; font-size: 10px; margin-bottom: 5px; }
+.program-icon-trigger { display: flex; width: 100%; gap: 8px; align-items: center; padding: 8px; background: var(--white); border: 1px solid var(--line); border-radius: 8px; text-align: left; }
+.program-icon-trigger > span:nth-child(2) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.program-icon-thumbnail { display: inline-flex; width: 26px; height: 26px; align-items: center; justify-content: center; flex: 0 0 26px; }
+.program-icon-thumbnail > svg, .program-icon-thumbnail > img { width: 26px; height: 26px; object-fit: contain; color: var(--accent-dark); }
+.program-icon-menu { min-width: 0; margin: 6px 0 0; padding: 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--white); }
+.program-icon-menu > small { display: block; margin: 6px 0; }
+.program-icon-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; max-height: 245px; overflow-y: auto; }
+.program-icon-grid > button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 0; min-height: 56px; padding: 6px 3px; border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--accent-dark); }
+.program-icon-grid > button[aria-pressed="true"], .program-custom-icon-row > button[aria-pressed="true"] { background: var(--paper); border-color: var(--accent); }
+.program-icon-grid > button > svg, .program-icon-grid > button > img { width: 24px; height: 24px; object-fit: contain; }
+.program-icon-grid > button > span { font-size: 9px; line-height: 1.2; overflow-wrap: anywhere; }
+.program-custom-icon-row { display: flex; gap: 5px; margin: 8px 0; }
+.program-custom-icon-row > button:first-child { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
+.program-custom-icon-row > button > svg, .program-custom-icon-row > button > img { width: 26px; height: 26px; object-fit: contain; flex: 0 0 26px; }
+.program-custom-icon-row > button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.program-icon-error { display: block; color: #9a4545; margin: 6px 0; }
+.section-edge-controls { min-width: 0; margin: 14px 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
+.section-edge-controls legend { padding: 0 5px; font-size: 12px; font-weight: 600; }
+.section-edge-presets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 10px 0; }
+.section-edge-presets button { min-width: 0; display: grid; gap: 5px; padding: 7px; background: var(--white); border: 1px solid var(--line); border-radius: 7px; color: var(--accent-dark); font-size: 9px; }
+.section-edge-presets button[aria-pressed="true"] { border-color: var(--accent); background: var(--paper); }
+.section-edge-presets svg { display: block; width: 100%; height: 24px; }
+.section-edge-support { display: block; font-size: 10px; line-height: 1.5; color: var(--muted); }
 .generic-link-button { width: 100%; height: 100%; padding: 0 18px; display: flex; align-items: center; justify-content: center; border-style: solid; font: 700 11px Montserrat, sans-serif; letter-spacing: .06em; text-decoration: none; }
 .generic-link-button.align-left { justify-content: flex-start; }
 .generic-link-button.align-right { justify-content: flex-end; }
@@ -1591,3 +1604,7 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .preview-device-frame .vertical-invitation-card { width: min(390px, calc(100cqw - 24px)); }
 .preview-device-frame .phase-complete.vertical-envelope-stage { height: auto; min-height: 0; }
 .preview-device-frame .phase-complete .vertical-envelope-scene { width: 100%; min-height: 0; height: auto; }
+.calendar-renderer { position: relative; width: 100%; height: 100%; }
+.calendar-renderer > svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.calendar-renderer > span { pointer-events: none; }
+.calendar-property-hint { font-size: 10px; line-height: 1.5; color: #8e7c70; }

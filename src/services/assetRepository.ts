@@ -17,15 +17,16 @@ const normalizedMimeType = (file: File, kind: ProjectAssetKind) => {
   return file.type || (kind === "image" ? "image/jpeg" : "audio/mpeg");
 };
 
-export async function uploadProjectAsset(project: WeddingProject, file: File, kind: ProjectAssetKind) {
+export async function uploadProjectAsset(project: WeddingProject, file: File, kind: ProjectAssetKind, options?: { folder: "program-icons" }) {
   if (!supabase) throw new Error("Supabase n’est pas configuré.");
+  if (options && kind !== "image") throw new Error("Le dossier d’icônes est réservé aux images.");
   if (kind === "font") {
     getFontFileInfo(file);
   }
   const user = await requireSupabaseSession();
   if (!project.ownerId || project.ownerId !== user.id) throw new Error("Associez d’abord ce projet à votre compte.");
   const persistedProject = await saveRemoteProject(project);
-  const folder = kind === "image" ? "images" : kind === "audio" ? "audio" : "fonts";
+  const folder = options?.folder ?? (kind === "image" ? "images" : kind === "audio" ? "audio" : "fonts");
   const storagePath = `${user.id}/${persistedProject.id}/${folder}/${crypto.randomUUID()}-${safeFilename(file.name)}`;
   const mimeType = normalizedMimeType(file, kind);
   const { error: uploadError } = await supabase.storage.from("wedding-assets").upload(storagePath, file, { contentType: mimeType, upsert: false });

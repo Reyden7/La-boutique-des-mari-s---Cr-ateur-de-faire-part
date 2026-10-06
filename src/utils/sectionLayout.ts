@@ -1,5 +1,6 @@
 import type { PreviewDevice } from "../config/previewDevices";
 import type { EditorElement, SectionElement } from "../types/editor";
+import { getSectionContentInsets } from "./sectionEdges.ts";
 import { getElementLayout, getElementSectionId, isElementVisibleOnDevice, materializeElementLayouts, setElementLayoutForDevice } from "./responsiveLayout.ts";
 import { isElementLocked } from "./elementLocking.ts";
 
@@ -84,20 +85,20 @@ export const insertElementInSection = (
   device: PreviewDevice,
 ) => {
   const sectionLayout = getElementLayout(section, device);
+  const insets = getSectionContentInsets(section.padding, sectionLayout.topEdge, sectionLayout.bottomEdge);
   const elementLayout = getElementLayout(element, device);
   const children = elements.filter((candidate) => getElementSectionId(candidate, device) === section.id && isElementVisibleOnDevice(candidate, elements, device));
   const childrenBottom = children.reduce((bottom, child) => {
     const layout = getElementLayout(child, device);
     return Math.max(bottom, layout.y + layout.height);
   }, sectionLayout.y);
-  const y = children.length > 0
-    ? childrenBottom + SECTION_INSERT_GAP
-    : sectionLayout.y + SECTION_PADDING_TOP;
+  const safeTop = sectionLayout.y + Math.max(SECTION_PADDING_TOP, insets.top);
+  const y = children.length > 0 ? Math.max(safeTop, childrenBottom + SECTION_INSERT_GAP) : safeTop;
   const horizontalPadding = Math.max(0, section.padding ?? SECTION_PADDING_TOP);
   const centeredX = sectionLayout.x + (sectionLayout.width - elementLayout.width) / 2;
   const x = Math.max(sectionLayout.x + horizontalPadding, centeredX);
   const positionedElement = setElementLayoutForDevice(element, device, { x, y, sectionId: section.id });
-  const requiredSectionBottom = y + elementLayout.height + SECTION_PADDING_BOTTOM;
+  const requiredSectionBottom = y + elementLayout.height + Math.max(SECTION_PADDING_BOTTOM, insets.bottom);
   const sectionBottom = sectionLayout.y + sectionLayout.height;
   const resizedSection = requiredSectionBottom > sectionBottom && !isElementLocked(section)
     ? setElementLayoutForDevice(section, device, {

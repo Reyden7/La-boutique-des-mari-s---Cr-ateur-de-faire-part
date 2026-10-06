@@ -1,5 +1,5 @@
 import { PREVIEW_DEVICES, type PreviewDevice } from "../../config/previewDevices";
-import type { EditorElement, ElementType, WeddingPage } from "../../types/editor";
+import type { CalendarElement, EditorElement, ElementType, WeddingPage } from "../../types/editor";
 import { getElementLayout, isElementVisibleOnDevice } from "../../utils/responsiveLayout";
 
 export const NEW_SECTION_MARGIN = 40;
@@ -51,7 +51,7 @@ export const makeLocationElement = (): EditorElement => ({
 });
 
 export const makeScheduleElement = (): EditorElement => ({
-  ...base("schedule", "Programme", 420, 310, 390), type: "schedule", displayStyle: "timeline",
+  ...base("schedule", "Programme", 420, 310, 390), type: "schedule", displayStyle: "timeline", orientation: "vertical", wrapSteps: false,
   items: [
     { id: crypto.randomUUID(), time: "16:00", title: "Accueil", description: "Bienvenue au domaine" },
     { id: crypto.randomUUID(), time: "17:00", title: "Cérémonie" },
@@ -61,6 +61,17 @@ export const makeScheduleElement = (): EditorElement => ({
   backgroundColor: "#fffaf5", textColor: "#493f39", timeColor: "#9a6d51",
   lineColor: "#d9c4b4", accentColor: "#a9775a", titleColor: "#493f39", descriptionColor: "#493f39",
   timeFontSize: 12, titleFontSize: 17, descriptionFontSize: 11,
+});
+
+export const makeCalendarElement = (): CalendarElement => ({
+  ...base("calendar", "Calendrier", 420, 310, 360), type: "calendar",
+  title: "Save the date", month: 8, year: new Date().getFullYear(), highlightedDay: 15,
+  style: "elegant", titleFontFamily: "Cormorant Garamond", titleFontSize: 32,
+  titleColor: "#493f39", titleAlign: "center", numbersFontFamily: "Lora",
+  numbersFontSize: 17, numbersColor: "#493f39", weekdaysFontFamily: "Montserrat",
+  weekdaysFontSize: 10, weekdaysColor: "#79695c", accentColor: "#a9775a",
+  backgroundColor: "#fffaf5", borderColor: "#d9c4b4", decorationStyle: "none",
+  decorationColor: "#a9775a", showWeekdays: true, showMonthLabel: true, showYearLabel: true,
 });
 
 export const makeButtonElement = (): EditorElement => ({

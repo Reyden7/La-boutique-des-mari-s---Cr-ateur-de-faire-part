@@ -10,10 +10,13 @@ import { BackgroundPanel } from "../../features/backgrounds/BackgroundPanel";
 import { FontPicker } from "../../features/fonts/FontPicker";
 import { DECORATIVE_HEARTS, getDecorativeHeart } from "../../features/hearts/heartRegistry";
 import { RichElementProperties } from "../../features/elements/RichElementProperties";
+import { CalendarProperties } from "../../features/elements/CalendarProperties";
 import { resolveWelcomePage } from "../../features/welcome/welcomeDefaults";
 import { ColorAlphaInput } from "../ui/ColorAlphaInput";
 import { ImageFrameProperties } from "../../features/images/ImageFrameProperties";
 import { ImageTransformProperties } from "../../features/images/ImageTransformProperties";
+import { ImageAppearanceProperties } from "../../features/images/ImageAppearanceProperties";
+import { resolveImageFit } from "../../utils/imageLayout";
 import { RsvpFormEditor } from "../../features/rsvp/RsvpFormEditor";
 import { RSVP_EDITOR_ELEMENT_ID } from "../../features/rsvp/rsvpEditorElement";
 import { AnimationProperties } from "./AnimationProperties";
@@ -90,7 +93,14 @@ export function PropertiesPanel({ onPreviewOpening }: { onPreviewOpening: (type:
         <div className="field-row"><Field label="Interligne"><input type="number" min="0.7" max="3" step="0.05" value={element.lineHeight} onChange={(event) => update({ lineHeight: Number(event.target.value) })} /></Field><Field label="Espacement"><input type="number" min="-5" max="30" value={element.letterSpacing} onChange={(event) => update({ letterSpacing: Number(event.target.value) })} /></Field></div>
         {appearance}
       </PropertySection>}
-      {element.type === "image" && <><PropertySection sectionKey="importation" key={`${element.id}-importation`} title="Importation"><div className="image-summary"><img src={element.src} alt="Aperçu" /><p>{element.alt}</p><small>Choisissez d’afficher l’image entière ou de remplir volontairement son cadre.</small></div></PropertySection><PropertySection sectionKey="ajustement" key={`${element.id}-ajustement`} title="Ajustement"><ImageFrameProperties element={element} onChange={update} /><ImageTransformProperties key={`${element.id}-${previewDevice}`} element={element} device={previewDevice} width={layout.width} height={layout.height} onChange={update} />{appearance}</PropertySection></>}
+      {element.type === "image" && <>
+        <PropertySection sectionKey="importation" key={`${element.id}-importation`} title="Importation"><div className="image-summary"><img src={element.src} alt="Aperçu" /><p>{element.alt}</p><small>Choisissez d’afficher l’image entière ou de remplir volontairement son cadre.</small></div></PropertySection>
+        <PropertySection sectionKey="ajustement" key={`${element.id}-ajustement`} title="Ajustement">
+          <Field label="Affichage dans le cadre"><select value={resolveImageFit(element.fit)} onChange={(event) => update({ fit: event.target.value as typeof element.fit })}><option value="contain">Image entière</option><option value="cover">Remplir le cadre</option></select></Field>
+          <ImageTransformProperties key={`${element.id}-${previewDevice}`} element={element} device={previewDevice} width={layout.width} height={layout.height} onChange={update} />{appearance}
+        </PropertySection>
+        <PropertySection sectionKey="apparence" key={`${element.id}-apparence`} title="Apparence"><ImageAppearanceProperties element={element} device={previewDevice} onChange={update} /><ImageFrameProperties element={element} onChange={update} /></PropertySection>
+      </>}
       {element.type === "shape" && <><PropertySection sectionKey="forme" key={`${element.id}-forme`} title="Forme">
         <Field label="Type"><select value={element.shape} onChange={(event) => update({ shape: event.target.value as typeof element.shape })}><option value="rectangle">Rectangle</option><option value="rounded-rectangle">Arrondi</option><option value="circle">Cercle</option><option value="line">Ligne</option></select></Field>
         {element.shape === "rounded-rectangle" && <Field label="Coins arrondis"><input type="range" min="0" max="80" value={element.cornerRadius} onChange={(event) => update({ cornerRadius: Number(event.target.value) })} /></Field>}
@@ -104,6 +114,7 @@ export function PropertiesPanel({ onPreviewOpening }: { onPreviewOpening: (type:
         ? <Field label="Style de cœur"><select value={element.heartStyle} onChange={(event) => { const heart = getDecorativeHeart(event.target.value as DecorativeHeartStyle); update({ heartStyle: heart.id, name: `Cœur ${heart.label}` }); }}>{DECORATIVE_HEARTS.map((heart) => <option key={heart.id} value={heart.id}>{heart.label}</option>)}</select></Field>
         : <Field label="Décoration historique"><input value={element.icon} maxLength={4} onChange={(event) => update({ icon: event.target.value })} /></Field>}</PropertySection><PropertySection sectionKey="apparence" key={`${element.id}-apparence`} title="Apparence"><Field label="Couleur"><ColorAlphaInput value={element.color} onChange={(color) => update({ color })} /></Field>{appearance}</PropertySection></>}
       {(element.type === "scratch" || element.type === "carousel" || element.type === "location" || element.type === "schedule" || element.type === "button" || element.type === "section") && <RichElementProperties element={element} appearance={appearance} />}
+      {element.type === "calendar" && <CalendarProperties element={element} appearance={appearance} />}
       <PropertySection sectionKey="animation" key={`${element.id}-animation`} title="Animation"><AnimationProperties animation={element.animation} onChange={(animation) => update({ animation })} /></PropertySection>
       <button className="property-device-visibility" type="button" onClick={() => setElementVisibility(element.id, !layout.visible)}>{layout.visible ? <Eye size={15} /> : <EyeOff size={15} />}{layout.visible ? `Masquer sur ${deviceLabel}` : `Afficher sur ${deviceLabel}`}</button>
       <div className="property-actions"><button onClick={() => duplicateElement(element.id)}><Copy size={15} /> Dupliquer</button><button className="danger" onClick={() => { if (window.confirm("Supprimer cet élément de tous les formats ?")) removeElement(element.id); }}><Trash2 size={15} /> Supprimer</button></div>

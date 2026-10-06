@@ -40,23 +40,36 @@ import {
   positionSelectionLockControl,
 } from "./SelectionLockControl";
 import { isElementLocked, isLockableElement } from "../../utils/elementLocking";
-import { DEFAULT_SCHEDULE_STYLE, resolveScheduleTypography } from "../../config/scheduleStyle";
+import { ScheduleCanvasContent } from "../../features/elements/ScheduleCanvasContent";
+import { CalendarCanvasContent } from "../../features/elements/CalendarCanvasContent";
+import { SectionCanvasSurface } from "../../features/elements/SectionCanvasSurface";
 import { getImageFrameMetrics, getImageFramePalette, resolveImageFrame } from "../../config/imageFrames";
 import { RSVP_EDITOR_ELEMENT_ID, getRsvpLayerZIndex, getRsvpSectionId, isRsvpVisibleOnDevice } from "../../features/rsvp/rsvpEditorElement";
 import { setRsvpSectionForDevice } from "../../utils/documentLayout";
 import { getImageRenderLayout, resolveImageFit, resolveImageTransform } from "../../utils/imageLayout";
+import { hasImageAppearance, resolveImageAppearance, type ResolvedImageAppearance } from "../../utils/imageAppearance";
+import { useImageAppearance } from "../../features/images/useImageAppearance";
 import { getLogicalCanvasPointer, getPointerDragDelta, type CanvasPoint } from "../../utils/selectionDrag";
 
 type DragNodeSnapshot = { node: Konva.Node; x: number; y: number; bounds: AlignmentBounds };
 
-function useLoadedImage(src?: string) {
+function useLoadedImage(src?: string, cors = false) {
   const [image, setImage] = useState<HTMLImageElement>();
   useEffect(() => {
     if (!src) return setImage(undefined);
-    const next = new Image();
-    next.onload = () => setImage(next);
-    next.src = src;
-  }, [src]);
+    let disposed = false;
+    setImage(undefined);
+    const load = (anonymous: boolean) => {
+      const next = new Image();
+      if (anonymous) next.crossOrigin = "anonymous";
+      next.onload = () => { if (!disposed) setImage(next); };
+      // Keep legacy external images usable when their host does not offer CORS.
+      next.onerror = () => { if (!disposed && anonymous) load(false); };
+      next.src = src;
+    };
+    load(cors);
+    return () => { disposed = true; };
+  }, [src, cors]);
   return image;
 }
 
@@ -123,14 +136,16 @@ function Background({ background, width, height, y = 0 }: { background: PageBack
   return <Rect y={y} width={width} height={height} fill={background.color ?? "#fffdf9"} listening={false} />;
 }
 
-function CanvasImageContent({ image, width, height, fit, transform, radius = 0 }: {
+function CanvasImageContent({ image, width, height, fit, transform, appearance, radius = 0 }: {
   image: HTMLImageElement;
   width: number;
   height: number;
   fit: ImageFit;
   transform: ImageTransformConfig;
   radius?: number;
+  appearance?: ResolvedImageAppearance;
 }) {
+  const composite = useImageAppearance(image, width, height, fit, transform, appearance);
   const rendered = getImageRenderLayout(image.naturalWidth, image.naturalHeight, width, height, fit, transform);
   const corner = Math.min(radius, width / 2, height / 2);
   return <Group clipFunc={(context) => {
@@ -146,7 +161,7 @@ function CanvasImageContent({ image, width, height, fit, transform, radius = 0 }
     context.quadraticCurveTo(0, 0, corner, 0);
     context.closePath();
   }}>
-    <KonvaImage
+    {composite ? <KonvaImage image={composite} width={width} height={height} /> : <KonvaImage
       image={image}
       x={rendered.x + (transform.flipX ? rendered.width : 0)}
       y={rendered.y + (transform.flipY ? rendered.height : 0)}
@@ -154,7 +169,7 @@ function CanvasImageContent({ image, width, height, fit, transform, radius = 0 }
       height={rendered.height}
       scaleX={transform.flipX ? -1 : 1}
       scaleY={transform.flipY ? -1 : 1}
-    />
+    />}
   </Group>;
 }
 
@@ -177,7 +192,7 @@ function CanvasElement({
   onElementDragMove: (event: KonvaEventObject<DragEvent>) => void;
   onElementDragEnd: (event: KonvaEventObject<DragEvent>) => void;
 }) {
-  const image = useLoadedImage(element.type === "image" ? element.src : element.type === "carousel" ? element.images[0]?.url : undefined);
+  const image = useLoadedImage(element.type === "image" ? element.src : element.type === "carousel" ? element.images[0]?.url : undefined, element.type === "image" && hasImageAppearance(resolveImageAppearance(element, device)));
   const layout = getElementLayout(element, device);
   const scratchMask = useScratchMask(element.type === "scratch" && element.shape === "custom" ? element.scratchModel?.url : undefined);
   const scratchElement = element.type === "scratch" ? element : null;
@@ -231,9 +246,10 @@ function CanvasElement({
         const frame = resolveImageFrame(imageElement.imageStyle?.frame);
         const fit = resolveImageFit(imageElement.fit);
         const transform = resolveImageTransform(imageElement, device);
+        const appearance = resolveImageAppearance(imageElement, device);
         if (!frame.enabled) return <Group {...common}>
           <Rect width={layout.width} height={layout.height} fill="rgba(0,0,0,0.001)" />
-          <CanvasImageContent image={image} width={layout.width} height={layout.height} fit={fit} transform={transform} />
+          <CanvasImageContent image={image} width={layout.width} height={layout.height} fit={fit} transform={transform} appearance={appearance} />
         </Group>;
         const metrics = getImageFrameMetrics(frame, layout.width, layout.height);
         const innerWidth = Math.max(1, layout.width - metrics.left - metrics.right);
@@ -259,7 +275,7 @@ function CanvasElement({
             shadowOpacity={frame.shadowOpacity}
             shadowOffsetY={frame.shadowDistance}
           />
-          <Group x={metrics.left} y={metrics.top}><CanvasImageContent image={image} width={innerWidth} height={innerHeight} fit={fit} transform={transform} radius={metrics.innerRadius} /></Group>
+          <Group x={metrics.left} y={metrics.top}><CanvasImageContent image={image} width={innerWidth} height={innerHeight} fit={fit} transform={transform} appearance={appearance} radius={metrics.innerRadius} /></Group>
           {(frame.borderStyle === "dotted" || frame.borderStyle === "dashed") && <Rect width={layout.width} height={layout.height} cornerRadius={metrics.outerRadius} stroke={frame.color} strokeWidth={outlineWidth} dash={dash} opacity={frame.opacity} listening={false} />}
           {(frame.type === "double" || frame.borderStyle === "double" || frame.type === "vintage") && <><Rect x={outlineWidth} y={outlineWidth} width={layout.width - outlineWidth * 2} height={layout.height - outlineWidth * 2} cornerRadius={Math.max(0, metrics.outerRadius - outlineWidth)} stroke={frame.color} strokeWidth={Math.max(1, outlineWidth * .45)} opacity={frame.opacity} listening={false} /><Rect x={metrics.left - outlineWidth * .7} y={metrics.top - outlineWidth * .7} width={innerWidth + outlineWidth * 1.4} height={innerHeight + outlineWidth * 1.4} cornerRadius={metrics.innerRadius} stroke={frame.color} strokeWidth={Math.max(1, outlineWidth * .35)} opacity={frame.opacity} listening={false} /></>}
           {frame.type === "wedding-floral" && <Group opacity={frame.opacity} listening={false}><Line points={[4, metrics.top + 8, 8, 10, metrics.left + 14, 4]} stroke="#7d9a72" strokeWidth={1.5} tension={.45} /><Circle x={8} y={12} radius={3} fill="#d8a3a2" /><Circle x={16} y={7} radius={2.5} fill="#f2d4c8" /><Group x={layout.width} y={layout.height} rotation={180}><Line points={[4, metrics.top + 8, 8, 10, metrics.left + 14, 4]} stroke="#7d9a72" strokeWidth={1.5} tension={.45} /><Circle x={8} y={12} radius={3} fill="#d8a3a2" /><Circle x={16} y={7} radius={2.5} fill="#f2d4c8" /></Group></Group>}
@@ -301,33 +317,11 @@ function CanvasElement({
   if (element.type === "carousel") return <Group {...common}><Rect width={layout.width} height={layout.height} fill="#eee8e2" cornerRadius={element.cornerRadius} />{image ? <KonvaImage image={image} width={layout.width} height={layout.height} cornerRadius={element.cornerRadius} /> : <Text width={layout.width} height={layout.height} text="CARROUSEL\nAjoutez des photos" fill="#8a7c72" fontFamily="Montserrat" fontSize={12} align="center" verticalAlign="middle" lineHeight={1.6} />}</Group>;
   if (element.type === "location") return <Group {...common}><Rect width={layout.width} height={layout.height} fill={element.backgroundColor} cornerRadius={16} /><Rect x={12} y={12} width={layout.width - 24} height={layout.height * .48} fill="#e5ded6" cornerRadius={11} /><Text x={24} y={layout.height * .54} width={layout.width - 48} text={`${element.venueName}\n${element.address}`} fill={element.textColor} fontFamily="Cormorant Garamond" fontSize={20} lineHeight={1.4} /><Rect x={24} y={layout.height - 52} width={layout.width - 48} height={34} fill={element.accentColor} cornerRadius={8} /><Text x={24} y={layout.height - 43} width={layout.width - 48} text={element.buttonLabel} fill="#fff" fontFamily="Montserrat" fontSize={10} align="center" /></Group>;
   if (element.type === "schedule") {
-    const typography = resolveScheduleTypography(element, layout);
-    const padding = DEFAULT_SCHEDULE_STYLE.contentPadding;
-    const hasDescriptions = element.items.some((item) => Boolean(item.description));
-    const contentHeight = Math.max(
-      typography.timeFontSize * 1.3,
-      typography.titleFontSize * 1.15 + (hasDescriptions ? 4 + typography.descriptionFontSize * 1.4 : 0),
-    );
-    const availableTravel = Math.max(0, layout.height - padding * 2 - contentHeight);
-    const step = element.items.length > 1 ? availableTravel / (element.items.length - 1) : 0;
-    const titleColor = element.titleColor ?? element.textColor;
-    const descriptionColor = element.descriptionColor ?? element.textColor;
-    const copy = (item: (typeof element.items)[number], x: number, width: number) => <>
-      <Text x={x} width={width} text={item.title} fill={titleColor} fontFamily="Cormorant Garamond" fontSize={typography.titleFontSize} fontStyle={element.displayStyle === "elegant" ? "normal" : "bold"} lineHeight={1.05} />
-      {item.description && <Text x={x} y={typography.titleFontSize * 1.15 + 4} width={width} text={item.description} fill={descriptionColor} fontFamily="Lora" fontSize={typography.descriptionFontSize} lineHeight={1.35} opacity={0.72} />}
-    </>;
-    return <Group {...common}><Rect width={layout.width} height={layout.height} fill={element.backgroundColor} cornerRadius={14} />
-      {element.displayStyle !== "list" && <Line points={element.displayStyle === "elegant" ? [layout.width * .38, padding, layout.width * .38, layout.height - padding] : [30, padding, 30, layout.height - padding]} stroke={element.lineColor} strokeWidth={element.displayStyle === "elegant" ? 1 : 2} />}
-      {element.items.map((item, index) => {
-        const y = padding + index * step;
-        if (element.displayStyle === "list") return <Group key={item.id} x={padding} y={y}><Text width={62} text={item.time} fill={element.timeColor} fontFamily="Montserrat" fontSize={typography.timeFontSize} fontStyle="bold" />{copy(item, 70, layout.width - padding * 2 - 70)}</Group>;
-        if (element.displayStyle === "elegant") return <Group key={item.id} y={y}><Text x={20} width={layout.width * .28} text={item.time} fill={element.timeColor} fontFamily="Cormorant Garamond" fontSize={typography.timeFontSize} align="right" /><Rect x={layout.width * .38} y={7} width={10} height={10} rotation={45} offsetX={5} offsetY={5} fill={element.backgroundColor} stroke={element.accentColor} strokeWidth={1.5} />{copy(item, layout.width * .44, layout.width * .48)}</Group>;
-        return <Group key={item.id} x={padding} y={y}><Circle x={6} y={7} radius={5} fill={element.backgroundColor} stroke={element.accentColor} strokeWidth={2} /><Text x={22} width={58} text={item.time} fill={element.timeColor} fontFamily="Montserrat" fontSize={typography.timeFontSize} />{copy(item, 86, layout.width - padding * 2 - 86)}</Group>;
-      })}
-    </Group>;
+    return <Group {...common}><ScheduleCanvasContent element={element} layout={layout} /></Group>;
   }
+  if (element.type === "calendar") return <Group {...common}><CalendarCanvasContent element={element} layout={layout} /></Group>;
   if (element.type === "button") return <Group {...common}><Rect width={layout.width} height={layout.height} fill={element.backgroundColor} stroke={element.borderColor} strokeWidth={element.borderWidth} cornerRadius={element.borderRadius} /><Text width={layout.width} height={layout.height} text={element.label} fill={element.textColor} fontFamily={element.fontFamily ?? "Montserrat"} fontSize={element.fontSize ?? 13} fontStyle={(element.fontWeight ?? 700) >= 600 ? "bold" : "normal"} align={element.textAlign} padding={16} verticalAlign="middle" /></Group>;
-  if (element.type === "section") return <Group {...common}><Background background={element.background} width={layout.width} height={layout.height} /><Rect width={layout.width} height={layout.height} fill="rgba(0,0,0,0.001)" stroke={selected ? "#9a6d51" : undefined} strokeWidth={selected ? 2 : 0} cornerRadius={element.cornerRadius} /></Group>;
+  if (element.type === "section") return <Group {...common}><SectionCanvasSurface element={element} layout={layout} /><Rect width={layout.width} height={layout.height} fill="rgba(0,0,0,0.001)" stroke={selected ? "#9a6d51" : undefined} strokeWidth={selected ? 2 : 0} cornerRadius={element.cornerRadius} /></Group>;
   if (element.shape === "circle") return <Circle {...common} x={layout.x + layout.width / 2} y={layout.y + layout.height / 2} radius={Math.min(layout.width, layout.height) / 2} fill={element.fill} stroke={element.stroke} strokeWidth={element.strokeWidth} />;
   if (element.shape === "line") return <Line {...common} points={[0, 0, layout.width, 0]} stroke={element.stroke} strokeWidth={element.strokeWidth || 2} hitStrokeWidth={18} />;
   return <Rect {...common} fill={element.fill} stroke={element.stroke} strokeWidth={element.strokeWidth} cornerRadius={element.cornerRadius} />;

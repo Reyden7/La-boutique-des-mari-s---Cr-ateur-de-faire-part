@@ -12,6 +12,7 @@ import { DecorativeHeartSvg } from "../../features/hearts/DecorativeHeartSvg";
 import { RichElementRenderer } from "../../features/elements/RichElementRenderer";
 import { ImageFrameRenderer } from "../../features/images/ImageFrameRenderer";
 import { ImageContentRenderer } from "../../features/images/ImageContentRenderer";
+import { resolveImageAppearance } from "../../utils/imageAppearance";
 import { resolveImageFrame } from "../../config/imageFrames";
 import { resolveImageFit, resolveImageTransform } from "../../utils/imageLayout";
 import { AnimatedElement } from "./AnimatedElement";
@@ -43,13 +44,13 @@ export function RenderElement({ element, device, documentHeight, playAnimation =
     const frame = resolveImageFrame(element.imageStyle?.frame);
     const fit = resolveImageFit(element.fit);
     if (!frame.enabled) return wrap(
-      <ImageContentRenderer src={element.src} alt={element.alt} fit={fit} transform={resolveImageTransform(element, device)} boxWidth={layout.width} boxHeight={layout.height} />
+      <ImageContentRenderer src={element.src} alt={element.alt} fit={fit} transform={resolveImageTransform(element, device)} appearance={resolveImageAppearance(element, device)} boxWidth={layout.width} boxHeight={layout.height} />
     , "render-image-frame");
     return wrap(<ImageFrameRenderer element={element} device={device} layoutWidth={layout.width} layoutHeight={layout.height} />, "render-image-frame");
   }
   if (element.type === "icon" && element.heartStyle) return wrap(<div style={{ width: "100%", height: "100%", color: element.color, display: "flex", justifyContent: "center" }}><DecorativeHeartSvg variant={element.heartStyle} style={{ width: "100%", height: "100%" }} /></div>);
   if (element.type === "icon") return wrap(<div style={{ width: "100%", height: "100%", color: element.color, fontSize: `${element.fontSize / viewport.width * 100}cqw`, display: "flex", justifyContent: "center", alignItems: "center" }}>{element.icon}</div>);
-  if (element.type === "scratch" || element.type === "carousel" || element.type === "location" || element.type === "schedule" || element.type === "button" || element.type === "section") return wrap(<RichElementRenderer element={element} device={device} />, `rich-render-element rich-render-${element.type}`);
+  if (element.type === "scratch" || element.type === "carousel" || element.type === "location" || element.type === "schedule" || element.type === "calendar" || element.type === "button" || element.type === "section") return wrap(<RichElementRenderer element={element} device={device} />, `rich-render-element rich-render-${element.type}`);
   const radius = element.shape === "circle" ? "50%" : element.shape === "rounded-rectangle" ? element.cornerRadius : 0;
   return wrap(<div style={{ width: "100%", height: element.shape === "line" ? `${Math.max(1, element.strokeWidth)}px` : "100%", background: element.shape === "line" ? element.stroke : element.fill, border: element.shape === "line" ? "none" : `${element.strokeWidth}px solid ${element.stroke}`, borderRadius: radius }} />);
 }

@@ -628,6 +628,9 @@ export const useEditorStore =
               if (editableElements && index >= 0) {
                 const previousElement = editableElements[index];
                 if (isElementLocked(previousElement)) {
+                  if (previousElement.type === "section" && (updates.topEdge !== undefined || updates.bottomEdge !== undefined)) {
+                    editableElements[index] = setElementLayoutForDevice(previousElement, state.previewDevice, { topEdge: updates.topEdge, bottomEdge: updates.bottomEdge });
+                  }
                   if (previousElement.type === "text" && updates.fontSize !== undefined) {
                     editableElements[index] = setElementLayoutForDevice(
                       previousElement,
@@ -639,6 +642,7 @@ export const useEditorStore =
                     updates.timeFontSize !== undefined
                     || updates.titleFontSize !== undefined
                     || updates.descriptionFontSize !== undefined
+                    || updates.stepGap !== undefined
                   )) {
                     editableElements[index] = setElementLayoutForDevice(
                       previousElement,
@@ -647,6 +651,7 @@ export const useEditorStore =
                         timeFontSize: updates.timeFontSize,
                         titleFontSize: updates.titleFontSize,
                         descriptionFontSize: updates.descriptionFontSize,
+                        stepGap: updates.stepGap,
                       },
                     );
                   }

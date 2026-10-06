@@ -1,4 +1,4 @@
-export type GlobalAssetType = "font" | "welcome_arch" | "welcome_background" | "music" | "particle" | "decoration";
+export type GlobalAssetType = "font" | "welcome_arch" | "welcome_background" | "music" | "particle" | "decoration" | "program_icon";
 
 export interface GlobalAssetRecord {
   id: string;

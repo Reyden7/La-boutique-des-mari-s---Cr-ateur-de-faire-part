@@ -10,7 +10,7 @@ export function ProjectFontLoader({ project }: { project: WeddingProject }) {
     const visit = (value: unknown) => {
       if (!value || typeof value !== "object") return;
       Object.entries(value).forEach(([key, child]) => {
-        if (key === "fontFamily" && typeof child === "string") usedFonts.add(child);
+        if ((key === "fontFamily" || key.endsWith("FontFamily")) && typeof child === "string") usedFonts.add(child);
         else visit(child);
       });
     };

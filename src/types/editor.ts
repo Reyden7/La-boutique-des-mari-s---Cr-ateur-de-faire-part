@@ -1,4 +1,4 @@
-export type ElementType = "text" | "image" | "shape" | "icon" | "scratch" | "carousel" | "location" | "schedule" | "button" | "section";
+export type ElementType = "text" | "image" | "shape" | "icon" | "scratch" | "carousel" | "location" | "schedule" | "calendar" | "button" | "section";
 export type AnimationType = "none" | "fade" | "slide-left" | "slide-right" | "slide-up" | "slide-down" | "zoom" | "rotate";
 
 export interface AnimationConfig {
@@ -8,6 +8,9 @@ export interface AnimationConfig {
 }
 
 export interface ResponsiveElementLayout {
+  /** Section-only decorative silhouettes for this device. */
+  topEdge?: SectionEdgeConfig;
+  bottomEdge?: SectionEdgeConfig;
   x?: number;
   y?: number;
   width?: number;
@@ -24,6 +27,8 @@ export interface ResponsiveElementLayout {
   timeFontSize?: number;
   titleFontSize?: number;
   descriptionFontSize?: number;
+  /** Programme spacing in logical pixels for the active device. */
+  stepGap?: number;
 }
 
 export interface ResponsiveLayouts {
@@ -187,13 +192,31 @@ export interface ImageFrameConfig {
 
 export interface ImageStyleConfig {
   frame?: ImageFrameConfig;
+  appearance?: ImageAppearanceConfig;
   /** Non-destructive content transform. Crop positions are normalized from 0 to 1. */
   transform?: Partial<ImageTransformConfig>;
   /** Optional per-device content transforms; absent devices inherit the mobile transform. */
   responsive?: {
-    tablet?: Partial<ImageTransformConfig>;
-    desktop?: Partial<ImageTransformConfig>;
+    tablet?: Partial<ImageTransformConfig> & { appearance?: ImageAppearanceConfig };
+    desktop?: Partial<ImageTransformConfig> & { appearance?: ImageAppearanceConfig };
   };
+}
+
+export interface ImageFadeConfig {
+  enabled: boolean;
+  height: number;
+  /** 0..1: strength of the progression towards the final opacity. */
+  intensity: number;
+  /** Blur radius in logical pixels, limited to the fading strip. */
+  blur: number;
+  opacity: number;
+}
+
+export interface ImageAppearanceConfig {
+  topEdge?: SectionEdgeConfig;
+  bottomEdge?: SectionEdgeConfig;
+  topFade?: ImageFadeConfig;
+  bottomFade?: ImageFadeConfig;
 }
 
 export type ImageFit = "contain" | "cover";
@@ -318,18 +341,38 @@ export interface LocationElement extends BaseElement {
   accentColor: string;
 }
 
+export type ProgramCustomIcon = {
+  type: "custom";
+  url: string;
+  assetId?: string;
+  name?: string;
+  /** Durable even if the global library entry is later unpublished. */
+  globalAssetId?: string;
+};
+export type ProgramStepIcon = { type: "preset"; name: string } | ProgramCustomIcon;
+
 export interface ScheduleItem {
   id: string;
   time: string;
   title: string;
   description?: string;
-  icon?: string;
+  /** Strings are read-only legacy preset IDs; new selections use the explicit union. */
+  icon?: ProgramStepIcon | string | null;
+  /** Last project import, scoped to this step, reusable after choosing a preset/None. */
+  customIcon?: ProgramCustomIcon;
 }
 
 export interface ScheduleElement extends BaseElement {
   type: "schedule";
   items: ScheduleItem[];
+  /** Missing in legacy projects means vertical. Shared content setting, not geometry. */
+  orientation?: "vertical" | "horizontal";
+  /** Horizontal stages stay on a single row unless explicitly enabled. */
+  wrapSteps?: boolean;
+  stepGap?: number;
   displayStyle: "list" | "timeline" | "elegant";
+  iconSize?: number;
+  iconColor?: string;
   backgroundColor: string;
   textColor: string;
   timeColor: string;
@@ -360,15 +403,57 @@ export interface ButtonElement extends BaseElement {
   welcomeAction?: "enter";
 }
 
+export type SectionEdgeStyle = "none" | "tear" | "wave" | "scallop" | "diagonal" | "zigzag" | "cloud" | "paper-cut";
+export interface SectionEdgeConfig {
+  enabled: boolean;
+  style: SectionEdgeStyle;
+  height: number;
+  inverted?: boolean;
+  /** Amplitude in [0, 1], independent of the configured height. */
+  intensity?: number;
+}
+
 export interface SectionElement extends BaseElement {
   type: "section";
   isLastSection?: boolean;
   background: PageBackground;
   padding: number;
   cornerRadius: number;
+  topEdge?: SectionEdgeConfig;
+  bottomEdge?: SectionEdgeConfig;
 }
 
-export type EditorElement = TextElement | ImageElement | ShapeElement | IconElement | ScratchElement | CarouselElement | LocationElement | ScheduleElement | ButtonElement | SectionElement;
+export type CalendarStyle = "minimal" | "elegant" | "paper-note" | "decorative-frame" | "romantic";
+export type CalendarDecorationStyle = "none" | "floral" | "ribbon" | "hearts" | "ornament" | "torn-paper" | "soft-frame";
+
+export interface CalendarElement extends BaseElement {
+  type: "calendar";
+  title: string;
+  month: number;
+  year: number;
+  highlightedDay: number | null;
+  style: CalendarStyle;
+  titleFontFamily: string;
+  titleFontSize: number;
+  titleColor: string;
+  titleAlign: "left" | "center" | "right";
+  numbersFontFamily: string;
+  numbersFontSize: number;
+  numbersColor: string;
+  weekdaysFontFamily?: string;
+  weekdaysFontSize?: number;
+  weekdaysColor?: string;
+  accentColor: string;
+  backgroundColor: string;
+  borderColor?: string;
+  decorationStyle: CalendarDecorationStyle;
+  decorationColor: string;
+  showWeekdays: boolean;
+  showMonthLabel: boolean;
+  showYearLabel: boolean;
+}
+
+export type EditorElement = TextElement | ImageElement | ShapeElement | IconElement | ScratchElement | CarouselElement | LocationElement | ScheduleElement | CalendarElement | ButtonElement | SectionElement;
 
 export interface PageBackground {
   type: "color" | "gradient" | "image";

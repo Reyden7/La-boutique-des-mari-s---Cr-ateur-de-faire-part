@@ -11,6 +11,12 @@ import { getElementLayout } from "../../utils/responsiveLayout";
 import { resolveScheduleTypography } from "../../config/scheduleStyle";
 import { PropertySection } from "../../components/properties/PropertySection";
 import { loadScratchMask, releaseScratchMask } from "./scratchMask";
+import { ProgramStepIconPicker } from "./ProgramStepIconPicker";
+import { resolveProgramStepIcon } from "./programIconModel";
+import { resolveScheduleOrientation } from "../../utils/scheduleLayout";
+import { DimensionInput } from "../../components/ui/DimensionInput";
+import { SectionEdgeControls } from "./SectionEdgeControls";
+import { getSectionContentInsets } from "../../utils/sectionEdges";
 
 type RichElement = ScratchElement | CarouselElement | LocationElement | ScheduleElement | ButtonElement | SectionElement;
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => <label className="field"><span>{label}</span>{children}</label>;
@@ -147,13 +153,37 @@ export function RichElementProperties({ element, appearance }: { element: RichEl
   </div>;
 
   if (element.type === "schedule") {
-    const scheduleTypography = resolveScheduleTypography(element, getElementLayout(element, previewDevice));
-    const changeItem = (id: string, changes: object) => update({ items: element.items.map((item) => item.id === id ? { ...item, ...changes } : item) });
+    const scheduleLayout = getElementLayout(element, previewDevice);
+    const scheduleTypography = resolveScheduleTypography(element, scheduleLayout);
+    const stepGap = (previewDevice !== "mobile" ? element.responsive?.[previewDevice]?.stepGap : undefined) ?? element.stepGap ?? scheduleLayout.stepGap ?? 16;
+    const changeItem = (id: string, changes: object) => {
+      const state = useEditorStore.getState();
+      if (state.project?.id !== project?.id) return false;
+      const candidates = state.sidebarView === "introduction" && state.project?.introductionMode === "welcome" ? state.project.welcomePage?.elements : state.project?.pages.find((page) => page.id === state.currentPageId)?.elements;
+      const current = candidates?.find((value) => value.id === element.id);
+      if (current?.type !== "schedule" || !current.items.some((item) => item.id === id)) return false;
+      update({ items: current.items.map((item) => item.id === id ? { ...item, ...changes } : item) });
+      return true;
+    };
     const move = (index: number, direction: -1 | 1) => { const next = [...element.items]; const target = index + direction; if (target < 0 || target >= next.length) return; [next[index], next[target]] = [next[target], next[index]]; update({ items: next }); };
     return <div className="rich-properties"><PropertySection sectionKey="contenu" key={`${element.id}-content`} title="Contenu">
-      <div className="schedule-editor-list">{element.items.map((item, index) => <article key={item.id}><div><input value={item.time} aria-label="Heure" onChange={(e) => changeItem(item.id, { time: e.target.value })} /><input value={item.title} aria-label="Titre" onChange={(e) => changeItem(item.id, { title: e.target.value })} /></div><textarea rows={2} value={item.description ?? ""} placeholder="Description" onChange={(e) => changeItem(item.id, { description: e.target.value })} /><div className="mini-actions"><button onClick={() => move(index, -1)} disabled={!index}><ArrowUp size={12} /></button><button onClick={() => move(index, 1)} disabled={index === element.items.length - 1}><ArrowDown size={12} /></button><button onClick={() => update({ items: element.items.filter((value) => value.id !== item.id) })}><Trash2 size={12} /></button></div></article>)}</div>
+      <Field label="Orientation"><select value={resolveScheduleOrientation(element)} onChange={(event) => update({ orientation: event.target.value })}><option value="vertical">Vertical</option><option value="horizontal">Horizontal</option></select></Field>
+      <Field label="Espacement entre étapes (px)"><DimensionInput key={`${element.id}-${previewDevice}-gap`} min={0} step={1} value={stepGap} onCommit={(value) => updateElementLayout(element.id, { stepGap: value })} /></Field>
+      {resolveScheduleOrientation(element) === "horizontal" && <label className="compact-check"><input type="checkbox" checked={element.wrapSteps ?? false} onChange={(event) => update({ wrapSteps: event.target.checked })} /> Retour à la ligne automatique</label>}
+      <small>Espacement propre au support actif. En horizontal, toutes les étapes restent sur une seule ligne par défaut ; l’espacement est limité à la place disponible. Les textes peuvent s’étendre en hauteur.</small>
+      <div className="schedule-editor-list">{element.items.map((item, index) => <article key={item.id}>
+        <div><input value={item.time} aria-label={`Heure étape ${index + 1}`} onChange={(event) => changeItem(item.id, { time: event.target.value })} /><input value={item.title} aria-label={`Titre étape ${index + 1}`} onChange={(event) => changeItem(item.id, { title: event.target.value })} /></div>
+        <textarea rows={2} value={item.description ?? ""} aria-label={`Description étape ${index + 1}`} placeholder="Description" onChange={(event) => changeItem(item.id, { description: event.target.value })} />
+        <ProgramStepIconPicker item={item} stepNumber={index + 1} project={project}
+          onSelect={(icon) => changeItem(item.id, { icon })}
+          onImport={(icon) => changeItem(item.id, { icon, customIcon: icon })}
+          onRemoveCustom={() => { const current = resolveProgramStepIcon(item.icon); const custom = item.customIcon ?? (current?.type === "custom" && !current.globalAssetId ? current : undefined); changeItem(item.id, { customIcon: undefined, ...(current?.type === "custom" && current.url === custom?.url ? { icon: null } : {}) }); }} />
+        <div className="mini-actions"><button aria-label={`Monter étape ${index + 1}`} onClick={() => move(index, -1)} disabled={!index}><ArrowUp size={12} /></button><button aria-label={`Descendre étape ${index + 1}`} onClick={() => move(index, 1)} disabled={index === element.items.length - 1}><ArrowDown size={12} /></button><button aria-label={`Supprimer étape ${index + 1}`} onClick={() => update({ items: element.items.filter((value) => value.id !== item.id) })}><Trash2 size={12} /></button></div>
+      </article>)}</div>
       <button className="secondary-action" onClick={() => update({ items: [...element.items, { id: crypto.randomUUID(), time: "18:00", title: "Nouvelle étape" }] })}><Plus size={13} /> Ajouter une étape</button>
     </PropertySection><PropertySection sectionKey="style" key={`${element.id}-style`} title="Style"><Field label="Style"><select value={element.displayStyle} onChange={(e) => update({ displayStyle: e.target.value })}><option value="list">Liste</option><option value="timeline">Timeline</option><option value="elegant">Timeline élégante</option></select></Field>
+      <Field label="Taille des icônes"><DimensionInput min={8} max={128} value={element.iconSize ?? (resolveScheduleOrientation(element) === "horizontal" ? 32 : 24)} onCommit={(value) => update({ iconSize: value })} /></Field>
+      <Field label="Couleur des icônes intégrées"><ColorAlphaInput value={element.iconColor ?? element.accentColor} onChange={(value) => update({ iconColor: value })} /></Field>
       <div className="schedule-typography-fields">
         <Field label="Taille des heures"><input type="number" min="6" max="96" value={scheduleTypography.timeFontSize} onChange={(e) => updateElementLayout(element.id, { timeFontSize: Number(e.target.value) })} /></Field>
         <Field label="Taille des titres"><input type="number" min="6" max="120" value={scheduleTypography.titleFontSize} onChange={(e) => updateElementLayout(element.id, { titleFontSize: Number(e.target.value) })} /></Field>
@@ -193,6 +223,8 @@ export function RichElementProperties({ element, appearance }: { element: RichEl
     .filter((candidate): candidate is SectionElement => candidate.type === "section")
     .sort((left, right) => getElementLayout(left, previewDevice).y - getElementLayout(right, previewDevice).y) ?? [];
   const sectionIndex = sections.findIndex((section) => section.id === element.id);
+  const sectionLayout = getElementLayout(element, previewDevice);
+  const safeInsets = getSectionContentInsets(element.padding, sectionLayout.topEdge, sectionLayout.bottomEdge);
   return <div className="rich-properties">
     <PropertySection sectionKey="section" key={`${element.id}-section`} title="Section">
       <div className="section-order-actions"><button disabled={sectionIndex <= 0} onClick={() => reorderSection(element.id, -1)}><ArrowUp size={13} /> Monter la section</button><button disabled={sectionIndex < 0 || sectionIndex === sections.length - 1} onClick={() => reorderSection(element.id, 1)}><ArrowDown size={13} /> Descendre la section</button></div>
@@ -205,6 +237,12 @@ export function RichElementProperties({ element, appearance }: { element: RichEl
       <Field label="Type de fond"><select value={element.background.type} onChange={(e) => update({ background: { ...element.background, type: e.target.value } })}><option value="color">Couleur</option><option value="gradient">Dégradé</option><option value="image">Image</option></select></Field>
       {element.background.type === "color" ? <Field label="Couleur"><ColorAlphaInput value={element.background.color ?? "#f7f1eb"} onChange={(value) => update({ background: { ...element.background, color: value } })} /></Field> : element.background.type === "gradient" ? <div className="field-row"><Field label="Début"><ColorAlphaInput value={element.background.gradient?.color1 ?? "#f7f1eb"} onChange={(value) => update({ background: { type: "gradient", gradient: { type: "linear", color1: value, color2: element.background.gradient?.color2 ?? "#ded0c3", angle: 135 } } })} /></Field><Field label="Fin"><ColorAlphaInput value={element.background.gradient?.color2 ?? "#ded0c3"} onChange={(value) => update({ background: { type: "gradient", gradient: { type: "linear", color1: element.background.gradient?.color1 ?? "#f7f1eb", color2: value, angle: 135 } } })} /></Field></div> : <label className="carousel-upload"><ImagePlus size={16} /> Choisir une image<input hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => { void uploadSectionBackground(e.target.files?.[0]); e.currentTarget.value = ""; }} /></label>}
     </PropertySection>
-    <PropertySection sectionKey="apparence" key={`${element.id}-appearance`} title="Apparence">{appearance}</PropertySection>
+    <PropertySection sectionKey="apparence" key={`${element.id}-appearance`} title="Apparence">
+      <small className="section-edge-support">Bordures sur {previewDevice === "mobile" ? "Smartphone" : previewDevice === "tablet" ? "Tablette" : "PC"} uniquement.</small>
+      <SectionEdgeControls side="top" value={sectionLayout.topEdge} onChange={(topEdge) => updateElementLayout(element.id, { topEdge })} />
+      <SectionEdgeControls side="bottom" value={sectionLayout.bottomEdge} onChange={(bottomEdge) => updateElementLayout(element.id, { bottomEdge })} />
+      <small className="section-edge-support">Le fond est découpé, jamais le contenu. Zone intérieure conseillée : {Math.round(safeInsets.top)} px en haut et {Math.round(safeInsets.bottom)} px en bas, padding inclus. Les nouveaux éléments respectent cette réserve.</small>
+      {appearance}
+    </PropertySection>
   </div>;
 }

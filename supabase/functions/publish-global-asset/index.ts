@@ -1,8 +1,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 import { corsHeaders, jsonResponse } from "../_shared/http.ts";
 import { getGlobalFontMetadata } from "../_shared/fontFormats.ts";
+import { getProgramIconFileInfo } from "../_shared/programIconFormats.ts";
 
-const TYPES = ["font", "welcome_arch", "welcome_background", "music", "particle", "decoration"] as const;
+const TYPES = ["font", "welcome_arch", "welcome_background", "music", "particle", "decoration", "program_icon"] as const;
 type GlobalAssetType = typeof TYPES[number];
 
 type Body = {
@@ -40,6 +41,7 @@ const destinationFolder: Record<GlobalAssetType, string> = {
   music: "music",
   particle: "particles",
   decoration: "decorations",
+  program_icon: "program-icons",
 };
 
 const expectedKind: Record<GlobalAssetType, SourceAsset["kind"]> = {
@@ -49,6 +51,7 @@ const expectedKind: Record<GlobalAssetType, SourceAsset["kind"]> = {
   music: "audio",
   particle: "image",
   decoration: "image",
+  program_icon: "image",
 };
 
 const sanitizeMetadata = (type: GlobalAssetType, input: Record<string, unknown>, source: SourceAsset) => {
@@ -103,6 +106,10 @@ Deno.serve(async (request) => {
       .eq("id", body.sourceAssetId).eq("owner_id", user.id).single<SourceAsset>();
     if (sourceError || !source) return jsonResponse({ error: "Source asset not found" }, 404, true);
     if (source.kind !== expectedKind[body.type] || !source.storage_path.startsWith(`${user.id}/`)) return jsonResponse({ error: "Source asset type rejected" }, 400, true);
+    if (body.type === "program_icon") {
+      try { getProgramIconFileInfo({ name: source.storage_path, type: source.mime_type, size: source.size_bytes ?? 0 }); }
+      catch (error) { return jsonResponse({ error: error instanceof Error ? error.message : "Invalid program icon" }, 400, true); }
+    }
 
     const filename = source.storage_path.split("/").pop() ?? crypto.randomUUID();
     copiedPath = `${destinationFolder[body.type]}/${crypto.randomUUID()}-${filename}`;
@@ -114,7 +121,7 @@ Deno.serve(async (request) => {
     const baseSlug = slugify(body.slug?.trim() || body.name);
     const { data: slugMatch } = await admin.from("global_assets").select("id").eq("slug", baseSlug).maybeSingle();
     const slug = slugMatch ? `${baseSlug}-${crypto.randomUUID().slice(0, 8)}` : baseSlug;
-    const visual = ["welcome_arch", "welcome_background", "particle", "decoration"].includes(body.type);
+    const visual = ["welcome_arch", "welcome_background", "particle", "decoration", "program_icon"].includes(body.type);
     const { data: asset, error: insertError } = await admin.from("global_assets").insert({
       type: body.type,
       name: body.name.trim(),

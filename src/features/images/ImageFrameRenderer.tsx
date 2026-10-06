@@ -4,6 +4,7 @@ import type { ImageElement } from "../../types/editor";
 import { getImageFrameMetrics, imageFrameCssBackground, resolveImageFrame } from "../../config/imageFrames";
 import { resolveImageFit, resolveImageTransform } from "../../utils/imageLayout";
 import { ImageContentRenderer } from "./ImageContentRenderer";
+import { resolveImageAppearance } from "../../utils/imageAppearance";
 
 interface ImageFrameRendererProps {
   element: ImageElement;
@@ -38,6 +39,7 @@ export function ImageFrameRenderer({ element, device, layoutWidth, layoutHeight 
       alt={element.alt}
       fit={resolveImageFit(element.fit)}
       transform={resolveImageTransform(element, device)}
+      appearance={resolveImageAppearance(element, device)}
       boxWidth={Math.max(1, layoutWidth - metrics.left - metrics.right)}
       boxHeight={Math.max(1, layoutHeight - metrics.top - metrics.bottom)}
       style={{ top: "var(--image-frame-top)", right: "var(--image-frame-right)", bottom: "var(--image-frame-bottom)", left: "var(--image-frame-left)", borderRadius: "var(--image-inner-radius)" }}

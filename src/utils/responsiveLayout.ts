@@ -1,8 +1,13 @@
 import type { PreviewDevice } from "../config/previewDevices";
 import type { EditorElement, ResponsiveElementLayout } from "../types/editor";
 import { getElementComposition, isCompositionVisible } from "./hierarchyOrder.ts";
+import { getScheduleLayout } from "./scheduleLayout.ts";
+import { resolveSectionEdge } from "./sectionEdges.ts";
+import type { SectionEdgeConfig } from "../types/editor";
 
 export interface ResolvedElementLayout {
+  topEdge?: SectionEdgeConfig;
+  bottomEdge?: SectionEdgeConfig;
   x: number;
   y: number;
   width: number;
@@ -16,6 +21,7 @@ export interface ResolvedElementLayout {
   timeFontSize?: number;
   titleFontSize?: number;
   descriptionFontSize?: number;
+  stepGap?: number;
 }
 
 export interface ElementRenderBox {
@@ -51,7 +57,11 @@ export const getElementLayout = (
   const override = getOverride(element, device);
   const composition = getElementComposition(element, device);
 
-  return {
+  const resolved: ResolvedElementLayout = {
+    ...(element.type === "section" ? {
+      topEdge: resolveSectionEdge(override?.topEdge ?? element.topEdge),
+      bottomEdge: resolveSectionEdge(override?.bottomEdge ?? element.bottomEdge),
+    } : {}),
     x: override?.x ?? element.x,
     y: override?.y ?? element.y,
     width: override?.width ?? element.width,
@@ -63,7 +73,16 @@ export const getElementLayout = (
     timeFontSize: element.type === "schedule" ? override?.timeFontSize ?? element.timeFontSize : undefined,
     titleFontSize: element.type === "schedule" ? override?.titleFontSize ?? element.titleFontSize : undefined,
     descriptionFontSize: element.type === "schedule" ? override?.descriptionFontSize ?? element.descriptionFontSize : undefined,
+    stepGap: element.type === "schedule" ? override?.stepGap ?? element.stepGap : undefined,
   };
+  if (element.type === "schedule") {
+    const schedule = getScheduleLayout(element, resolved);
+    resolved.height = schedule.height;
+    // Keep the user's requested spacing. Rendering may cap it in a narrow box,
+    // but moving/resizing/saving must not silently replace the configured value.
+    resolved.stepGap ??= schedule.stepGap;
+  }
+  return resolved;
 };
 
 export const getElementSectionId = (element: EditorElement, device: PreviewDevice) => getElementLayout(element, device).sectionId;
@@ -102,7 +121,8 @@ export const hasElementLayoutOverride = (
   if (device === "mobile") return false;
   const current = getElementLayout(element, device);
   const mobile = getElementLayout(element, "mobile");
-  return (["x", "y", "width", "height", "rotation", "fontSize", "timeFontSize", "titleFontSize", "descriptionFontSize"] as const)
+  if (element.type === "section" && (JSON.stringify(current.topEdge) !== JSON.stringify(mobile.topEdge) || JSON.stringify(current.bottomEdge) !== JSON.stringify(mobile.bottomEdge))) return true;
+  return (["x", "y", "width", "height", "rotation", "fontSize", "timeFontSize", "titleFontSize", "descriptionFontSize", "stepGap"] as const)
     .some((key) => current[key] !== mobile[key]);
 };
 
@@ -112,6 +132,8 @@ export const setElementLayoutForDevice = (
   updates: ResponsiveElementLayout,
 ): EditorElement => {
   const geometry = {
+    ...(element.type === "section" && updates.topEdge !== undefined ? { topEdge: resolveSectionEdge(updates.topEdge) } : {}),
+    ...(element.type === "section" && updates.bottomEdge !== undefined ? { bottomEdge: resolveSectionEdge(updates.bottomEdge) } : {}),
     ...(updates.x !== undefined ? { x: updates.x } : {}),
     ...(updates.y !== undefined ? { y: updates.y } : {}),
     ...(updates.width !== undefined ? { width: updates.width } : {}),
@@ -129,6 +151,7 @@ export const setElementLayoutForDevice = (
           ...(updates.timeFontSize !== undefined ? { timeFontSize: updates.timeFontSize } : {}),
           ...(updates.titleFontSize !== undefined ? { titleFontSize: updates.titleFontSize } : {}),
           ...(updates.descriptionFontSize !== undefined ? { descriptionFontSize: updates.descriptionFontSize } : {}),
+          ...(updates.stepGap !== undefined ? { stepGap: updates.stepGap } : {}),
         }
       : {};
 
@@ -146,12 +169,13 @@ export const setElementLayoutForDevice = (
     visible: current.visible,
     zIndex: current.zIndex,
     sectionId: current.sectionId,
-    ...(element.type === "section" ? { isLastSection: current.isLastSection } : {}),
+    ...(element.type === "section" ? { isLastSection: current.isLastSection, topEdge: current.topEdge, bottomEdge: current.bottomEdge } : {}),
     ...(element.type === "text" ? { fontSize: current.fontSize } : {}),
     ...(element.type === "schedule" ? {
       timeFontSize: current.timeFontSize,
       titleFontSize: current.titleFontSize,
       descriptionFontSize: current.descriptionFontSize,
+      stepGap: current.stepGap,
     } : {}),
     ...geometry,
     ...typography,
@@ -177,5 +201,7 @@ export const resetElementLayoutForDevice = (
     rotation: mobile.rotation, fontSize: mobile.fontSize,
     timeFontSize: mobile.timeFontSize, titleFontSize: mobile.titleFontSize,
     descriptionFontSize: mobile.descriptionFontSize,
+    stepGap: mobile.stepGap,
+    ...(element.type === "section" ? { topEdge: mobile.topEdge, bottomEdge: mobile.bottomEdge } : {}),
   });
 };

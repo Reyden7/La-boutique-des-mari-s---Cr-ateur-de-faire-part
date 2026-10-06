@@ -7,7 +7,7 @@ export const normalizeEditorName = (value: string | undefined): string | undefin
 
 const defaultLabels: Record<EditorElement["type"], string> = {
   text: "Texte", image: "Image", shape: "Forme", icon: "Décoration", scratch: "Zone à gratter",
-  carousel: "Carrousel photos", location: "Lieu / Carte", schedule: "Programme", button: "Bouton", section: "Section",
+  carousel: "Carrousel photos", location: "Lieu / Carte", schedule: "Programme", calendar: "Calendrier", button: "Bouton", section: "Section",
 };
 
 /** Keep the existing generated name as fallback, including legacy projects. */

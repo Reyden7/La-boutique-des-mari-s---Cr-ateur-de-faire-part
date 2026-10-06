@@ -52,7 +52,7 @@ export const setImageTransformForDevice = (
       ...imageStyle,
       responsive: {
         ...imageStyle.responsive,
-        [device]: { ...resolveImageTransform(element, device), ...changes },
+        [device]: { ...imageStyle.responsive?.[device], ...resolveImageTransform(element, device), ...changes },
       },
     },
   };

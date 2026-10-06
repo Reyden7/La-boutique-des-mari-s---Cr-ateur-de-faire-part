@@ -10,8 +10,9 @@ const FILTERS: Array<{ type?: GlobalAssetType; label: string }> = [
   { label: "Tous" }, { type: "font", label: "Polices" }, { type: "welcome_arch", label: "Arches" },
   { type: "welcome_background", label: "Paysages" }, { type: "music", label: "Musiques" },
   { type: "particle", label: "Particules" }, { type: "decoration", label: "Décorations" },
+  { type: "program_icon", label: "Icônes Programme" },
 ];
-const labels: Record<GlobalAssetType, string> = { font: "Police", welcome_arch: "Arche", welcome_background: "Paysage", music: "Musique", particle: "Particule", decoration: "Décoration" };
+const labels: Record<GlobalAssetType, string> = { font: "Police", welcome_arch: "Arche", welcome_background: "Paysage", music: "Musique", particle: "Particule", decoration: "Décoration", program_icon: "Icône Programme" };
 
 export function AdminAssetsPage() {
   const { isAdmin } = useAuth();
