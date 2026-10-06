@@ -1,12 +1,12 @@
 import { parseColorWithAlpha, toHex8 } from "../../utils/color";
-import { StableColorInput } from "./StableColorInput";
+import { ColorPicker } from "./ColorPicker";
 
 export function ColorAlphaInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const color = parseColorWithAlpha(value);
   return <div className="color-alpha-input">
-    <StableColorInput
-      value={color.hex}
-      onChange={(hex) => onChange(toHex8(hex, color.alpha))}
+    <ColorPicker
+      value={value}
+      onChange={onChange}
       aria-label="Couleur"
     />
     <input

@@ -1,5 +1,6 @@
 import { Plus, Trash2, Upload } from "lucide-react";
 import { useRef } from "react";
+import { StableColorInput } from "../../components/ui/StableColorInput";
 import { useEditorStore } from "../../stores/editorStore";
 import type {
   ParticleDirection,
@@ -585,6 +586,7 @@ export function ParticlePanel() {
       </section>
 
       {/* Couleurs */}
+      {particles.shape === "custom" ? <p className="particle-custom-color-note">Les couleurs et la transparence de votre image sont conservées. La palette de couleurs s’applique uniquement aux motifs proposés.</p> :
       <section className="particle-section">
         <div className="particle-control-header">
           <span>
@@ -611,18 +613,16 @@ export function ParticlePanel() {
                 className="particle-color-row"
                 key={index}
               >
-                <input
-                  type="color"
+                <StableColorInput
                   value={
                     color
                   }
                   onChange={(
-                    event
+                    value
                   ) =>
                     updateColor(
                       index,
-                      event.target
-                        .value
+                      value
                     )
                   }
                 />
@@ -684,6 +684,8 @@ export function ParticlePanel() {
           </button>
         )}
       </section>
+
+      }
 
       {/* Taille */}
       <section className="particle-section">

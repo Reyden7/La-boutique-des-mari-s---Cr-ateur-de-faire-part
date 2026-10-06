@@ -98,7 +98,7 @@ const recycleParticle = (element: HTMLElement, config: ParticleConfig) => {
   const size = randomBetween(config.minSize, config.maxSize);
   const rotation = randomBetween(0, 360);
   element.style.fontSize = `${size}px`;
-  element.style.color = randomColor(config.colors);
+  if (config.shape !== "custom") element.style.color = randomColor(config.colors);
   element.style.setProperty("--particle-rotation-start", `${rotation}deg`);
   element.style.setProperty("--particle-rotation-end", `${rotation + randomBetween(280, 440)}deg`);
   applyTrajectory(element, createTrajectory(config.direction, size));
@@ -106,12 +106,13 @@ const recycleParticle = (element: HTMLElement, config: ParticleConfig) => {
 
 function ParticleContent({ shape, customImageUrl, symbol }: { shape: ParticleShape; customImageUrl?: string; symbol: string }) {
   if (shape !== "custom" || !customImageUrl) return symbol;
-  return <span className="custom-particle-image" style={{ backgroundColor: "currentColor", WebkitMaskImage: `url("${customImageUrl}")`, maskImage: `url("${customImageUrl}")` }} />;
+  // Draw the source bitmap, never an alpha mask filled with a palette color.
+  return <img className="custom-particle-image" src={customImageUrl} alt="" draggable={false} />;
 }
 
 function ParticleRendererComponent({ config }: ParticleRendererProps) {
   const reduceMotion = useReducedMotion();
-  const colorsSignature = config.colors.join("\u0000");
+  const colorsSignature = config.shape === "custom" ? "" : config.colors.join("\u0000");
   const particles = useMemo<GeneratedParticle[]>(() => Array.from(
     { length: clampQuantity(config.quantity) },
     (_, index) => ({
@@ -123,7 +124,7 @@ function ParticleRendererComponent({ config }: ParticleRendererProps) {
       rotationEnd: randomBetween(280, 440),
       progress: randomBetween(0.02, 0.98),
       durationFactor: randomBetween(0.8, 1.2),
-      color: randomColor(config.colors),
+      color: config.shape === "custom" ? "" : randomColor(config.colors),
       driftX: randomBetween(-12, 12),
       driftY: randomBetween(-10, 10),
       rotateAmount: randomBetween(-25, 25),
@@ -147,7 +148,7 @@ function ParticleRendererComponent({ config }: ParticleRendererProps) {
             left: `${particle.x}%`,
             top: `${particle.y}%`,
             fontSize: particle.size,
-            color: particle.color,
+            color: config.shape === "custom" ? undefined : particle.color,
             opacity: config.opacity,
             animationDuration: `${duration}s`,
             animationDelay: `${-(particle.progress * duration)}s`,
@@ -168,7 +169,7 @@ function ParticleRendererComponent({ config }: ParticleRendererProps) {
           left: 0,
           top: 0,
           fontSize: particle.size,
-          color: particle.color,
+          color: config.shape === "custom" ? undefined : particle.color,
           opacity: config.opacity,
           animationDuration: `${duration}s`,
           animationDelay: `${-(particle.progress * duration)}s`,
@@ -203,8 +204,8 @@ const particleConfigsEqual = (
     && before.opacity === after.opacity
     && before.layer === after.layer
     && before.customImageUrl === after.customImageUrl
-    && before.colors.length === after.colors.length
-    && before.colors.every((color, index) => color === after.colors[index]);
+    && (before.shape === "custom" || (before.colors.length === after.colors.length
+      && before.colors.every((color, index) => color === after.colors[index])));
 };
 
 export const ParticleRenderer = memo(

@@ -1,3 +1,4 @@
+import { StableColorInput } from "../../components/ui/StableColorInput";
 import { useState } from "react";
 import { uploadProjectAsset } from "../../services/assetRepository";
 import { useEditorStore } from "../../stores/editorStore";
@@ -25,9 +26,9 @@ export function BackgroundPanel({ background }: { background?: PageBackground })
   return <aside className="properties-panel">
     <div className="properties-heading"><div><small>Document</small><h2>Arrière-plan</h2></div></div>
     <Field label="Type"><div className="segmented">{(["color", "gradient", "image"] as const).map((type) => <button type="button" key={type} className={background.type === type ? "active" : ""} onClick={() => update({ type })}>{type === "color" ? "Couleur" : type === "gradient" ? "Dégradé" : "Image"}</button>)}</div></Field>
-    {background.type === "color" && <Field label="Couleur"><input type="color" value={background.color ?? "#fffdf9"} onChange={(event) => update({ color: event.target.value })} /></Field>}
+    {background.type === "color" && <Field label="Couleur"><StableColorInput value={background.color ?? "#fffdf9"} onChange={(value) => update({ color: value })} /></Field>}
     {background.type === "gradient" && <>
-      <div className="field-row"><Field label="Couleur 1"><input type="color" value={gradient.color1} onChange={(event) => update({ gradient: { ...gradient, color1: event.target.value } })} /></Field><Field label="Couleur 2"><input type="color" value={gradient.color2} onChange={(event) => update({ gradient: { ...gradient, color2: event.target.value } })} /></Field></div>
+      <div className="field-row"><Field label="Couleur 1"><StableColorInput value={gradient.color1} onChange={(value) => update({ gradient: { ...gradient, color1: value } })} /></Field><Field label="Couleur 2"><StableColorInput value={gradient.color2} onChange={(value) => update({ gradient: { ...gradient, color2: value } })} /></Field></div>
       <Field label="Style"><select value={gradient.type} onChange={(event) => update({ gradient: { ...gradient, type: event.target.value as "linear" | "radial" } })}><option value="linear">Linéaire</option><option value="radial">Radial</option></select></Field>
       {gradient.type === "linear" && <Field label={`Angle · ${gradient.angle ?? 135}°`}><input type="range" min="0" max="360" value={gradient.angle ?? 135} onChange={(event) => update({ gradient: { ...gradient, angle: Number(event.target.value) } })} /></Field>}
     </>}
