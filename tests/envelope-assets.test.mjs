@@ -136,7 +136,7 @@ test("controls use shared UI sections, lazy original thumbnails and persist-befo
 });
 
 test("closed offsets persist through actual store, asset changes, undo/redo and project/template reload", () => {
-  const offsets={baseClosedOffset:{x:-4,y:2},flapClosedOffset:{x:3,y:-1},sealClosedOffset:{x:-6,y:4}};
+  const offsets={baseClosedOffset:{x:-4,y:2},flapClosedOffset:{x:3,y:-1},sealClosedOffset:{x:-6,y:4},sealScale:1.6};
   const initial={...project,id:"closed-envelope-project",opening:{...project.opening,envelope:{...envelope,...offsets}}};
   useEditorStore.setState({project:initial,past:[],future:[]});
   for (const part of ENVELOPE_PARTS) {
@@ -156,6 +156,29 @@ test("closed offsets persist through actual store, asset changes, undo/redo and 
   assert.equal(template.templateData.opening.envelope.sealClosedOffset.x,-6);
   const reset={...updated.opening.envelope,flapClosedOffset:{x:0,y:0}};
   assert.deepEqual(reset.baseClosedOffset,offsets.baseClosedOffset); assert.deepEqual(reset.sealClosedOffset,offsets.sealClosedOffset);
+  assert.equal(reset.sealScale,1.6);
+});
+
+test("project seal scale survives preset/custom/global changes and template round-trip", () => {
+  const initial={...project,id:"scaled-envelope-project",opening:{...project.opening,envelope:{...envelope,sealScale:1.6,sealClosedOffset:{x:-6,y:4},baseClosedOffset:{x:5,y:2},flapClosedOffset:{x:-2,y:1}}}};
+  useEditorStore.setState({project:initial,past:[],future:[]});
+  for (const asset of [ENVELOPE_PRESETS.seal[1],custom("seal"),{type:"global",id:"qa-global",url:"https://example.invalid/storage/v1/object/public/global-assets/seal.png"}]) {
+    const state=useEditorStore.getState();
+    state.updateOpening({...state.project.opening,envelope:{...state.project.opening.envelope,sealAsset:asset}});
+    const updated=useEditorStore.getState().project;
+    assert.equal(updated.opening.envelope.sealScale,1.6);
+    upsertProject(updated);
+    assert.deepEqual(getProject(updated.id,"owner").opening.envelope,updated.opening.envelope);
+    const template={name:"Scaled seal",templateData:sanitizeProjectForTemplate(updated)};
+    const instance=instantiateProjectFromTemplate(template,"other-owner");
+    assert.deepEqual(instance.opening.envelope,updated.opening.envelope);
+    instance.opening.envelope.sealScale=.5;
+    assert.equal(template.templateData.opening.envelope.sealScale,1.6);
+  }
+  const state=useEditorStore.getState(), before=state.project.opening.envelope;
+  state.updateOpening({...state.project.opening,envelope:{...before,sealScale:1,sealClosedOffset:{x:0,y:0}}});
+  assert.deepEqual(useEditorStore.getState().project.opening.envelope,{...before,sealScale:1,sealClosedOffset:{x:0,y:0}});
+  state.undo(); assert.deepEqual(useEditorStore.getState().project.opening.envelope,before);
 });
 
 test.after(() => { hooks.deregister(); delete globalThis.localStorage; });

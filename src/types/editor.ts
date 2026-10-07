@@ -617,6 +617,8 @@ export interface EnvelopeConfig {
   baseClosedOffset?: EnvelopeOffset;
   flapClosedOffset?: EnvelopeOffset;
   sealClosedOffset?: EnvelopeOffset;
+  /** Smartphone seal size multiplier, 0.5–2; absent means the original size (1). */
+  sealScale?: number;
   customBases?: EnvelopeAssetRef[];
   customFlaps?: EnvelopeAssetRef[];
   customSeals?: EnvelopeAssetRef[];

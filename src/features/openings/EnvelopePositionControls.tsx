@@ -2,22 +2,27 @@ import { RotateCcw } from "lucide-react";
 import { DimensionInput } from "../../components/ui/DimensionInput";
 import { useEditorStore } from "../../stores/editorStore";
 import { ENVELOPE_PART_FIELDS, type EnvelopePart } from "./envelopeAssets";
-import { ENVELOPE_OFFSET_FIELDS, resolveEnvelopeOffset } from "./pngEnvelopeLayout";
-import type { EnvelopeOffset } from "../../types/editor";
+import { ENVELOPE_OFFSET_FIELDS, resolveEnvelopeOffset, resolveEnvelopeSealScale } from "./pngEnvelopeLayout";
+import type { EnvelopeConfig, EnvelopeOffset } from "../../types/editor";
 
 export function EnvelopePositionControls({ part }: { part: EnvelopePart }) {
   const project = useEditorStore((state) => state.project);
   if (!project) return null;
   const field = ENVELOPE_OFFSET_FIELDS[part];
   const offset = resolveEnvelopeOffset(project.opening.envelope?.[field]);
-  const update = (patch: Partial<EnvelopeOffset>) => {
+  const sizePercent = Math.round(resolveEnvelopeSealScale(project.opening.envelope?.sealScale) * 100);
+  const updateEnvelope = (patch: (envelope: EnvelopeConfig) => Partial<EnvelopeConfig>) => {
     const state = useEditorStore.getState();
     if (state.project?.id !== project.id || state.project.opening.type !== "envelope") return;
     const opening = state.project.opening;
     state.updateOpening({ ...opening, envelope: { ...opening.envelope,
-      [field]: resolveEnvelopeOffset({ ...resolveEnvelopeOffset(opening.envelope?.[field]), ...patch }),
+      ...patch(opening.envelope ?? {}),
     } });
   };
+  const update = (patch: Partial<EnvelopeOffset>) => updateEnvelope((envelope) => ({
+    [field]: resolveEnvelopeOffset({ ...resolveEnvelopeOffset(envelope[field]), ...patch }),
+  }));
+  const updateSize = (percent: number) => updateEnvelope(() => ({ sealScale: resolveEnvelopeSealScale(percent / 100) }));
   return <fieldset className="envelope-position-controls">
     <legend>Position fermée</legend>
     <small>Décalage en % du Smartphone · 0 = position normale.</small>
@@ -33,6 +38,16 @@ export function EnvelopePositionControls({ part }: { part: EnvelopePart }) {
         </div>
       </label>;
     })}
-    <button type="button" onClick={() => update({ x: 0, y: 0 })}><RotateCcw size={13} /> Réinitialiser la position</button>
+    {part === "seal" && <label className="envelope-position-field">
+      <span>Taille du cachet</span>
+      <div>
+        <input type="range" aria-label="Taille du cachet (%) — curseur" min={50} max={200} step={5} value={sizePercent} onChange={(event) => updateSize(Number(event.currentTarget.value))} />
+        <DimensionInput aria-label="Taille du cachet (%)" value={sizePercent} min={50} max={200} step={5} onLiveChange={updateSize} onCommit={updateSize} />
+        <span>%</span>
+      </div>
+    </label>}
+    <button type="button" onClick={() => part === "seal"
+      ? updateEnvelope(() => ({ sealClosedOffset: { x: 0, y: 0 }, sealScale: 1 }))
+      : update({ x: 0, y: 0 })}><RotateCcw size={13} /> {part === "seal" ? "Réinitialiser le cachet" : "Réinitialiser la position"}</button>
   </fieldset>;
 }

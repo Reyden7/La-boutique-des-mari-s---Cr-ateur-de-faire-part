@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { transformWithOxc } from "vite";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { PNG_ENVELOPE_ASSETS, getPngEnvelopeLayout, getPngEnvelopeDuration, getPngEnvelopeClosedLayout, resolveEnvelopeOffset } from "../src/features/openings/pngEnvelopeLayout.ts";
+import { PNG_ENVELOPE_ASSETS, getPngEnvelopeLayout, getPngEnvelopeDuration, getPngEnvelopeClosedLayout, resolveEnvelopeOffset, resolveEnvelopeSealScale } from "../src/features/openings/pngEnvelopeLayout.ts";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const source = read("src/features/openings/animations/PngEnvelopeOpening.tsx");
@@ -171,11 +171,55 @@ test("actual renderer places offsets on local boxes, keeps seal inside group and
   assert.match(source,/animate=\{\{ x: opening \? layout.rightTravel : 0 \}\}/);
   assert.match(source,/duration: duration - delay, delay: opening \? delay : 0, ease: "easeInOut"/);
 });
-test("Smartphone offsets never change Tablet or PC renderer output", () => {
+test("Smartphone offsets and seal size never change Tablet or PC renderer output", () => {
   for (const device of ["tablet","desktop"]) {
-    const withOffsets=renderToStaticMarkup(createElement(ResponsiveEnvelopeOpening,{config:{...config,envelope:offsets},device,couple:"Emma & Lucas"},createElement("button",{},"Vrai contenu")));
+    const withOffsets=renderToStaticMarkup(createElement(ResponsiveEnvelopeOpening,{config:{...config,envelope:{...offsets,sealScale:2}},device,couple:"Emma & Lucas"},createElement("button",{},"Vrai contenu")));
     assert.equal(withOffsets,render(ResponsiveEnvelopeOpening,device));
   }
+});
+
+test("seal scale defaults to original size and rejects invalid persisted values", () => {
+  for (const value of [undefined,null,NaN,Infinity,-Infinity,"1.6",{}]) assert.equal(resolveEnvelopeSealScale(value),1);
+  assert.equal(resolveEnvelopeSealScale(.1),.5); assert.equal(resolveEnvelopeSealScale(10),2);
+  for (const value of [.5,1,1.4,1.6,2]) assert.equal(resolveEnvelopeSealScale(value),value);
+  assert.deepEqual(getPngEnvelopeClosedLayout(390,844,{sealScale:1}),getPngEnvelopeClosedLayout(390,844));
+});
+
+test("seal scales around its offset center without changing Base, Flap or animation deltas", () => {
+  for (const [w,h] of [[320,568],[390,844],[430,932]]) {
+    const original=getPngEnvelopeClosedLayout(w,h,offsets);
+    for (const scale of [.5,1,1.4,1.6,2]) {
+      const next=getPngEnvelopeClosedLayout(w,h,{...offsets,sealScale:scale});
+      near(next.seal.width,original.seal.width*scale); near(next.seal.height,original.seal.height*scale);
+      near(next.seal.x+next.seal.width/2,original.seal.x+original.seal.width/2);
+      near(next.seal.y+next.seal.height/2,original.seal.y+original.seal.height/2);
+      for (const field of ["base","flap","flapImage","leftTravel","rightTravel"]) assert.deepEqual(next[field],original[field]);
+      for (const progress of [0,.001,.25,.5,1]) {
+        near(next.flap.x+next.rightTravel*progress+next.seal.x+next.seal.width/2,
+          original.flap.x+original.rightTravel*progress+original.seal.x+original.seal.width/2);
+      }
+    }
+  }
+});
+
+test("shared actual renderer applies 160% static seal size inside the animated group", () => {
+  const settings={...offsets,sealScale:1.6};
+  const rect=getPngEnvelopeClosedLayout(390,844,settings).seal;
+  for (const closedPreview of [true,false]) {
+    const html=renderToStaticMarkup(createElement(PngEnvelopeOpening,{config:{...config,envelope:settings},closedPreview},null));
+    assert.match(html,new RegExp(`class="png-envelope-seal"[^>]*style="left:${rect.x}px;top:${rect.y}px;width:${rect.width}px;height:${rect.height}px`));
+    assert.match(html,/png-envelope-right-group[\s\S]*?png-envelope-flap[\s\S]*?png-envelope-seal[\s\S]*?<\/div>/);
+  }
+});
+
+test("size UI is seal-only, live, percent-based and reset restores size and position atomically", () => {
+  const ui=read("src/features/openings/EnvelopePositionControls.tsx");
+  assert.match(ui,/part === "seal" && <label[\s\S]*Taille du cachet/);
+  assert.match(ui,/min=\{50\} max=\{200\} step=\{5\}/);
+  assert.match(ui,/onLiveChange=\{updateSize\} onCommit=\{updateSize\}/);
+  assert.match(ui,/sealClosedOffset: \{ x: 0, y: 0 \}, sealScale: 1/);
+  assert.match(ui,/Réinitialiser le cachet/);
+  assert.match(ui,/percent \/ 100/);
 });
 
 test("position UI follows each asset picker and editor closed overlay is Smartphone introduction only", () => {

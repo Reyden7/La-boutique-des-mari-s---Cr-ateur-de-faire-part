@@ -7,6 +7,10 @@ export function resolveEnvelopeOffset(value?: Partial<EnvelopeOffset> | null): E
   return { x: axis(value?.x), y: axis(value?.y) };
 }
 
+export function resolveEnvelopeSealScale(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(.5, Math.min(2, value)) : 1;
+}
+
 /** Original PNG dimensions and alpha bounds. No modification of source pixels. */
 export const PNG_ENVELOPE_ASSETS = {
   base: "/assets/openings/envelope/base1.png",
@@ -46,10 +50,18 @@ export function getPngEnvelopeClosedLayout(width: number, height: number, envelo
     return { x: layout.width * offset.x / 100, y: layout.height * offset.y / 100 };
   };
   const base = shift("base"), flap = shift("flap"), seal = shift("seal");
+  const scale = resolveEnvelopeSealScale(envelope?.sealScale);
+  const sealWidth = layout.seal.width * scale, sealHeight = layout.seal.height * scale;
   return {
     ...layout,
     base: { ...layout.base, x: layout.base.x + base.x, y: layout.base.y + base.y },
     flapImage: { ...flap, width: layout.flap.width, height: layout.flap.height },
-    seal: { ...layout.seal, x: layout.seal.x + seal.x, y: layout.seal.y + seal.y },
+    // Resize only the seal's local box around its center. The moving group's
+    // origin and opening distances still come from the original geometry.
+    seal: {
+      x: layout.seal.x + seal.x + (layout.seal.width - sealWidth) / 2,
+      y: layout.seal.y + seal.y + (layout.seal.height - sealHeight) / 2,
+      width: sealWidth, height: sealHeight,
+    },
   };
 }

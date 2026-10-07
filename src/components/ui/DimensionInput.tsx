@@ -6,12 +6,15 @@ type DimensionInputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type" | 
   min: number;
   max?: number;
   onCommit: (value: number) => void;
+  /** Optional live preview of complete, in-range numbers; empty/partial drafts
+   * stay editable and are never clamped while typing. */
+  onLiveChange?: (value: number) => void;
 };
 
-/** Commit once on blur/Enter, so clearing or typing a first digit never clamps
- * the field, shrinks the canvas element or creates intermediate undo entries.
+/** By default commit once on blur/Enter. Optional live updates accept only
+ * complete in-range numbers, so clearing or typing a first digit never clamps.
  */
-export function DimensionInput({ value, min, max, onCommit, disabled, ...props }: DimensionInputProps) {
+export function DimensionInput({ value, min, max, onCommit, onLiveChange, disabled, ...props }: DimensionInputProps) {
   const [draft, setDraft] = useState(String(value));
   useEffect(() => setDraft(String(value)), [value]);
 
@@ -22,7 +25,12 @@ export function DimensionInput({ value, min, max, onCommit, disabled, ...props }
   };
 
   return <input {...props} type="number" step={props.step ?? "any"} min={min} max={max} disabled={disabled} value={draft}
-    onChange={(event) => setDraft(event.currentTarget.value)}
+    onChange={(event) => {
+      const text = event.currentTarget.value;
+      setDraft(text);
+      const next = Number(text);
+      if (!disabled && text.trim() && Number.isFinite(next) && next >= min && (max === undefined || next <= max) && next !== value) onLiveChange?.(next);
+    }}
     onBlur={commit}
     onKeyDown={(event) => {
       if (event.key === "Enter") {
