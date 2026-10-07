@@ -43,6 +43,7 @@ import {
 import { isElementLocked, isLockableElement } from "../../utils/elementLocking";
 import { ScheduleCanvasContent } from "../../features/elements/ScheduleCanvasContent";
 import { CalendarCanvasContent } from "../../features/elements/CalendarCanvasContent";
+import { CountdownCanvasContent } from "../../features/elements/CountdownCanvasContent";
 import { SectionCanvasSurface } from "../../features/elements/SectionCanvasSurface";
 import { getImageFrameMetrics, getImageFramePalette, resolveImageFrame } from "../../config/imageFrames";
 import { RSVP_EDITOR_ELEMENT_ID, getRsvpLayerZIndex, getRsvpSectionId, isRsvpVisibleOnDevice } from "../../features/rsvp/rsvpEditorElement";
@@ -326,6 +327,7 @@ function CanvasElement({
     return <Group {...common}><ScheduleCanvasContent element={element} layout={layout} /></Group>;
   }
   if (element.type === "calendar") return <Group {...common}><CalendarCanvasContent element={element} layout={layout} /></Group>;
+  if (element.type === "countdown") return <Group {...common}><CountdownCanvasContent element={element} layout={layout} /></Group>;
   if (element.type === "button") return <Group {...common}><Rect width={layout.width} height={layout.height} fill={element.backgroundColor} stroke={element.borderColor} strokeWidth={element.borderWidth} cornerRadius={element.borderRadius} /><Text width={layout.width} height={layout.height} text={element.label} fill={element.textColor} fontFamily={element.fontFamily ?? "Montserrat"} fontSize={element.fontSize ?? 13} fontStyle={(element.fontWeight ?? 700) >= 600 ? "bold" : "normal"} align={element.textAlign} padding={16} verticalAlign="middle" /></Group>;
   if (element.type === "section") return <Group {...common}><SectionCanvasSurface element={element} layout={layout} /><Rect width={layout.width} height={layout.height} fill="rgba(0,0,0,0.001)" stroke={selected ? "#9a6d51" : undefined} strokeWidth={selected ? 2 : 0} cornerRadius={element.cornerRadius} /></Group>;
   if (element.shape === "circle") return <Circle {...common} x={layout.x + layout.width / 2} y={layout.y + layout.height / 2} radius={Math.min(layout.width, layout.height) / 2} fill={element.fill} stroke={element.stroke} strokeWidth={element.strokeWidth} />;

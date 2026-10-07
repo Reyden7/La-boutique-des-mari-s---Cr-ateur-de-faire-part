@@ -1,5 +1,6 @@
 import { PREVIEW_DEVICES, type PreviewDevice } from "../../config/previewDevices";
-import type { CalendarElement, EditorElement, ElementType, WeddingPage } from "../../types/editor";
+import type { CalendarElement, CountdownElement, EditorElement, ElementType, WeddingPage } from "../../types/editor";
+import { getDefaultCountdownDate } from "../../utils/countdownDate";
 import { getElementLayout, isElementVisibleOnDevice } from "../../utils/responsiveLayout";
 
 export const NEW_SECTION_MARGIN = 40;
@@ -72,6 +73,14 @@ export const makeCalendarElement = (): CalendarElement => ({
   weekdaysFontSize: 10, weekdaysColor: "#79695c", accentColor: "#a9775a",
   backgroundColor: "#fffaf5", borderColor: "#d9c4b4", decorationStyle: "none",
   decorationColor: "#a9775a", showWeekdays: true, showMonthLabel: true, showYearLabel: true,
+});
+
+export const makeCountdownElement = (): CountdownElement => ({
+  ...base("countdown", "Compte à rebours", 420, 260, 140), type: "countdown",
+  targetDate: getDefaultCountdownDate(), label: "jours", layout: "vertical",
+  fontFamily: "Cormorant Garamond", numberFontSize: 64, labelFontSize: 20,
+  numberColor: "#000000", labelColor: "#000000", textAlign: "center", gap: 6,
+  backgroundColor: "#00000000", borderColor: "#00000000", borderWidth: 0, borderRadius: 0, padding: 8,
 });
 
 export const makeButtonElement = (): EditorElement => ({

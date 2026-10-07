@@ -39,6 +39,11 @@ function visualStyle(element: EditorElement, scale: number, box: { width: number
     result.frame = { ...frame, width: frame.width * scale, radius: frame.radius * scale, shadowBlur: frame.shadowBlur * scale, shadowDistance: frame.shadowDistance * scale };
   }
   if (element.type === "location") result.locationScale = scale;
+  if (element.type === "countdown") {
+    result.numberFontSize = font(element.numberFontSize ?? 64, scale, 400);
+    result.labelFontSize = font(element.labelFontSize ?? 20, scale, 200);
+    result.gap = finite(element.gap, 6) * scale;
+  }
   if (element.type === "calendar") {
     // Calendar already scales its entire design scene to its box. Scaling its
     // design-unit fonts again would double the adaptation; only cap extremes.

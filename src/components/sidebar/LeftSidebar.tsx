@@ -3,6 +3,7 @@ import {
   ClipboardCheck,
   CalendarClock,
   CalendarDays,
+  Timer,
   CircleDashed,
   Heart,
   GalleryHorizontal,
@@ -28,7 +29,7 @@ import { isSupabaseConfigured } from "../../lib/supabase";
 import { uploadProjectAsset } from "../../services/assetRepository";
 import { DecorativeHeartSvg } from "../../features/hearts/DecorativeHeartSvg";
 import { DECORATIVE_HEARTS, makeDecorativeHeartElement } from "../../features/hearts/heartRegistry";
-import { makeButtonElement, makeCalendarElement, makeCarouselElement, makeLocationElement, makeScheduleElement, makeScratchElement, makeSectionElement } from "../../features/elements/elementFactories";
+import { makeButtonElement, makeCalendarElement, makeCountdownElement, makeCarouselElement, makeLocationElement, makeScheduleElement, makeScratchElement, makeSectionElement } from "../../features/elements/elementFactories";
 import { IntroductionPanel } from "../../features/introduction/IntroductionPanel";
 import { RSVP_EDITOR_ELEMENT_ID } from "../../features/rsvp/rsvpEditorElement";
 import { getElementLayout, getElementSectionId, isElementVisibleOnDevice } from "../../utils/responsiveLayout";
@@ -182,6 +183,7 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
             <button onClick={() => addElement(makeLocationElement())}><MapPin size={20} /><span>Lieu / Carte</span></button>
             <button onClick={() => addElement(makeScheduleElement())}><CalendarClock size={20} /><span>Programme</span></button>
             <button onClick={() => addElement(makeCalendarElement())}><CalendarDays size={20} /><span>Calendrier</span></button>
+            <button onClick={() => addElement(makeCountdownElement())}><Timer size={20} /><span>Compte à rebours</span></button>
             <button onClick={() => addElement(makeScratchElement())}><CircleDashed size={20} /><span>À gratter</span></button>
             <button onClick={() => addElement(makeButtonElement())}><Link size={20} /><span>Bouton</span></button>
             <button onClick={() => { setDecorationMenu((value) => !value); setHeartMenu(false); setShapeMenu(false); }}><Sparkles size={20} /><span>Décorations</span></button>

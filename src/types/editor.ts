@@ -1,4 +1,4 @@
-export type ElementType = "text" | "image" | "shape" | "icon" | "scratch" | "carousel" | "location" | "schedule" | "calendar" | "button" | "section";
+export type ElementType = "text" | "image" | "shape" | "icon" | "scratch" | "carousel" | "location" | "schedule" | "calendar" | "countdown" | "button" | "section";
 export type AnimationType = "none" | "fade" | "slide-left" | "slide-right" | "slide-up" | "slide-down" | "zoom" | "rotate";
 
 export interface AnimationConfig {
@@ -36,6 +36,9 @@ export interface ResponsiveElementLayout {
 }
 
 export interface ResponsiveVisualStyle {
+  numberFontSize?: number;
+  labelFontSize?: number;
+  gap?: number;
   fontSize?: number;
   titleFontSize?: number;
   numbersFontSize?: number;
@@ -484,7 +487,27 @@ export interface CalendarElement extends BaseElement {
   showYearLabel: boolean;
 }
 
-export type EditorElement = TextElement | ImageElement | ShapeElement | IconElement | ScratchElement | CarouselElement | LocationElement | ScheduleElement | CalendarElement | ButtonElement | SectionElement;
+export interface CountdownElement extends BaseElement {
+  type: "countdown";
+  /** Calendar date YYYY-MM-DD, not a timestamp or a cached days count. */
+  targetDate: string;
+  label: string;
+  layout: "vertical" | "horizontal";
+  fontFamily: string;
+  numberFontSize: number;
+  labelFontSize: number;
+  numberColor: string;
+  labelColor: string;
+  textAlign: "left" | "center" | "right";
+  gap: number;
+  backgroundColor?: string;
+  borderColor?: string;
+  borderWidth?: number;
+  borderRadius?: number;
+  padding?: number;
+}
+
+export type EditorElement = TextElement | ImageElement | ShapeElement | IconElement | ScratchElement | CarouselElement | LocationElement | ScheduleElement | CalendarElement | CountdownElement | ButtonElement | SectionElement;
 
 export interface PageBackground {
   type: "color" | "gradient" | "image";

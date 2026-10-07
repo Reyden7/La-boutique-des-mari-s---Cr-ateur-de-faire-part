@@ -29,6 +29,9 @@ const measure = (text: string, size: number, family: string, bold: boolean) => {
   return Array.from(text).length * size * .6;
 };
 
+/** Shared logical font measurement for composed text elements. */
+export const measureScheduleText = (text: string, size: number, family: string, bold = false) => measure(text, size, family, bold);
+
 /** Pre-wrap once in logical pixels; DOM and Konva receive the same line breaks. */
 export function wrapScheduleText(text: string, width: number, size: number, family: string, bold: boolean) {
   const lines: string[] = [];
