@@ -2,8 +2,9 @@ import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 import { corsHeaders, jsonResponse } from "../_shared/http.ts";
 import { getGlobalFontMetadata } from "../_shared/fontFormats.ts";
 import { getProgramIconFileInfo } from "../_shared/programIconFormats.ts";
+import { ENVELOPE_TYPES, inspectEnvelopeUpload, isEnvelopeType } from "../_shared/envelopeFormats.ts";
 
-const TYPES = ["font", "welcome_arch", "welcome_background", "music", "particle", "decoration", "program_icon"] as const;
+const TYPES = ["font", "welcome_arch", "welcome_background", "music", "particle", "decoration", "program_icon", ...ENVELOPE_TYPES] as const;
 type GlobalAssetType = typeof TYPES[number];
 
 type Body = {
@@ -42,6 +43,9 @@ const destinationFolder: Record<GlobalAssetType, string> = {
   particle: "particles",
   decoration: "decorations",
   program_icon: "program-icons",
+  envelope_base: "envelope/bases",
+  envelope_flap: "envelope/flaps",
+  envelope_seal: "envelope/seals",
 };
 
 const expectedKind: Record<GlobalAssetType, SourceAsset["kind"]> = {
@@ -52,6 +56,9 @@ const expectedKind: Record<GlobalAssetType, SourceAsset["kind"]> = {
   particle: "image",
   decoration: "image",
   program_icon: "image",
+  envelope_base: "image",
+  envelope_flap: "image",
+  envelope_seal: "image",
 };
 
 const sanitizeMetadata = (type: GlobalAssetType, input: Record<string, unknown>, source: SourceAsset) => {
@@ -90,30 +97,80 @@ Deno.serve(async (request) => {
     if (authError || !user || user.is_anonymous) return jsonResponse({ error: "Authentication required" }, 401, true);
     if (user.app_metadata?.role !== "admin") return jsonResponse({ error: "Admin access required" }, 403, true);
 
-    const body = await request.json() as Body;
-    if (!body.sourceAssetId || !TYPES.includes(body.type) || !body.name?.trim()) return jsonResponse({ error: "Invalid asset payload" }, 400, true);
+    const multipart = request.headers.get("Content-Type")?.startsWith("multipart/form-data");
+    if (multipart && Number(request.headers.get("Content-Length")) > 5 * 1024 * 1024 + 32768) return jsonResponse({ error: "5 Mo maximum." }, 413, true);
+    const form = multipart ? await request.formData() : null;
+    const body = (form ? { type: form.get("type"), name: form.get("name") } : await request.json()) as Body & { action?: string; assetId?: string; confirmed?: boolean };
+    if (body.action === "usage" || body.action === "delete") {
+      if (!body.assetId || !/^[0-9a-f-]{36}$/i.test(body.assetId)) return jsonResponse({ error: "Identifiant invalide." }, 400, true);
+      const { data: usage, error: usageError } = await admin.rpc("envelope_asset_usage", { p_asset_id: body.assetId });
+      if (usageError) throw usageError;
+      if (body.action === "usage") return jsonResponse(usage, 200, true);
+      if (body.confirmed !== true) return jsonResponse({ error: "Confirmation explicite requise." }, 400, true);
+      const { data: reserved, error: reserveError } = await admin.rpc("reserve_envelope_asset_deletion", { p_asset_id: body.assetId });
+      if (reserveError) throw reserveError;
+      if (reserved.blocked) return jsonResponse({ ...reserved, error: `Cet élément est utilisé par ${reserved.projects} projet(s) et ${reserved.templates} template(s). Dépubliez-le sans supprimer son fichier.` }, 409, true);
+      const path = reserved.storagePath;
+      if (typeof path !== "string" || !/^envelope\/(bases|flaps|seals)\/[a-zA-Z0-9_.-]+$/.test(path)) throw new Error("Chemin Storage non sûr.");
+      const { error: removeError } = await admin.storage.from("global-assets").remove([path]);
+      // On failure keep the record reserved/unpublished: never expose a possibly
+      // partially removed file to new projects. Retrying deletion is safe.
+      if (removeError) throw new Error("Suppression Storage incomplète. L’asset reste dépublié et réservé ; réessayez la suppression.");
+      const { error: finishError } = await admin.rpc("finish_envelope_asset_deletion", { p_asset_id: body.assetId });
+      if (finishError) throw new Error("Fichier supprimé ; finalisation DB à réessayer. L’asset reste réservé et non sélectionnable.");
+      return jsonResponse({ deleted: true }, 200, true);
+    }
+    if (!TYPES.includes(body.type) || typeof body.name !== "string" || !body.name.trim() || body.name.trim().length > 160 || (!form && !body.sourceAssetId)) return jsonResponse({ error: "Invalid asset payload" }, 400, true);
+    if (form && !isEnvelopeType(body.type)) return jsonResponse({ error: "L’import direct est réservé aux bases, rabats et cachets." }, 400, true);
+
+    let source: SourceAsset;
+    let directFile: File | null = null;
+    if (form) {
+      const file = form.get("file");
+      if (!(file instanceof File)) return jsonResponse({ error: "Fichier manquant." }, 400, true);
+      try {
+        const info = await inspectEnvelopeUpload(file);
+        directFile = file;
+        body.metadata = { width: info.width, height: info.height };
+        source = { id: "", owner_id: user.id, kind: "image", storage_path: `direct.${info.extension}`, public_url: "", mime_type: info.mimeType, size_bytes: file.size };
+      } catch (cause) { return jsonResponse({ error: cause instanceof Error ? cause.message : "Image invalide." }, 400, true); }
+    } else {
 
     const { data: duplicate } = await admin.from("global_assets").select("*")
       .eq("source_asset_id", body.sourceAssetId).eq("type", body.type).maybeSingle();
     if (duplicate) {
+      if (duplicate.delete_pending) return jsonResponse({ error: "Suppression en cours : impossible de republier cet asset." }, 409, true);
       const { data: published, error } = await admin.from("global_assets").update({ is_published: true, updated_at: new Date().toISOString() })
         .eq("id", duplicate.id).select("*").single();
       if (error) throw error;
       return jsonResponse({ asset: published, duplicate: true }, 200, true);
     }
 
-    const { data: source, error: sourceError } = await admin.from("assets").select("id,owner_id,kind,storage_path,public_url,mime_type,size_bytes")
+    const { data: sourceRow, error: sourceError } = await admin.from("assets").select("id,owner_id,kind,storage_path,public_url,mime_type,size_bytes")
       .eq("id", body.sourceAssetId).eq("owner_id", user.id).single<SourceAsset>();
-    if (sourceError || !source) return jsonResponse({ error: "Source asset not found" }, 404, true);
+    if (sourceError || !sourceRow) return jsonResponse({ error: "Source asset not found" }, 404, true);
+    source = sourceRow;
     if (source.kind !== expectedKind[body.type] || !source.storage_path.startsWith(`${user.id}/`)) return jsonResponse({ error: "Source asset type rejected" }, 400, true);
     if (body.type === "program_icon") {
       try { getProgramIconFileInfo({ name: source.storage_path, type: source.mime_type, size: source.size_bytes ?? 0 }); }
       catch (error) { return jsonResponse({ error: error instanceof Error ? error.message : "Invalid program icon" }, 400, true); }
     }
+    if (isEnvelopeType(body.type)) {
+      const { data: blob, error: downloadError } = await admin.storage.from("wedding-assets").download(source.storage_path);
+      if (downloadError || !blob) throw new Error("Impossible de lire l’image source.");
+      try {
+        const file = new File([blob], source.storage_path.split("/").pop()!, { type: source.mime_type ?? blob.type });
+        const info = await inspectEnvelopeUpload(file);
+        body.metadata = { width: info.width, height: info.height };
+      } catch (cause) { return jsonResponse({ error: cause instanceof Error ? cause.message : "Image invalide." }, 400, true); }
+    }
+    }
 
-    const filename = source.storage_path.split("/").pop() ?? crypto.randomUUID();
+    const filename = isEnvelopeType(body.type) ? `asset.${source.storage_path.split(".").pop()?.toLowerCase()}` : source.storage_path.split("/").pop() ?? crypto.randomUUID();
     copiedPath = `${destinationFolder[body.type]}/${crypto.randomUUID()}-${filename}`;
-    const { error: copyError } = await admin.storage.from("wedding-assets").copy(source.storage_path, copiedPath, { destinationBucket: "global-assets" });
+    const { error: copyError } = directFile
+      ? await admin.storage.from("global-assets").upload(copiedPath, directFile, { contentType: source.mime_type!, upsert: false })
+      : await admin.storage.from("wedding-assets").copy(source.storage_path, copiedPath, { destinationBucket: "global-assets" });
     if (copyError) throw copyError;
 
     const publicUrl = admin.storage.from("global-assets").getPublicUrl(copiedPath).data.publicUrl;
@@ -121,7 +178,7 @@ Deno.serve(async (request) => {
     const baseSlug = slugify(body.slug?.trim() || body.name);
     const { data: slugMatch } = await admin.from("global_assets").select("id").eq("slug", baseSlug).maybeSingle();
     const slug = slugMatch ? `${baseSlug}-${crypto.randomUUID().slice(0, 8)}` : baseSlug;
-    const visual = ["welcome_arch", "welcome_background", "particle", "decoration", "program_icon"].includes(body.type);
+    const visual = ["welcome_arch", "welcome_background", "particle", "decoration", "program_icon", ...ENVELOPE_TYPES].includes(body.type);
     const { data: asset, error: insertError } = await admin.from("global_assets").insert({
       type: body.type,
       name: body.name.trim(),
@@ -132,7 +189,7 @@ Deno.serve(async (request) => {
       metadata,
       category: body.category?.trim() || null,
       is_published: true,
-      source_asset_id: source.id,
+      source_asset_id: source.id || null,
       created_by: user.id,
     }).select("*").single();
     if (insertError) throw insertError;

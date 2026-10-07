@@ -89,6 +89,39 @@ test("template copy failure never publishes the template", async () => {
   assert.equal(calls.some((call) => call.op === "update"), false);
 });
 
+test("real template handler copies nested envelope choices/libraries and preserves global/preset URLs", async () => {
+  reset();
+  const local = (part) => `https://example.invalid/storage/v1/object/public/wedding-assets/owner/project/envelope/${part}/custom.png`;
+  const global = "https://example.invalid/storage/v1/object/public/global-assets/seals/global.png";
+  const preset = "/assets/openings/envelope/rabat3.png";
+  snapshot = { opening: { type: "envelope", envelope: {
+    baseAsset: { type: "custom", url: local("bases") }, customBases: [{ type: "custom", url: local("bases") }],
+    flapAsset: { type: "preset", id: "flap-olive", url: preset }, customFlaps: [{ type: "custom", url: local("flaps") }],
+    sealAsset: { type: "global", id: "global", url: global }, customSeals: [{ type: "custom", url: local("seals") }],
+  } } };
+  const response = await publishTemplate(request(templateBody));
+  assert.equal(response.status, 200);
+  const copies = calls.filter((call) => call.op === "copy");
+  assert.equal(copies.length, 3);
+  assert.ok(copies.every((copy) => copy.path.startsWith("owner/project/envelope/") && copy.options.destinationBucket === "template-assets"));
+  const envelope = (await response.json()).template.template_data.opening.envelope;
+  assert.match(envelope.baseAsset.url, /\/template-assets\/templates\/template\//);
+  assert.equal(envelope.customBases[0].url, envelope.baseAsset.url);
+  assert.match(envelope.customFlaps[0].url, /\/template-assets\//);
+  assert.match(envelope.customSeals[0].url, /\/template-assets\//);
+  assert.equal(envelope.flapAsset.url, preset); assert.equal(envelope.sealAsset.url, global);
+  assert.equal(calls.at(-1).data.is_published, true);
+});
+
+test("template containing all three global envelope parts preserves exact refs and performs no Storage copies", async () => {
+  reset();
+  const envelope = Object.fromEntries([['baseAsset','bases'],['flapAsset','flaps'],['sealAsset','seals']].map(([field,folder]) => [field,{ type: "global", id: field, name: field, url: `https://example.invalid/storage/v1/object/public/global-assets/envelope/${folder}/global.png` }]));
+  snapshot = { opening: { type: "envelope", envelope } };
+  const response = await publishTemplate(request(templateBody)); assert.equal(response.status, 200);
+  assert.deepEqual((await response.json()).template.template_data.opening.envelope, envelope);
+  assert.equal(calls.some((call) => call.op === "copy"), false);
+});
+
 test("global program_icon publishes only after a durable copy into global-assets", async () => {
   reset();
   const response = await publishGlobal(request(globalBody));

@@ -590,6 +590,27 @@ export interface OpeningAnimationConfig {
   colors?: string[];
   variant?: string;
   customSettings?: Record<string, unknown>;
+  /** Smartphone PNG composition; other devices retain their existing opening. */
+  envelope?: EnvelopeConfig;
+}
+
+export interface EnvelopeAssetRef {
+  type: "preset" | "custom" | "global";
+  id?: string;
+  url: string;
+  name?: string;
+  assetId?: string;
+  width?: number;
+  height?: number;
+}
+
+export interface EnvelopeConfig {
+  baseAsset?: EnvelopeAssetRef;
+  flapAsset?: EnvelopeAssetRef;
+  sealAsset?: EnvelopeAssetRef;
+  customBases?: EnvelopeAssetRef[];
+  customFlaps?: EnvelopeAssetRef[];
+  customSeals?: EnvelopeAssetRef[];
 }
 
 export interface EnvelopeOpeningSettings {

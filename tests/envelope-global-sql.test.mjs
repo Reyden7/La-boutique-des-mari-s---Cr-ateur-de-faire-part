@@ -1,0 +1,41 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
+
+test("real PostgreSQL envelope migration + transaction: RLS, stable URLs, reference audit, safe delete, rollback", { skip: !process.env.PGLITE_MODULE_PATH }, async (t) => {
+  const { PGlite } = await import(pathToFileURL(process.env.PGLITE_MODULE_PATH).href);
+  const db = new PGlite(); t.after(() => db.close());
+  await db.exec(`
+    create role anon; create role authenticated; create role service_role bypassrls;
+    create schema auth; create schema extensions; create schema private; create schema storage;
+    create table auth.users(id uuid primary key,raw_app_meta_data jsonb default '{}',is_anonymous boolean default false,created_at timestamptz default now());
+    create function auth.jwt() returns jsonb language sql as $$ select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb $$;
+    create function auth.uid() returns uuid language sql as $$ select (auth.jwt()->>'sub')::uuid $$;
+    create function extensions.gen_random_uuid() returns uuid language sql as $$ select pg_catalog.gen_random_uuid() $$;
+    create table public.projects(id uuid primary key,owner_id uuid references auth.users(id),name text,project_data jsonb default '{}');
+    create table public.assets(id uuid primary key);
+    create table public.templates(id uuid primary key,name text,slug text,created_by uuid references auth.users(id),template_data jsonb default '{}');
+    create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
+    create table storage.objects(id uuid default extensions.gen_random_uuid(),bucket_id text,name text);
+    alter table public.projects enable row level security;
+    create policy owner_projects on public.projects to authenticated using(owner_id=(select auth.uid())) with check(owner_id=(select auth.uid()));
+    alter table storage.objects enable row level security;
+    grant usage on schema public,auth,storage to anon,authenticated,service_role;
+    grant select,insert,update,delete on public.projects,public.templates,storage.objects to authenticated,service_role;
+    insert into auth.users(id,created_at) values ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','2026-01-01'),('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','2026-02-01');
+  `);
+  const read = (path) => readFile(new URL(`../${path}`,import.meta.url),'utf8');
+  const adminSql = await read('supabase/migrations/20260929070544_administrable_templates.sql');
+  await db.exec(adminSql.slice(0,adminSql.indexOf('create table public.templates')));
+  await db.exec(await read('supabase/migrations/20260930061120_global_admin_assets.sql'));
+  await db.exec('grant all on public.global_assets to service_role');
+  await db.exec(await read('supabase/migrations/20261007075714_envelope_global_assets_admin.sql'));
+  const results = await db.exec(await read('supabase/tests/envelope_global_assets_rls_audit.sql'));
+  const report = results.find((result) => result.rows[0]?.test);
+  assert.ok(report.rows.length >= 22, `Only ${report.rows.length} checks returned`); assert.ok(report.rows.every((row) => row.passed));
+  for (const row of report.rows) t.diagnostic(`PASS ${row.test}`);
+  for (const table of ['global_assets','projects','templates']) assert.equal((await db.query(`select count(*)::int as count from public.${table}`)).rows[0].count,0);
+  assert.ok((await db.query('select raw_app_meta_data from auth.users')).rows.every((row) => Object.keys(row.raw_app_meta_data).length===0));
+  assert.equal((await db.query("select to_regclass('pg_temp.envelope_audit_results') as table_name")).rows[0].table_name,null);
+});

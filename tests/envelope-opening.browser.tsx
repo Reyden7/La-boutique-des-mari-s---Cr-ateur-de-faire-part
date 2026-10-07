@@ -5,7 +5,7 @@ import { OpeningProperties } from "../src/features/openings/OpeningProperties";
 import { OpeningPreview } from "../src/features/openings/OpeningPreview";
 import { PreviewMode } from "../src/components/preview/PreviewMode";
 import { InvitationExperience } from "../src/features/music/InvitationExperience";
-import { VerticalEnvelopeOpening } from "../src/features/openings/animations/VerticalEnvelopeOpening";
+import { ResponsiveEnvelopeOpening as VerticalEnvelopeOpening } from "../src/features/openings/animations/ResponsiveEnvelopeOpening";
 import { getEnvelopeTimeline } from "../src/features/openings/envelopeSettings";
 import { useEditorStore, makeTextElement } from "../src/stores/editorStore";
 import { createBlankProject } from "../src/templates/templates";
@@ -58,7 +58,7 @@ function Fixture() {
   const current = state.project!;
   useEffect(() => {
     const start = (event: MouseEvent) => {
-      if (!(event.target instanceof Element) || !event.target.closest(".envelope-trigger") || document.querySelector("[data-envelope-phase]")?.getAttribute("data-envelope-phase") !== "closed") return;
+      if (!(event.target instanceof Element) || !event.target.closest(".envelope-trigger, .png-envelope-trigger") || document.querySelector("[data-envelope-phase]")?.getAttribute("data-envelope-phase") !== "closed") return;
       started.current = performance.now(); setInspecting(true);
     };
     document.addEventListener("click", start, true);
@@ -66,9 +66,13 @@ function Fixture() {
   }, []);
   useEffect(() => {
     if (!inspecting) return;
-    const node = document.querySelector(".envelope-invitation");
+    const node = document.querySelector(".envelope-invitation, .png-envelope-content");
     if (!node) return;
     const initialWidth = (node as HTMLElement).clientWidth; const samples: unknown[] = [];
+    const initialTop = node.getBoundingClientRect().top;
+    const png = Boolean(document.querySelector(".png-envelope-stage"));
+    const initialSeal = document.querySelector(".png-envelope-seal")?.getBoundingClientRect();
+    const initialFlap = document.querySelector(".png-envelope-right-group")?.getBoundingClientRect();
     const timeline = getEnvelopeTimeline(current.opening.duration);
     let request = 0;
     const inspect = () => {
@@ -76,15 +80,18 @@ function Fixture() {
       const rect = node.getBoundingClientRect();
       const elapsed = (performance.now()-started.current)/1000;
       setStep(phase === "complete" ? "Terminée" : elapsed >= timeline.handoff.delay ? "Transition" : elapsed >= timeline.bottom.delay ? "Bas" : elapsed >= timeline.left.delay ? "Côtés" : elapsed >= timeline.top.delay ? "Rabat" : "Cachet");
-      const panels = Array.from(document.querySelectorAll<HTMLElement>(".envelope-panel")).map((p)=>{
+      const panels = Array.from(document.querySelectorAll<HTMLElement>(".envelope-panel, .png-envelope-base, .png-envelope-right-group")).map((p)=>{
         const matrix = new DOMMatrixReadOnly(getComputedStyle(p).transform);
         return {id:p.className,x:matrix.m41,y:matrix.m42,rotation3D:matrix.m13!==0||matrix.m23!==0,opacity:getComputedStyle(p).opacity};
       });
-      samples.push({ phase, time: Math.round(performance.now()-started.current), width: rect.width, top: rect.top, panels, sameNode: document.querySelector(".envelope-invitation") === node, naturalWidthStable: (node as HTMLElement).clientWidth === initialWidth });
+      const seal = document.querySelector(".png-envelope-seal")?.getBoundingClientRect();
+      const flap = document.querySelector(".png-envelope-right-group")?.getBoundingClientRect();
+      const sealAttached = !seal || !flap || !initialSeal || !initialFlap || Math.abs((seal.left-flap.left)-(initialSeal.left-initialFlap.left)) < .1;
+      samples.push({ phase, time: Math.round(performance.now()-started.current), width: rect.width, top: rect.top, panels, sealAttached, sameNode: document.querySelector(".envelope-invitation, .png-envelope-content") === node, naturalWidthStable: (node as HTMLElement).clientWidth === initialWidth });
       if (phase === "complete") {
-        const rows = samples as Array<{time:number;sameNode:boolean;naturalWidthStable:boolean;top:number;panels:Array<{id:string;x:number;y:number;rotation3D:boolean;opacity:string}>}>;
+        const rows = samples as Array<{time:number;sameNode:boolean;naturalWidthStable:boolean;sealAttached:boolean;top:number;panels:Array<{id:string;x:number;y:number;rotation3D:boolean;opacity:string}>}>;
         const panels = rows.flatMap(r=>r.panels);
-        setReport(JSON.stringify({samples:rows.length,elapsed:rows.at(-1)?.time,sameNode:rows.every((s)=>s.sameNode),naturalWidthStable:rows.every((s)=>s.naturalWidthStable),hingedTop:panels.some(p=>p.id.includes("envelope-top")&&p.rotation3D),sidesMoveOut:panels.some(p=>p.id.includes("envelope-left")&&p.x<0)&&panels.some(p=>p.id.includes("envelope-right")&&p.x>0),bottomMovesDown:panels.some(p=>p.id.includes("envelope-bottom")&&p.y>0),noOverlay:!document.querySelector(".envelope-overlay")})); setInspecting(false);
+        setReport(JSON.stringify({png,samples:rows.length,elapsed:rows.at(-1)?.time,sameNode:rows.every((s)=>s.sameNode),naturalWidthStable:rows.every((s)=>s.naturalWidthStable),stationaryDocument:rows.every(s=>Math.abs(s.top-initialTop)<.1),sealAttached:rows.every(s=>s.sealAttached),horizontalOnly:panels.every(p=>p.y===0&&!p.rotation3D),hingedTop:panels.some(p=>p.id.includes("envelope-top")&&p.rotation3D),sidesMoveOut:panels.some(p=>(p.id.includes("envelope-left")||p.id.includes("png-envelope-base"))&&p.x<0)&&panels.some(p=>p.id.includes("envelope-right")&&p.x>0),bottomMovesDown:panels.some(p=>p.id.includes("envelope-bottom")&&p.y>0),noOverlay:!document.querySelector(".envelope-overlay, .png-envelope-overlay")})); setInspecting(false);
       }
       else request = requestAnimationFrame(inspect);
     };
@@ -105,21 +112,29 @@ function Fixture() {
   return <main style={{ padding: 12 }}>
     <h1>Enveloppe verticale — test local</h1><p>Projet temporaire : aucune publication ni sauvegarde distante.</p>
     <nav style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-      {(["mobile","tablet","desktop"] as const).map((d) => <button key={d} onClick={() => { setDevice(d); replay(); }}>{PREVIEW_DEVICES[d].label}</button>)}
+      {(["mobile","tablet","desktop"] as const).map((d) => <button key={d} onClick={() => { setDevice(d); state.setPreviewDevice(d); replay(); }}>{PREVIEW_DEVICES[d].label}</button>)}
       <button onClick={() => setMode("preview")}>Aperçu complet</button><button onClick={() => setMode("opening-preview")}>Aperçu de l’ouverture</button>
       <button onClick={() => { setMode("public"); replay(); }}>Public responsive</button>
       <button onClick={() => { setMode("test"); replay(); }}>Contrôle des clics</button>
       <button onClick={() => { state.updateOpening({ ...current.opening, customSettings: { ...current.opening.customSettings, sealImageUrl: customSeal(), sealImageName: "cachet-alpha.png" } }); replay(); }}>Cachet PNG transparent</button>
       <button onClick={() => { state.updateOpening({ ...current.opening, colors: ["#85855F", "#d7dec3", "#8e663f"], customSettings: { ...current.opening.customSettings, flapColor: "#85855F" } }); replay(); }}>Papier olive</button>
+      <button onClick={() => { state.updateOpening({ ...current.opening, envelope: { ...current.opening.envelope, baseAsset: { type: "custom", id: "missing-base", name: "Base indisponible", url: `${location.origin}/__qa-envelope-assets/missing-base` } } }); replay(); }}>Tester base inaccessible</button>
+      <button onClick={() => {
+        // Synthetic bitmap solely to test WebP decoding/alpha; no user artwork edited.
+        const canvas = document.createElement("canvas"); canvas.width = 180; canvas.height = 180;
+        const ctx = canvas.getContext("2d")!; ctx.fillStyle = "#be363b"; ctx.beginPath(); ctx.arc(90,90,70,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle = "#ffe5a6"; ctx.font = "32px Georgia"; ctx.textAlign = "center"; ctx.fillText("QA",90,101);
+        canvas.toBlob((blob) => { if (!blob) return; const url = URL.createObjectURL(blob), link = document.createElement("a"); link.href = url; link.download = "envelope-qa-transparent.webp"; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }, "image/webp");
+      }}>Télécharger WebP de test</button>
       <button onClick={() => { state.setProject({...current,pages:current.pages.map((page)=>({...page,elements:page.elements.map((element)=>({...element,animation:{type:"fade",duration:1,delay:0}}))}))}); replay(); }}>Activer les fondus du contenu</button>
-      <button onClick={() => { upsertProject(current); const restored = getProject(current.id)!; state.setProject(restored); setReport(restored.opening.customSettings?.sealImageUrl ? "Cachet conservé après rechargement local" : "Palette conservée après rechargement local"); }}>Sauver et recharger localement</button>
+      <button onClick={() => { upsertProject(current); const restored = getProject(current.id)!; state.setProject(restored); setReport(JSON.stringify(restored.opening.envelope ?? restored.opening.customSettings)); }}>Sauver et recharger localement</button>
       <button onClick={replay}>Réinitialiser</button>
     </nav>
     <output id="qa-counts">{JSON.stringify(counts)}</output><output id="qa-step">{step}</output><pre id="qa-report">{report}</pre>
     {mode === "configuration" && <OpeningProperties onPreview={() => setMode("opening-preview")} />}
     {mode === "public" && <div className="public-invite" key={`${device}-${key}`}><InvitationExperience project={current} mode="public" /></div>}
     {mode === "test" && <div style={{width: PREVIEW_DEVICES[device].width, "--preview-device-height": `${PREVIEW_DEVICES[device].height}px`} as React.CSSProperties} key={`${device}-${key}`}>
-      <VerticalEnvelopeOpening config={current.opening} couple="Emma & Lucas" onInteract={() => { started.current=performance.now(); setInspecting(true); setCounts((c)=>({...c,interact:c.interact+1})); }} onComplete={() => setCounts((c)=>({...c,complete:c.complete+1}))}>
+      <VerticalEnvelopeOpening device={device} config={current.opening} couple="Emma & Lucas" onInteract={() => { started.current=performance.now(); setInspecting(true); setCounts((c)=>({...c,interact:c.interact+1})); }} onComplete={() => setCounts((c)=>({...c,complete:c.complete+1}))}>
         <div style={{height:1400,background:"#597362",padding:30}}><h2>Contenu déjà monté</h2><button onClick={()=>setCounts((c)=>({...c,action:c.action+1}))}>Action du faire-part</button><input defaultValue="État conservé" /></div>
       </VerticalEnvelopeOpening>
     </div>}

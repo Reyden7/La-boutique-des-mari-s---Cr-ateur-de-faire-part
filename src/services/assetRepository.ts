@@ -17,9 +17,9 @@ const normalizedMimeType = (file: File, kind: ProjectAssetKind) => {
   return file.type || (kind === "image" ? "image/jpeg" : "audio/mpeg");
 };
 
-export async function uploadProjectAsset(project: WeddingProject, file: File, kind: ProjectAssetKind, options?: { folder: "program-icons" }) {
+export async function uploadProjectAsset(project: WeddingProject, file: File, kind: ProjectAssetKind, options?: { folder: "program-icons" | "envelope/bases" | "envelope/flaps" | "envelope/seals" }) {
   if (!supabase) throw new Error("Supabase n’est pas configuré.");
-  if (options && kind !== "image") throw new Error("Le dossier d’icônes est réservé aux images.");
+  if (options && (kind !== "image" || !["program-icons", "envelope/bases", "envelope/flaps", "envelope/seals"].includes(options.folder))) throw new Error("Ce dossier est réservé aux images du projet.");
   if (kind === "font") {
     getFontFileInfo(file);
   }

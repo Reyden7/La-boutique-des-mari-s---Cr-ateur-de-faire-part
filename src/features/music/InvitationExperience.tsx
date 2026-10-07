@@ -76,6 +76,7 @@ export function InvitationExperience({ project, device, mode = "public" }: { pro
           project.opening
         }
         couple={couple}
+        device={activeDevice}
         onInteract={
           onInteract
         }
