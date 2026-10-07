@@ -184,7 +184,7 @@ interface EditorState {
 
   save: () => void;
 
-  checkoutAndPublish: (guestCount: number) => Promise<string | null>;
+  checkoutAndPublish: (guestCount: number, promoCode?: string) => Promise<string | null>;
 
   setSaveStatus: (
     status: SaveStatus
@@ -1367,7 +1367,7 @@ export const useEditorStore =
           );
       },
 
-      checkoutAndPublish: async (guestCount) => {
+      checkoutAndPublish: async (guestCount, promoCode) => {
         if (!isValidGuestCount(guestCount)) throw new Error("Nombre d’invités invalide.");
         const state =
           get();
@@ -1416,7 +1416,7 @@ export const useEditorStore =
           return null;
         }
 
-        return startProjectCheckout(normalized.id, guestCount);
+        return startProjectCheckout(normalized.id, guestCount, promoCode);
       },
 
       setSaveStatus: (

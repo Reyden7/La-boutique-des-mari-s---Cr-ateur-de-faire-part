@@ -98,6 +98,8 @@ Deno.serve(async (request) => {
       || (receipt.stripe_payment_intent_id && receipt.stripe_payment_intent_id !== paymentIntentId)) {
       return jsonResponse({ error: "Guest payment coherence check failed" }, 409);
     }
+    // finalize_guest_checkout atomically records the paid promo snapshot with
+    // entitlements. No separate insert here: retries cannot leave partial rights.
     const result = await admin.rpc(refund ? "refund_guest_checkout" : "finalize_guest_checkout", {
       p_receipt_id: receiptId, p_owner_id: ownerId, p_session_id: session.id,
       p_payment_intent_id: paymentIntentId, p_amount_cents: session.amount_total,

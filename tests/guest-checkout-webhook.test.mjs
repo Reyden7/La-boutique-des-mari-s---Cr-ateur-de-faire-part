@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { calculateTotalPricing, calculateGuestUpgrade } from "../supabase/functions/_shared/pricing.ts";
 import { guestCheckoutMetadata } from "../supabase/functions/_shared/guestPayment.ts";
+import { calculatePromoDiscount } from "../supabase/functions/_shared/promo.ts";
 
 const projectId = "11111111-1111-4111-8111-111111111111";
 const ownerId = "22222222-2222-4222-8222-222222222222";
@@ -12,6 +13,7 @@ const reset = (form = false) => {
     user: { id: ownerId, is_anonymous: false },
     project: {id:projectId,owner_id:ownerId,status:"draft",payment_status:"unpaid",project_data:{rsvp:{enabled:form}},purchased_guest_capacity:null,purchased_extra_blocks:null},
     receipts: [], publication: null, form: null, sessions: {}, calls: [], rejectReservation: false,
+    promos: [{id:"44444444-4444-4444-8444-444444444444",code:"WP21",discount_value:10,is_active:true}], invalidateOnReserve: false,
   };
 };
 reset();
@@ -21,6 +23,7 @@ function query(table) {
   let patch;
   const result = () => {
     let rows = table === "projects" ? [mock.project] : table === "guest_license_payments" ? mock.receipts : table === "project_payments" ? (mock.publication ? [mock.publication] : []) : table === "rsvp_addon_purchases" ? (mock.form ? [mock.form] : []) : [];
+    if (table === "promo_codes") rows = mock.promos;
     rows = rows.filter((row) => filters.every(([key,value]) => row[key] === value));
     if (patch) rows.forEach((row) => Object.assign(row,patch));
     return {data:rows[0] ?? null,error:null};
@@ -40,6 +43,7 @@ const client = {
     mock.calls.push({kind:"rpc",name,params});
     if (name !== "reserve_guest_checkout") return {data:null,error:null};
     if (mock.rejectReservation) return {data:null,error:{code:"P0001",message:"CHECKOUT_BUSY"}};
+    if (mock.invalidateOnReserve) return {data:null,error:{code:"P0001",message:"PROMO_UNAVAILABLE"}};
     const upgrade = mock.project.payment_status === "paid";
     const form = !upgrade && mock.project.project_data.rsvp.enabled && mock.form?.status !== "paid";
     const quote = calculateTotalPricing(params.p_guest_count,form);
@@ -52,6 +56,12 @@ const client = {
       has_form:form,amount_cents:additional?.upgradePriceCents ?? quote.totalPriceCents,currency:"eur",
       stripe_checkout_session_id:null,stripe_payment_intent_id:null,status:"pending",created_at:new Date().toISOString(),
     };
+    if (params.p_promo_code) {
+      const promo = mock.promos.find((item) => item.code === params.p_promo_code && item.is_active);
+      if (!promo) return {data:null,error:{code:"P0001",message:"PROMO_UNAVAILABLE"}};
+      const amounts = calculatePromoDiscount(receipt.amount_cents,promo.discount_value);
+      Object.assign(receipt,{promo_code_id:promo.id,promo_code:promo.code,discount_value:promo.discount_value,subtotal_amount:amounts.subtotalAmount,discount_amount:amounts.discountAmount,amount_cents:amounts.finalAmount});
+    }
     mock.receipts.push(receipt); return {data:receipt,error:null};
   },
 };
@@ -92,6 +102,7 @@ const hooks = registerHooks({
 });
 current="checkout";await import("../supabase/functions/create-checkout-session/index.ts");
 current="webhook";await import("../supabase/functions/stripe-webhook/index.ts");
+current="validate";await import("../supabase/functions/validate-promo-code/index.ts");
 const checkout = (body,auth=true) => handlers.checkout(new Request("https://edge.invalid",{method:"POST",headers:{"Content-Type":"application/json",...(auth?{Authorization:"Bearer token"}:{})},body:JSON.stringify(body)}));
 const webhook = (type,object,signature="valid-test-signature") => handlers.webhook(new Request("https://edge.invalid",{method:"POST",headers:{"Stripe-Signature":signature},body:JSON.stringify({type,data:{object}})}));
 const calls = (kind) => mock.calls.filter((call)=>call.kind===kind);
@@ -182,5 +193,47 @@ test("separate form and custom request flows keep their existing prices and RPCs
     reset();const session={id:"cs_commerce",currency:"eur",amount_total:amount,payment_status:"paid",payment_intent:"pi_commerce",metadata:{purchase_type:kind,project_id:projectId,entity_id:projectId,owner_id:ownerId}};
     assert.equal((await webhook("checkout.session.completed",session)).status,200);assert.equal(calls("rpc").at(-1).name,finalize);
   }
+});
+test("promo validation is authenticated, normalized and never lists codes or records use", async () => {
+  reset();
+  const validate = (body, auth=true) => handlers.validate(new Request("https://edge.invalid",{method:"POST",headers:{"Content-Type":"application/json",...(auth?{Authorization:"Bearer token"}:{})},body:JSON.stringify(body)}));
+  assert.equal((await validate({promoCode:"WP21"},false)).status,401);
+  assert.deepEqual(await (await validate({promoCode:"  wp21 "})).json(),{valid:true,code:"WP21",discountType:"percentage",discountValue:10});
+  assert.deepEqual(await (await validate({promoCode:"missing"})).json(),{valid:false});
+  mock.promos[0].is_active=false;
+  assert.deepEqual(await (await validate({promoCode:"WP21"})).json(),{valid:false});
+  assert.equal(mock.calls.length,0);assert.equal(mock.receipts.length,0);
+  mock.user.is_anonymous=true;assert.equal((await validate({promoCode:"WP21"})).status,401);
+});
+test("actual Checkout promo handlers ignore forged amounts and generate exact net charge and both metadata snapshots", async () => {
+  for (const [count,form,subtotal,discount,final] of [[40,false,2450,245,2205],[40,true,3440,344,3096],[54,true,4340,434,3906]]) {
+    reset(form);
+    assert.equal((await checkout({projectId,guestCount:count,promoCode:" wp21 ",discountPercentage:90,discountAmount:999999,finalAmount:1})).status,200);
+    const params=calls("stripe-create")[0].params;
+    assert.equal(mock.sessions.cs_created.amount_total,final);
+    assert.deepEqual(params.metadata,params.payment_intent_data.metadata);
+    for(const [key,value] of Object.entries({promo_code_id:mock.promos[0].id,promo_code:"WP21",discount_type:"percentage",discount_value:"10",subtotal_amount:String(subtotal),discount_amount:String(discount),final_amount:String(final)})) assert.equal(params.metadata[key],value);
+    assert.equal(mock.calls.some((call)=>call.table==="promo_code_uses"),false);
+    // Admin changes after the reservation must not affect settlement of the saved quote.
+    Object.assign(mock.promos[0],{code:"RENAMED",discount_value:15,is_active:false});mock.calls=[];
+    const paid={...mock.sessions.cs_created,payment_status:"paid"};
+    assert.equal((await webhook("checkout.session.completed",paid)).status,200);
+    assert.equal(calls("rpc").at(-1).params.p_amount_cents,final);
+    assert.equal((await webhook("checkout.session.async_payment_succeeded",paid)).status,200);
+    assert.equal((await webhook("checkout.session.completed",{...paid,metadata:{...paid.metadata,discount_value:"90"}})).status,409);
+    assert.equal((await webhook("charge.refunded",{refunded:true,payment_intent:"pi_created",currency:"eur",amount_refunded:final})).status,200);
+    assert.equal(calls("rpc").at(-1).name,"refund_guest_checkout");
+  }
+});
+test("promo absent/removed retains standard tariffs; changed code/rate expires a pending quote; invalid code creates no Stripe call", async () => {
+  reset();await checkout({projectId,guestCount:40,promoCode:"WP21"});mock.calls=[];
+  assert.equal((await checkout({projectId,guestCount:40,promoCode:"wp21"})).status,200);assert.equal(calls("stripe-create").length,0);
+  mock.promos[0].discount_value=15;
+  assert.equal((await checkout({projectId,guestCount:40,promoCode:"WP21"})).status,200);assert.equal(calls("expire").length,1);assert.equal(mock.sessions.cs_created.amount_total,2082);
+  mock.calls=[];assert.equal((await checkout({projectId,guestCount:40})).status,200);assert.equal(calls("expire").length,1);assert.equal(mock.sessions.cs_created.amount_total,2450);
+  for (const promoCode of ["INVALID",{},"x".repeat(65)]) {reset();assert.equal((await checkout({projectId,guestCount:40,promoCode})).status,400);assert.equal(mock.calls.length,0);}
+  reset();mock.invalidateOnReserve=true;const response=await checkout({projectId,guestCount:40,promoCode:"WP21"});assert.equal(response.status,400);assert.equal((await response.json()).error,"Ce code promo n’est plus disponible.");assert.equal(calls("stripe-create").length,0);
+  reset();Object.assign(mock.project,{status:"published",payment_status:"paid",purchased_guest_capacity:40,purchased_extra_blocks:0});
+  assert.equal((await checkout({projectId,guestCount:54,promoCode:"WP21"})).status,400);assert.equal(calls("stripe-create").length,0);
 });
 test.after(() => {hooks.deregister();delete globalThis.__pricingEdgeMock;delete globalThis.Deno;});

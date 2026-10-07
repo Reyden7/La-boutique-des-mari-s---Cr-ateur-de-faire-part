@@ -1723,3 +1723,22 @@ html:has(.public-invite .png-envelope-stage) { scrollbar-gutter: stable; }
 @media (max-width: 600px) {
   .admin-template-row.admin-envelope-row { grid-template-columns: 70px minmax(0, 1fr); }
 }
+/* Promo codes: compact publication control and responsive administration. */
+.publication-promo { margin: 14px 0; text-align: left; }
+.promo-input-row, .promo-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.promo-input-row input { flex: 1; min-width: 100px; }
+.promo-input-row button, .promo-actions button { border: 1px solid #d8c6b8; padding: 10px 15px; border-radius: 9px; background: #fffaf4; }
+.promo-applied { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; color: #436047; font-size: 12px; }
+.promo-applied button { text-decoration: underline; }
+.promo-discount { color: #436047; }
+.promo-admin-form { max-width: 520px; padding: 24px; border: 1px solid #dfd2c6; border-radius: 16px; background: #fffaf4; display: grid; gap: 16px; margin-bottom: 20px; }
+.promo-actions .primary { background: #795844; color: white; }
+.promo-admin-page main > h2 { margin: 28px 0 14px; }
+.promo-table-scroll { overflow-x: auto; }
+.promo-table { width: 100%; border-collapse: collapse; min-width: 320px; background: #fffaf4; text-align: left; }
+.promo-table th, .promo-table td { padding: 14px 20px; border-bottom: 1px solid #e7dcd2; }
+.promo-table tr.selected, .promo-table tbody tr:hover { background: #f0e5d9; }
+.promo-table tbody tr { cursor: pointer; }
+.promo-table td button { text-align: left; padding: 8px 0; }
+.promo-delete-dialog { background: #fffaf4; padding: 26px; border-radius: 16px; max-width: 480px; margin: 20px; }
+.promo-delete-dialog p { margin: 15px 0 22px; }

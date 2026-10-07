@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 import { corsHeaders, jsonResponse } from "../_shared/http.ts";
 import { calculateGuestUpgrade, isValidGuestCount, PRICING } from "../_shared/pricing.ts";
 import { guestCheckoutMetadata, guestReceiptAmount, matchesGuestCheckout, type GuestPaymentReceipt } from "../_shared/guestPayment.ts";
+import { normalizePromoCode } from "../_shared/promo.ts";
 
 const CURRENCY = "eur";
 const PRODUCTION_ORIGIN = "https://www.laboutiquedesmaries.fr";
@@ -28,7 +29,7 @@ Deno.serve(async (request) => {
     });
     const { data: auth, error: authError } = await admin.auth.getUser(accessToken);
     if (authError || !auth.user || auth.user.is_anonymous) return jsonResponse({ error: "Invalid authentication" }, 401, true);
-    let body: { projectId?: unknown; guestCount?: unknown };
+    let body: { projectId?: unknown; guestCount?: unknown; promoCode?: unknown };
     try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON body" }, 400, true); }
     if (!body || typeof body.projectId !== "string"
       || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.projectId)) {
@@ -44,6 +45,17 @@ Deno.serve(async (request) => {
     if (project.owner_id !== auth.user.id) return jsonResponse({ error: "Forbidden" }, 403, true);
     if (project.payment_status === "refunded") return jsonResponse({ error: "Refunded projects require support" }, 409, true);
     const isUpgrade = project.payment_status === "paid";
+    if (body.promoCode != null && typeof body.promoCode !== "string") return jsonResponse({ error: "Code invalide ou indisponible." }, 400, true);
+    const promoCode = normalizePromoCode(body.promoCode);
+    if (promoCode && isUpgrade) return jsonResponse({ error: "Les codes promos sont réservés à la première publication." }, 400, true);
+    let promo: { id: string; code: string; discount_value: number } | null = null;
+    if (promoCode) {
+      if (promoCode.length > 64) return jsonResponse({ error: "Ce code promo n’est plus disponible." }, 400, true);
+      const lookup = await admin.from("promo_codes").select("id, code, discount_value").eq("code", promoCode).eq("is_active", true).maybeSingle();
+      if (lookup.error) throw lookup.error;
+      promo = lookup.data;
+      if (!promo) return jsonResponse({ error: "Ce code promo n’est plus disponible." }, 400, true);
+    }
     if (isUpgrade) {
       if (project.status !== "published" || project.purchased_guest_capacity == null) {
         return jsonResponse({ error: "Historical or inactive licence: no automatic guest charge", code: "already_paid" }, 409, true);
@@ -72,6 +84,8 @@ Deno.serve(async (request) => {
       if (existing.status === "open" && existing.url && pending.guest_count === body.guestCount
         && pending.has_form === includesForm && pending.purchase_type === (isUpgrade ? "guest_capacity_upgrade" : "initial_publication")
         && (!isUpgrade || pending.previous_extra_blocks === project.purchased_extra_blocks)
+        && (pending.promo_code_id ?? null) === (promo?.id ?? null)
+        && (!promo || (pending.promo_code === promo.code && Number(pending.discount_value) === Number(promo.discount_value)))
         && matchesGuestCheckout(existing, pending)) return jsonResponse({ url: existing.url }, 200, true);
       if (existing.status === "open") await stripe.checkout.sessions.expire(existing.id);
     }
@@ -95,8 +109,11 @@ Deno.serve(async (request) => {
     const { data: receipt, error: reserveError } = await admin.rpc("reserve_guest_checkout", {
       p_project_id: projectId, p_owner_id: auth.user.id, p_guest_count: body.guestCount,
       p_previous_session_id: pending?.stripe_checkout_session_id ?? null,
+      p_promo_code: promoCode || null,
     });
     if (reserveError) {
+      if (reserveError.message?.includes("PROMO_UNAVAILABLE")) return jsonResponse({ error: "Ce code promo n’est plus disponible." }, 400, true);
+      if (reserveError.message?.includes("PROMO_FIRST_PURCHASE_ONLY")) return jsonResponse({ error: "Les codes promos sont réservés à la première publication." }, 400, true);
       console.warn("guest_checkout_reservation_refused", { code: reserveError.code });
       return jsonResponse({ error: "Checkout changed or is already being prepared. Refresh and retry.", code: "checkout_conflict" }, 409, true);
     }
@@ -108,9 +125,14 @@ Deno.serve(async (request) => {
       const addItem = (name: string, unitAmount: number, quantity = 1) => lineItems.push({
         quantity, price_data: { currency: CURRENCY, unit_amount: unitAmount, product_data: { name } },
       });
-      if (payment.purchase_type === "initial_publication") addItem("Faire-part — licence pour un événement, jusqu’à 40 invités", PRICING.basePriceCents);
-      if (payment.additional_blocks) addItem("Tranche de 7 invités supplémentaires", PRICING.extraBlockPriceCents, payment.additional_blocks);
-      if (payment.has_form) addItem("Formulaire invité et collecte des réponses", PRICING.formPriceCents);
+      if (payment.promo_code_id) {
+        // One net line avoids per-line rounding differences and extra Stripe coupon resources.
+        addItem(`Faire-part — capacité ${payment.guest_capacity} invités${payment.has_form ? " + Formulaire invité" : ""} — ${payment.promo_code} (-${payment.discount_value} %)`, payment.amount_cents);
+      } else {
+        if (payment.purchase_type === "initial_publication") addItem("Faire-part — licence pour un événement, jusqu’à 40 invités", PRICING.basePriceCents);
+        if (payment.additional_blocks) addItem("Tranche de 7 invités supplémentaires", PRICING.extraBlockPriceCents, payment.additional_blocks);
+        if (payment.has_form) addItem("Formulaire invité et collecte des réponses", PRICING.formPriceCents);
+      }
       const session = await stripe.checkout.sessions.create({
         mode: "payment", managed_payments: { enabled: false }, integration_identifier: integrationIdentifier(),
         client_reference_id: projectId, line_items: lineItems, metadata, payment_intent_data: { metadata },

@@ -149,13 +149,19 @@ export async function deleteRemoteProject(projectId: string) {
   if (error) throw error;
 }
 
-export async function startProjectCheckout(projectId: string, guestCount: number) {
+export async function startProjectCheckout(projectId: string, guestCount: number, promoCode?: string) {
   if (!supabase) throw new Error("Supabase n’est pas configuré.");
   await requireSupabaseSession();
   const { data, error } = await supabase.functions.invoke<CheckoutResponse>("create-checkout-session", {
-    body: { projectId, guestCount },
+    body: { projectId, guestCount, ...(promoCode ? { promoCode } : {}) },
   });
-  if (error) throw error;
+  if (error) {
+    if (error.context instanceof Response) {
+      const result = await error.context.clone().json().catch(() => null);
+      if (result?.error === "Ce code promo n’est plus disponible." || result?.error === "Les codes promos sont réservés à la première publication.") throw new Error(result.error);
+    }
+    throw error;
+  }
   if (!data?.url) throw new Error("Stripe n’a retourné aucune URL de paiement.");
   return data.url;
 }

@@ -18,9 +18,12 @@ test("PostgreSQL migration, RLS, publication/form, upgrades, refund and replay a
   await db.exec(`
     create role anon; create role authenticated; create role service_role bypassrls;
     create schema auth; create schema extensions; create schema private;
-    create table auth.users(id uuid primary key);
+    create table auth.users(id uuid primary key, raw_app_meta_data jsonb not null default '{}', is_anonymous boolean default false, created_at timestamptz default now());
     create function auth.uid() returns uuid language sql as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
     create function auth.jwt() returns jsonb language sql as $$ select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb $$;
+    create function private.is_admin() returns boolean language sql stable security definer set search_path='' as $$ select exists(select 1 from auth.users where id=auth.uid() and raw_app_meta_data->>'role'='admin') and not coalesce((auth.jwt()->>'is_anonymous')::boolean,false) $$;
+    grant usage on schema private to authenticated;
+    grant execute on function private.is_admin() to authenticated;
     create function extensions.gen_random_uuid() returns uuid language sql as $$ select pg_catalog.gen_random_uuid() $$;
     -- Only entropy helper is stubbed locally; production uses pgcrypto.
     create function extensions.gen_random_bytes(n integer) returns bytea language sql as $$ select substring(decode(md5(random()::text)||md5(random()::text),'hex') from 1 for n) $$;
@@ -62,10 +65,19 @@ test("PostgreSQL migration, RLS, publication/form, upgrades, refund and replay a
   const owner = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
   const other = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
   const legacy = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
-  await db.exec(`insert into auth.users values('${owner}'),('${other}');
+  await db.exec(`insert into auth.users(id,raw_app_meta_data) values('${owner}','{"role":"admin"}'),('${other}','{}');
     insert into public.projects(id,owner_id,name,project_data,status,payment_status,public_id) values('${legacy}','${owner}','Legacy','{}','published','paid','legacy-public');
     insert into public.project_payments(project_id,owner_id,amount_cents,status,stripe_checkout_session_id) values('${legacy}','${owner}',2490,'paid','legacy-cs');`);
   await db.exec(await file("20261005083522_guest_count_publication_pricing.sql"));
+  await db.exec(await file("20261007140545_promo_partner_codes.sql"));
+  const promoAudit = await readFile(new URL("../supabase/tests/promo_codes_rls_audit.sql", import.meta.url), "utf8");
+  const audit = await db.exec(promoAudit);
+  const auditRows = audit.flatMap((result) => result.rows ?? []);
+  const summary = auditRows.find((row) => row.passed != null && row.total != null);
+  assert.ok(summary && summary.passed === summary.total && summary.total >= 100, JSON.stringify(auditRows));
+  t.diagnostic(`Promo SQL/RLS audit: ${summary.passed}/${summary.total} assertions; ROLLBACK confirmed`);
+  assert.equal((await db.query("select * from public.promo_codes")).rows.length,0);
+  assert.equal((await db.query("select * from public.promo_code_uses")).rows.length,0);
   const scalar = async (sql) => (await db.query(sql)).rows[0];
   assert.deepEqual(await scalar(`select amount_cents,pricing_version from public.project_payments where project_id='${legacy}'`),{amount_cents:2490,pricing_version:"legacy"});
   assert.equal((await scalar(`select purchased_guest_capacity from public.projects where id='${legacy}'`)).purchased_guest_capacity,null);
