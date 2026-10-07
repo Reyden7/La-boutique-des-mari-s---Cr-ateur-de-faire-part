@@ -2,8 +2,9 @@
 
 ## Statut
 
-Implémentation locale terminée. Aucun déploiement Supabase/Netlify, aucun secret
-modifié, aucune donnée de production créée ou supprimée dans cette tâche.
+Implémentation locale terminée ; backend Supabase déployé le 7 octobre 2026,
+après autorisation explicite. Aucun déploiement Netlify ni changement de secret.
+Les fixtures de l’audit production ont toutes été annulées par ROLLBACK.
 L’animation Smartphone, sa géométrie, ses timings et le rendu Tablette/PC n’ont
 pas été modifiés par cette extension de la bibliothèque.
 
@@ -107,7 +108,28 @@ Preuves locales : `docs/qa/20261007-envelope-global-admin/admin-final.png`,
 `admin-reference-guard.png`, `preview-unpublished-reference.png`,
 `public-unpublished-reference.png`. Ce ne sont pas des captures de production.
 
-## Déploiement restant (sur autorisation explicite)
+## Déploiement Supabase effectué le 7 octobre 2026
+
+- Projet : `saaqgyjqecqbzizacvrp`.
+- SQL exact de `20261007075714_envelope_global_assets_admin.sql` appliqué via MCP.
+  Supabase a enregistré la migration sous la version **20261007083948**, nom
+  `envelope_global_assets_admin`. Ne pas réappliquer le fichier local : son
+  timestamp diffère de celui attribué par MCP, mais son contenu est déjà installé.
+- `publish-global-asset` : **v2 ACTIVE**, `verify_jwt = true` ; les cinq fichiers
+  déployés ont été comparés au code local et sont identiques.
+- Audit transactionnel exécuté sur Supabase jusqu’au **ROLLBACK**, tous les
+  contrôles réussis ; zéro asset/projet/template d’audit restant, comme avant.
+- RPC suppression réservées au service_role ; usage avec garde admin ; RLS et
+  bucket public `global-assets` inchangés, PNG/WebP autorisés.
+- Appel multipart sans authentification : **401**, aucune écriture.
+- Advisors sécurité : avertissements préexistants uniquement, sur les fonctions
+  publiques de projets/templates et la protection des mots de passe compromis.
+- Suite locale relancée : **362/362**, `npm run build` OK (warning chunk existant).
+- Aucun secret, fonction Stripe/RSVP ou déploiement Netlify modifié.
+- Import authentifié réel non rejoué : aucune session navigateur disponible.
+  L’utilisateur peut retenter « Publier » avec son fichier déjà choisi.
+
+## Plan initial de déploiement (historique)
 
 1. Appliquer `20261007075714_envelope_global_assets_admin.sql` après les migrations
    existantes templates/global-assets. Ne pas appliquer les anciennes migrations
@@ -118,8 +140,7 @@ Preuves locales : `docs/qa/20261007-envelope-global-admin/admin-final.png`,
 4. Déployer le frontend puis faire le smoke test authentifié et les uploads réels
    PNG/WebP dans Supabase. Noter la nouvelle version de la fonction à ce moment.
 
-Les uploads/suppressions réels Storage et l’audit des Advisors sur le projet
-Supabase de production ne sont pas réalisés dans cette tâche locale. Les tests
+Les uploads/suppressions réels Storage restent non réalisés par l’agent. Les tests
 de concurrence sont des validations des états/guards en PostgreSQL local, pas
 un test de charge multi-connexions sur la production.
 
