@@ -18,6 +18,8 @@ const { getElementLayout } = await import("../src/utils/responsiveLayout.ts");
 const { getEditorElementLabel } = await import("../src/utils/editorNames.ts");
 const { upsertProject, getProject } = await import("../src/utils/storage.ts");
 const { sanitizeProjectForTemplate, instantiateProjectFromTemplate } = await import("../src/utils/templateSnapshot.ts");
+const { buildGoogleCalendarUrl } = await import("../src/utils/calendarEvent.ts");
+const { transferMobileLayouts } = await import("../src/utils/responsiveTransfer.ts");
 const memory = new Map(); globalThis.localStorage = { getItem: (key) => memory.get(key) ?? null, setItem: (key, value) => memory.set(key, value) };
 const section = { id: "section", type: "section", name: "Section", x: 0, y: 100, width: 390, height: 180, rotation: 0, opacity: 1, visible: true, locked: false, zIndex: 1, padding: 20, cornerRadius: 0, background: { type: "color", color: "#fff" } };
 const reset = (selectSection = false) => {
@@ -65,5 +67,15 @@ test("responsive visibility, renaming, duplicate/delete, undo/redo and save/temp
   }
   instance.pages[0].elements.find((x) => x.id === id).title = "Indépendant";
   assert.equal(template.templateData.pages[0].elements.find((x) => x.id === id).title, "Emma & Lucas");
+});
+test("agenda data/style survive duplication, reload/templates/transfer; date is never duplicated",()=>{
+  reset();const store=useEditorStore.getState();store.addElement(makeCalendarElement());const id=calendar().id;
+  const agenda={enabled:true,buttonLabel:"Notre mariage",title:"Mariage Émilie & Louis",startTime:"14:00",endTime:"23:59",timezone:"Europe/Paris",location:"Château",description:"Bonjour\nBienvenue",buttonFontFamily:"STARWARS",buttonFontSize:18,buttonTextColor:"#ffffff80",buttonBackgroundColor:"#79574680",buttonBorderColor:"#00000000",buttonRadius:15,buttonGap:20};
+  store.updateElement(id,{year:2027,month:8,highlightedDay:15,calendarEvent:agenda});store.duplicateElement(id);
+  const copy=useEditorStore.getState().project.pages[0].elements.find(e=>e.type==="calendar"&&e.id!==id);assert.deepEqual(copy.calendarEvent,agenda);
+  upsertProject(useEditorStore.getState().project);const loaded=getProject("calendar-project","owner");const instance=instantiateProjectFromTemplate({name:"Agenda",templateData:sanitizeProjectForTemplate(loaded)},"other");
+  const transferred=transferMobileLayouts(loaded,["tablet","desktop"]);
+  for(const project of [loaded,instance,transferred]){const e=project.pages[0].elements.find(e=>e.id===id);assert.deepEqual(e.calendarEvent,agenda);assert.equal("date" in e.calendarEvent,false);assert.equal(new URL(buildGoogleCalendarUrl(e)).searchParams.get("dates"),"20270815T120000Z/20270815T215900Z");}
+  store.updateElement(id,{highlightedDay:16});assert.equal(new URL(buildGoogleCalendarUrl(calendar())).searchParams.get("dates"),"20270816T120000Z/20270816T215900Z");
 });
 test.after(() => { hooks.deregister(); delete globalThis.localStorage; });

@@ -1,6 +1,7 @@
 import { PREVIEW_DEVICES, type PreviewDevice } from "../../config/previewDevices";
 import type { CalendarElement, CountdownElement, EditorElement, ElementType, WeddingPage } from "../../types/editor";
 import { getDefaultCountdownDate } from "../../utils/countdownDate";
+import { DEFAULT_CALENDAR_EVENT } from "../../utils/calendarEvent";
 import { getElementLayout, isElementVisibleOnDevice } from "../../utils/responsiveLayout";
 
 export const NEW_SECTION_MARGIN = 40;
@@ -73,6 +74,7 @@ export const makeCalendarElement = (): CalendarElement => ({
   weekdaysFontSize: 10, weekdaysColor: "#79695c", accentColor: "#a9775a",
   backgroundColor: "#fffaf5", borderColor: "#d9c4b4", decorationStyle: "none",
   decorationColor: "#a9775a", showWeekdays: true, showMonthLabel: true, showYearLabel: true,
+  calendarEvent: { ...DEFAULT_CALENDAR_EVENT, enabled: true },
 });
 
 export const makeCountdownElement = (): CountdownElement => ({

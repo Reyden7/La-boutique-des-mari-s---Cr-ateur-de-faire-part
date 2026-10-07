@@ -460,8 +460,29 @@ export interface SectionElement extends BaseElement {
 export type CalendarStyle = "minimal" | "elegant" | "paper-note" | "decorative-frame" | "romantic";
 export type CalendarDecorationStyle = "none" | "floral" | "ribbon" | "hearts" | "ornament" | "torn-paper" | "soft-frame";
 
+export interface CalendarEventConfig {
+  enabled: boolean;
+  buttonLabel: string;
+  title: string;
+  startTime?: string;
+  endTime?: string;
+  location?: string;
+  description?: string;
+  timezone?: string;
+  buttonFontFamily?: string;
+  buttonFontSize?: number;
+  buttonTextColor?: string;
+  buttonBackgroundColor?: string;
+  buttonBorderColor?: string;
+  buttonBorderWidth?: number;
+  buttonRadius?: number;
+  buttonGap?: number;
+}
+
 export interface CalendarElement extends BaseElement {
   type: "calendar";
+  /** Optional for legacy projects; date comes from year/month/highlightedDay. */
+  calendarEvent?: CalendarEventConfig;
   title: string;
   month: number;
   year: number;

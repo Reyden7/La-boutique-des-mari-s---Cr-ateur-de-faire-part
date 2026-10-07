@@ -1,5 +1,6 @@
 import type { CalendarElement, CalendarStyle, CalendarDecorationStyle } from "../types/editor";
 import { wrapScheduleText } from "./scheduleLayout.ts";
+import { getCalendarEventConfig } from "./calendarEvent.ts";
 
 export const CALENDAR_MONTHS = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 export const CALENDAR_WEEKDAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
@@ -31,7 +32,7 @@ export type CalendarShape = {
   data?: string; fill: string; stroke?: string; strokeWidth?: number; opacity?: number;
 };
 export interface CalendarTextBox {
-  role: "title" | "month" | "weekday" | "day"; day?: number; text: string; x: number; y: number; width: number; height: number;
+  role: "title" | "month" | "weekday" | "day" | "agenda-button"; day?: number; text: string; x: number; y: number; width: number; height: number;
   fontFamily: string; fontSize: number; color: string; align: "left" | "center" | "right"; bold?: boolean;
 }
 export const calendarHeartPath = (x: number, y: number, size: number) =>
@@ -124,6 +125,22 @@ export function getCalendarLayout(element: CalendarElement, box: { width: number
     path(upper, "transparent", decorColor, .65);
     path(Array.from({ length: 32 }, (_, i) => `${i ? "L" : "M"} ${5 + i * 10} ${designHeight - 6 - (i % 3) * 2}`).join(" "), "transparent", decorColor, .65);
   }
-  const scale = Math.min(width / designWidth, height / designHeight);
-  return { ...calendar, style, decoration, width, height, designWidth, designHeight, scale, offsetX: (width - designWidth * scale) / 2, offsetY: (height - designHeight * scale) / 2, shapes: [...card, ...shapes, ...ornaments], text };
+  const config = getCalendarEventConfig(element);
+  const buttonShapes: CalendarShape[] = [];
+  let button: { x: number; y: number; width: number; height: number; text: CalendarTextBox } | null = null;
+  if (config.enabled) {
+    const size = clamp(finite(config.buttonFontSize, 13), 4, 64), family = config.buttonFontFamily || titleFamily;
+    const label = wrapScheduleText(config.buttonLabel?.trim() || "Ajouter à mon agenda", inner - 36, size, family, false);
+    const textHeight = label.split("\n").length * size * 1.2;
+    const buttonHeight = Math.max(40, textHeight + 20), buttonY = designHeight + clamp(finite(config.buttonGap, 12), 0, 120);
+    const buttonText: CalendarTextBox = { role: "agenda-button", text: label, x: pad + 30, y: buttonY + (buttonHeight - textHeight) / 2, width: inner - 36, height: textHeight, fontFamily: family, fontSize: size, color: config.buttonTextColor || "#ffffff", align: "center" };
+    text.push(buttonText);
+    button = { x: pad, y: buttonY, width: inner, height: buttonHeight, text: buttonText };
+    buttonShapes.push({ kind: "rect", x: pad, y: buttonY, width: inner, height: buttonHeight, radius: clamp(finite(config.buttonRadius, 8), 0, buttonHeight / 2), fill: config.buttonBackgroundColor || "#795746", stroke: config.buttonBorderColor || "#795746", strokeWidth: clamp(finite(config.buttonBorderWidth, 1), 0, 8) });
+    const x = pad + 10, cy = buttonY + buttonHeight / 2 - 7;
+    buttonShapes.push({ kind: "path", data: `M ${x} ${cy + 2} H ${x + 14} V ${cy + 14} H ${x} Z M ${x} ${cy + 6} H ${x + 14} M ${x + 4} ${cy} V ${cy + 4} M ${x + 10} ${cy} V ${cy + 4}`, fill: "transparent", stroke: buttonText.color, strokeWidth: 1.3 });
+  }
+  const fullHeight = button ? button.y + button.height + 4 : designHeight;
+  const scale = Math.min(width / designWidth, height / fullHeight);
+  return { ...calendar, style, decoration, width, height, designWidth, designHeight: fullHeight, scale, offsetX: (width - designWidth * scale) / 2, offsetY: (height - fullHeight * scale) / 2, shapes: [...card, ...shapes, ...ornaments, ...buttonShapes], text, button };
 }

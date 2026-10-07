@@ -3,6 +3,7 @@ import { getCalendarLayout } from "../../utils/calendarLayout";
 import { getElementLayout } from "../../utils/responsiveLayout";
 import { PREVIEW_DEVICES, type PreviewDevice } from "../../config/previewDevices";
 import { useProjectFontRevision } from "../fonts/projectFontRuntime";
+import { CalendarAgendaMenu } from "./CalendarAgendaMenu";
 
 export function CalendarRenderer({ element, device }: { element: CalendarElement; device: PreviewDevice }) {
   useProjectFontRevision();
@@ -17,9 +18,12 @@ export function CalendarRenderer({ element, device }: { element: CalendarElement
             : <path key={index} d={shape.data} fill={shape.fill} stroke={shape.stroke} strokeWidth={shape.strokeWidth} opacity={shape.opacity} strokeLinecap="round" strokeLinejoin="round" />)}
       </g>
     </svg>
-    {scene.text.map((text, index) => <span key={index} data-calendar-role={text.role} data-calendar-day={text.day} aria-current={text.day === scene.highlightedDay ? "date" : undefined} style={{
+    {scene.text.filter((text) => text.role !== "agenda-button").map((text, index) => <span key={index} data-calendar-role={text.role} data-calendar-day={text.day} aria-current={text.day === scene.highlightedDay ? "date" : undefined} style={{
       position: "absolute", left: `${(scene.offsetX + text.x * scene.scale) / scene.width * 100}%`, top: `${(scene.offsetY + text.y * scene.scale) / scene.height * 100}%`, width: `${text.width * scene.scale / scene.width * 100}%`, height: `${text.height * scene.scale / scene.height * 100}%`,
       fontFamily: text.fontFamily, fontSize: px(text.fontSize), fontWeight: text.bold ? 700 : 400, color: text.color, textAlign: text.align, lineHeight: 1.2, whiteSpace: "pre", margin: 0,
     }}>{text.text}</span>)}
+    {scene.button && <CalendarAgendaMenu element={element} style={{ position: "absolute", left: `${(scene.offsetX + scene.button.x * scene.scale) / scene.width * 100}%`, top: `${(scene.offsetY + scene.button.y * scene.scale) / scene.height * 100}%`, width: `${scene.button.width * scene.scale / scene.width * 100}%`, height: `${scene.button.height * scene.scale / scene.height * 100}%` }}>
+      <span data-calendar-role="agenda-button" style={{ position: "absolute", left: `${(scene.button.text.x - scene.button.x) / scene.button.width * 100}%`, top: `${(scene.button.text.y - scene.button.y) / scene.button.height * 100}%`, width: `${scene.button.text.width / scene.button.width * 100}%`, height: `${scene.button.text.height / scene.button.height * 100}%`, fontFamily: scene.button.text.fontFamily, fontSize: px(scene.button.text.fontSize), fontWeight: 400, color: scene.button.text.color, textAlign: "center", lineHeight: 1.2, whiteSpace: "pre", pointerEvents: "none" }}>{scene.button.text.text}</span>
+    </CalendarAgendaMenu>}
   </article>;
 }
