@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { transformWithOxc } from "vite";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { PNG_ENVELOPE_ASSETS, getPngEnvelopeLayout, getPngEnvelopeDuration } from "../src/features/openings/pngEnvelopeLayout.ts";
+import { PNG_ENVELOPE_ASSETS, getPngEnvelopeLayout, getPngEnvelopeDuration, getPngEnvelopeClosedLayout, resolveEnvelopeOffset } from "../src/features/openings/pngEnvelopeLayout.ts";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const source = read("src/features/openings/animations/PngEnvelopeOpening.tsx");
@@ -120,4 +120,75 @@ test("CSS clips only physical viewport and releases scroll after opening", () =>
   assert.match(css,/\.png-envelope-seal \{[^}]*z-index: 40/);
   assert.match(css,/\.png-envelope-overlay \{[^}]*pointer-events: none/);
   assert.doesNotMatch(css.slice(css.indexOf("/* Smartphone: original PNG")),/mix-blend|mask-image|rotate|perspective/);
+});
+
+const offsets = { baseClosedOffset: {x:-4,y:2}, flapClosedOffset: {x:3,y:-1}, sealClosedOffset: {x:-6,y:4} };
+const near = (a,b) => assert.ok(Math.abs(a-b)<1e-9, `${a} != ${b}`);
+test("old projects and zero offsets retain exactly the validated geometry and travel", () => {
+  for (const [w,h] of [[390,844],[320,568],[430,932]]) {
+    const original = getPngEnvelopeLayout(w,h);
+    for (const settings of [undefined,{}, {baseClosedOffset:{x:0,y:0},flapClosedOffset:{x:0,y:0},sealClosedOffset:{x:0,y:0}}]) {
+      const adjusted = getPngEnvelopeClosedLayout(w,h,settings);
+      for (const part of ["base","flap","seal"]) assert.deepEqual(adjusted[part],original[part]);
+      assert.deepEqual(adjusted.flapImage,{x:0,y:0,width:original.flap.width,height:original.flap.height});
+      assert.equal(adjusted.leftTravel,original.leftTravel); assert.equal(adjusted.rightTravel,original.rightTravel);
+    }
+  }
+});
+test("requested offsets scale with viewport axes, not PNG bounds or screen zoom", () => {
+  for (const [w,h] of [[390,844],[320,568],[430,932]]) {
+    const base = getPngEnvelopeLayout(w,h), next = getPngEnvelopeClosedLayout(w,h,offsets);
+    near(next.base.x-base.base.x,-.04*w); near(next.base.y-base.base.y,.02*h);
+    near(next.flapImage.x,.03*w); near(next.flapImage.y,-.01*h);
+    near(next.seal.x-base.seal.x,-.06*w); near(next.seal.y-base.seal.y,.04*h);
+    assert.deepEqual(next.flap,base.flap,"moving group's origin never changes");
+    assert.equal(next.leftTravel,base.leftTravel); assert.equal(next.rightTravel,base.rightTravel);
+    for (const progress of [0,.001,.25,.5,1]) {
+      near((next.base.x+next.leftTravel*progress)-(base.base.x+base.leftTravel*progress),-.04*w);
+      near((next.flap.x+next.seal.x+next.rightTravel*progress)-(base.flap.x+base.seal.x+base.rightTravel*progress),-.06*w);
+    }
+  }
+});
+test("flap and seal local offsets are independent, finite and safely bounded", () => {
+  assert.deepEqual(resolveEnvelopeOffset(),{x:0,y:0});
+  assert.deepEqual(resolveEnvelopeOffset({x:NaN,y:Infinity}),{x:0,y:0});
+  assert.deepEqual(resolveEnvelopeOffset({x:-99,y:70}),{x:-50,y:50});
+  assert.deepEqual(resolveEnvelopeOffset({x:"5",y:null}),{x:0,y:0});
+  const base=getPngEnvelopeClosedLayout(390,844), flap=getPngEnvelopeClosedLayout(390,844,{flapClosedOffset:{x:7,y:-3}});
+  assert.deepEqual(flap.seal,base.seal); assert.deepEqual(flap.base,base.base); assert.deepEqual(flap.flap,base.flap);
+  const seal=getPngEnvelopeClosedLayout(390,844,{sealClosedOffset:{x:-9,y:8}});
+  assert.deepEqual(seal.flapImage,base.flapImage); assert.deepEqual(seal.flap,base.flap); assert.deepEqual(seal.base,base.base);
+});
+test("actual renderer places offsets on local boxes, keeps seal inside group and locks editor preview", () => {
+  const html=renderToStaticMarkup(createElement(PngEnvelopeOpening,{config:{...config,envelope:offsets},closedPreview:true},null));
+  const l=getPngEnvelopeClosedLayout(390,844,offsets);
+  for (const [part,rect] of [["base",l.base],["flap",l.flapImage],["seal",l.seal]]) {
+    assert.match(html,new RegExp(`class="png-envelope-${part}"[^>]*style="left:${rect.x}px;top:${rect.y}px;`));
+  }
+  assert.doesNotMatch(html,/png-envelope-trigger/);
+  assert.match(source,/closedPreview \? "Position fermée/);
+  assert.match(source,/animate=\{\{ x: opening \? layout.leftTravel : 0 \}\}/);
+  assert.match(source,/animate=\{\{ x: opening \? layout.rightTravel : 0 \}\}/);
+  assert.match(source,/duration: duration - delay, delay: opening \? delay : 0, ease: "easeInOut"/);
+});
+test("Smartphone offsets never change Tablet or PC renderer output", () => {
+  for (const device of ["tablet","desktop"]) {
+    const withOffsets=renderToStaticMarkup(createElement(ResponsiveEnvelopeOpening,{config:{...config,envelope:offsets},device,couple:"Emma & Lucas"},createElement("button",{},"Vrai contenu")));
+    assert.equal(withOffsets,render(ResponsiveEnvelopeOpening,device));
+  }
+});
+
+test("position UI follows each asset picker and editor closed overlay is Smartphone introduction only", () => {
+  const controls=read("src/features/openings/EnvelopePositionControls.tsx");
+  assert.match(controls,/ENVELOPE_OFFSET_FIELDS\[part\]/);
+  assert.match(controls,/Position horizontale/); assert.match(controls,/Position verticale/);
+  assert.match(controls,/type="range"[\s\S]*min=\{-50\} max=\{50\} step=\{1\}/);
+  assert.match(controls,/<DimensionInput/); assert.match(controls,/Réinitialiser la position/);
+  assert.match(controls,/\.\.\.opening.envelope/);
+  const picker=read("src/features/openings/EnvelopeAssetControls.tsx");
+  assert.ok(picker.indexOf('<EnvelopePositionControls part={part}')>picker.indexOf('Télécharger le modèle'));
+  const canvas=read("src/components/editor/EditorCanvas.tsx");
+  assert.match(canvas,/const isEnvelopeEditing = sidebarView === "introduction" && project\?\.introductionMode === "classic" && project.opening.type === "envelope" && previewDevice === "mobile"/);
+  assert.match(canvas,/<PngEnvelopeOpening config=\{project.opening\} couple=\{project.name\} closedPreview>/);
+  assert.match(canvas,/height: \(isEnvelopeEditing \? viewport.height : documentHeight\) \* zoom/);
 });

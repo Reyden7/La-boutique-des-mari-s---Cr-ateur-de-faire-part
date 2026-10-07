@@ -6,6 +6,7 @@ import { useEditorStore } from "../../stores/editorStore";
 import { deleteProjectAsset, deleteProjectAssetIfUnused, uploadProjectAsset } from "../../services/assetRepository";
 import { decodeEnvelopeFile, ENVELOPE_GLOBAL_TYPES, globalEnvelopeChoices, ENVELOPE_PART_FIELDS, ENVELOPE_PARTS, ENVELOPE_PRESETS, removeEnvelopeCustom, resolveEnvelopeAsset, type EnvelopePart } from "./envelopeAssets";
 import { useGlobalAssets } from "../../hooks/useGlobalAssets";
+import { EnvelopePositionControls } from "./EnvelopePositionControls";
 
 function EnvelopePartControls({ part }: { part: EnvelopePart }) {
   const project = useEditorStore((state) => state.project);
@@ -88,6 +89,7 @@ function EnvelopePartControls({ part }: { part: EnvelopePart }) {
     <a className="envelope-asset-download" href={`/envelope-templates/envelope-${fields.guide}-template.png`} download={`modele-${fields.label.toLowerCase()}-enveloppe-laboutiquedesmaries.png`}><Download size={14} />Télécharger le modèle</a>
     <small>{part === "seal" ? "Utilisez un PNG transparent. Le cachet sera automatiquement positionné sur le rabat." : "Téléchargez le modèle, personnalisez-le en conservant la transparence, puis importez votre PNG."} PNG / WebP · 5 Mo maximum · modèle {fields.width} × {fields.height} px.</small>
     {notice && <p role="status">{notice}</p>}{error && <p role="alert">{error}</p>}
+    <EnvelopePositionControls part={part} />
   </PropertySection>;
 }
 

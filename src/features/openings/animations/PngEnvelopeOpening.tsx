@@ -1,10 +1,10 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { useLayoutEffect, useRef, useState } from "react";
 import type { OpeningAnimationProps } from "../openingTypes";
-import { getPngEnvelopeDuration, getPngEnvelopeLayout, PNG_ENVELOPE_ASSETS } from "../pngEnvelopeLayout";
+import { getPngEnvelopeDuration, getPngEnvelopeClosedLayout, PNG_ENVELOPE_ASSETS } from "../pngEnvelopeLayout";
 import { ENVELOPE_PARTS, resolveEnvelopeAsset } from "../envelopeAssets";
 
-export function PngEnvelopeOpening({ children, config, onInteract, onComplete }: OpeningAnimationProps) {
+export function PngEnvelopeOpening({ children, config, onInteract, onComplete, closedPreview = false }: OpeningAnimationProps & { closedPreview?: boolean }) {
   const [phase, setPhase] = useState<"closed" | "opening" | "complete">("closed");
   const [ready, setReady] = useState<Record<string, boolean>>({});
   const [failedUrls, setFailedUrls] = useState<Record<string, boolean>>({});
@@ -22,7 +22,7 @@ export function PngEnvelopeOpening({ children, config, onInteract, onComplete }:
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
-  const layout = getPngEnvelopeLayout(viewport.width, viewport.height);
+  const layout = getPngEnvelopeClosedLayout(viewport.width, viewport.height, config.envelope);
   const duration = reducedMotion ? .18 : getPngEnvelopeDuration(config.customSettings?.mobilePngDuration);
   const delay = reducedMotion ? 0 : .08;
   const opening = phase === "opening";
@@ -36,7 +36,7 @@ export function PngEnvelopeOpening({ children, config, onInteract, onComplete }:
   const assetsSettled = Object.values(sources).every((src) => ready[src] || failedUrls[src]);
   const failed = Object.values(sources).some((src) => failedUrls[src]);
   const open = () => {
-    if (startedRef.current || !assetsSettled) return;
+    if (startedRef.current || !assetsSettled || closedPreview) return;
     startedRef.current = true;
     setPhase("opening");
     onInteract?.();
@@ -48,7 +48,7 @@ export function PngEnvelopeOpening({ children, config, onInteract, onComplete }:
     onComplete?.();
   };
   const imageProps = (src: string) => ({ src, alt: "", draggable: false, onLoad: () => setReady((old) => ({ ...old, [src]: true })), onError: () => setFailedUrls((old) => ({ ...old, [src]: true })) });
-  const hint = typeof config.customSettings?.hintText === "string" ? config.customSettings.hintText : "Touchez pour ouvrir";
+  const hint = closedPreview ? "Position fermée · Voir l’ouverture pour l’animer" : typeof config.customSettings?.hintText === "string" ? config.customSettings.hintText : "Touchez pour ouvrir";
   const box = (rect: {x:number;y:number;width:number;height:number}) => ({ left: rect.x, top: rect.y, width: rect.width, height: rect.height });
   return <div className={`png-envelope-stage${phase === "complete" ? " is-opened" : ""}`} data-envelope-phase={phase}>
     <div ref={measureRef} className="png-envelope-measure" aria-hidden="true" />
@@ -60,11 +60,11 @@ export function PngEnvelopeOpening({ children, config, onInteract, onComplete }:
         <img {...imageProps(sources.base)} />
       </motion.div>
       <motion.div className="png-envelope-right-group" style={box(layout.flap)} initial={false} animate={{ x: opening ? layout.rightTravel : 0 }} transition={{ duration: duration - delay, delay: opening ? delay : 0, ease: "easeInOut" }} onAnimationComplete={() => { if (opening) finish(); }} aria-hidden="true">
-        <img className="png-envelope-flap" {...imageProps(sources.flap)} />
+        <img className="png-envelope-flap" {...imageProps(sources.flap)} style={{ ...box(layout.flapImage), position: "absolute" }} />
         <img className="png-envelope-seal" {...imageProps(sources.seal)} style={box(layout.seal)} />
       </motion.div>
       {phase === "closed" && <span className="png-envelope-hint">{failed ? "Image indisponible · touchez pour ouvrir" : assetsReady ? hint : "Chargement de l’enveloppe…"}</span>}
-      <button className="png-envelope-trigger" aria-label="Ouvrir le faire-part" onClick={open} disabled={phase !== "closed" || !assetsSettled} />
+      {!closedPreview && <button className="png-envelope-trigger" aria-label="Ouvrir le faire-part" onClick={open} disabled={phase !== "closed" || !assetsSettled} />}
     </div>}
     {phase === "complete" && <span className="sr-only" aria-live="polite">Faire-part ouvert</span>}
   </div>;

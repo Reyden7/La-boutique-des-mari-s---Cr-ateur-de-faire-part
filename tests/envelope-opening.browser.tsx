@@ -12,6 +12,8 @@ import { createBlankProject } from "../src/templates/templates";
 import { normalizeProject } from "../src/utils/storage";
 import { getOpeningDefinition } from "../src/features/openings/registry/openingRegistry";
 import { PREVIEW_DEVICES, type PreviewDevice } from "../src/config/previewDevices";
+import { EditorCanvas } from "../src/components/editor/EditorCanvas";
+import { EditorWorkspace } from "../src/components/editor/EditorWorkspace";
 import { upsertProject, getProject } from "../src/utils/storage";
 import "../src/styles.css";
 
@@ -114,6 +116,7 @@ function Fixture() {
     <nav style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
       {(["mobile","tablet","desktop"] as const).map((d) => <button key={d} onClick={() => { setDevice(d); state.setPreviewDevice(d); replay(); }}>{PREVIEW_DEVICES[d].label}</button>)}
       <button onClick={() => setMode("preview")}>Aperçu complet</button><button onClick={() => setMode("opening-preview")}>Aperçu de l’ouverture</button>
+      <button onClick={() => { state.setSidebarView("introduction"); setMode("editor"); }}>Réglages dans le canvas</button>
       <button onClick={() => { setMode("public"); replay(); }}>Public responsive</button>
       <button onClick={() => { setMode("test"); replay(); }}>Contrôle des clics</button>
       <button onClick={() => { state.updateOpening({ ...current.opening, customSettings: { ...current.opening.customSettings, sealImageUrl: customSeal(), sealImageName: "cachet-alpha.png" } }); replay(); }}>Cachet PNG transparent</button>
@@ -132,6 +135,10 @@ function Fixture() {
     </nav>
     <output id="qa-counts">{JSON.stringify(counts)}</output><output id="qa-step">{step}</output><pre id="qa-report">{report}</pre>
     {mode === "configuration" && <OpeningProperties onPreview={() => setMode("opening-preview")} />}
+    {mode === "editor" && <div style={{display:"grid",gridTemplateColumns:"minmax(450px, 1fr) 300px",height:900}}>
+      <EditorWorkspace pageName="Introduction"><EditorCanvas /></EditorWorkspace>
+      <div style={{overflow:"auto"}}><OpeningProperties onPreview={() => setMode("opening-preview")} /></div>
+    </div>}
     {mode === "public" && <div className="public-invite" key={`${device}-${key}`}><InvitationExperience project={current} mode="public" /></div>}
     {mode === "test" && <div style={{width: PREVIEW_DEVICES[device].width, "--preview-device-height": `${PREVIEW_DEVICES[device].height}px`} as React.CSSProperties} key={`${device}-${key}`}>
       <VerticalEnvelopeOpening device={device} config={current.opening} couple="Emma & Lucas" onInteract={() => { started.current=performance.now(); setInspecting(true); setCounts((c)=>({...c,interact:c.interact+1})); }} onComplete={() => setCounts((c)=>({...c,complete:c.complete+1}))}>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Circle, Group, Image as KonvaImage, Layer, Line, Path, Rect, Stage, Text, Transformer } from "react-konva";
 import Konva from "konva";
 import type { KonvaEventObject } from "konva/lib/Node";
@@ -51,6 +51,7 @@ import { getImageRenderLayout, resolveImageFit, resolveImageTransform } from "..
 import { hasImageAppearance, resolveImageAppearance, type ResolvedImageAppearance } from "../../utils/imageAppearance";
 import { useImageAppearance } from "../../features/images/useImageAppearance";
 import { getLogicalCanvasPointer, getPointerDragDelta, type CanvasPoint } from "../../utils/selectionDrag";
+import { PngEnvelopeOpening } from "../../features/openings/animations/PngEnvelopeOpening";
 
 type DragNodeSnapshot = { node: Konva.Node; x: number; y: number; bounds: AlignmentBounds };
 
@@ -368,6 +369,7 @@ export function EditorCanvas() {
   const page = project?.pages.find((item) => item.id === currentPageId);
   const welcomeConfig = useMemo(() => project ? resolveWelcomePage(project.welcomePage) : undefined, [project?.welcomePage]);
   const isWelcomeEditing = sidebarView === "introduction" && project?.introductionMode === "welcome";
+  const isEnvelopeEditing = sidebarView === "introduction" && project?.introductionMode === "classic" && project.opening.type === "envelope" && previewDevice === "mobile";
   const activeElements = isWelcomeEditing ? welcomeConfig?.elements : page?.elements;
   const elements = useMemo(() => [...(activeElements ?? [])].sort((a, b) => getElementZIndex(a, previewDevice) - getElementZIndex(b, previewDevice)), [activeElements, previewDevice]);
   const viewport = PREVIEW_DEVICES[previewDevice];
@@ -729,7 +731,7 @@ export function EditorCanvas() {
         className="preview-device-screen"
         style={{
           width: viewport.width * zoom,
-          height: documentHeight * zoom,
+          height: (isEnvelopeEditing ? viewport.height : documentHeight) * zoom,
         }}
       >
         {project && <ProjectFontLoader project={project} />}
@@ -838,6 +840,9 @@ export function EditorCanvas() {
 
         {rsvpMeasurement}
         {project?.particles?.enabled && project.particles.layer === "front" && <ParticleRenderer config={project.particles} />}
+        {isEnvelopeEditing && <div className="envelope-editor-closed-preview" style={{ width: viewport.width, height: viewport.height, transform: `scale(${zoom})`, "--preview-device-height": `${viewport.height}px` } as CSSProperties}>
+          <PngEnvelopeOpening config={project.opening} couple={project.name} closedPreview>{null}</PngEnvelopeOpening>
+        </div>}
       </div>
     </div>
   </div>

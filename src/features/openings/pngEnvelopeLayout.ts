@@ -1,3 +1,12 @@
+import type { EnvelopeConfig, EnvelopeOffset } from "../../types/editor";
+
+export const ENVELOPE_OFFSET_FIELDS = { base: "baseClosedOffset", flap: "flapClosedOffset", seal: "sealClosedOffset" } as const;
+
+export function resolveEnvelopeOffset(value?: Partial<EnvelopeOffset> | null): EnvelopeOffset {
+  const axis = (input: unknown) => typeof input === "number" && Number.isFinite(input) ? Math.max(-50, Math.min(50, input)) : 0;
+  return { x: axis(value?.x), y: axis(value?.y) };
+}
+
 /** Original PNG dimensions and alpha bounds. No modification of source pixels. */
 export const PNG_ENVELOPE_ASSETS = {
   base: "/assets/openings/envelope/base1.png",
@@ -25,4 +34,22 @@ export function getPngEnvelopeLayout(width: number, height: number) {
   const sealScale = w * .22 / 914;
   const seal = { x: 400 * flapScale - 645 * sealScale, y: 830 * flapScale - 623 * sealScale, width: 1254 * sealScale, height: 1254 * sealScale };
   return { width: w, height: h, base, flap, seal, leftTravel: -(base.x + base.width + 2), rightTravel: w - flap.x + seal.width + 2 };
+}
+
+/** Compose local closed positions with the original, unchanged animation deltas.
+ * Flap and seal offsets are siblings inside the moving group, not group offsets.
+ */
+export function getPngEnvelopeClosedLayout(width: number, height: number, envelope?: EnvelopeConfig) {
+  const layout = getPngEnvelopeLayout(width, height);
+  const shift = (part: keyof typeof ENVELOPE_OFFSET_FIELDS) => {
+    const offset = resolveEnvelopeOffset(envelope?.[ENVELOPE_OFFSET_FIELDS[part]]);
+    return { x: layout.width * offset.x / 100, y: layout.height * offset.y / 100 };
+  };
+  const base = shift("base"), flap = shift("flap"), seal = shift("seal");
+  return {
+    ...layout,
+    base: { ...layout.base, x: layout.base.x + base.x, y: layout.base.y + base.y },
+    flapImage: { ...flap, width: layout.flap.width, height: layout.flap.height },
+    seal: { ...layout.seal, x: layout.seal.x + seal.x, y: layout.seal.y + seal.y },
+  };
 }

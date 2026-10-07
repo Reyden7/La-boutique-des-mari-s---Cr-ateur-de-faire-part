@@ -604,10 +604,19 @@ export interface EnvelopeAssetRef {
   height?: number;
 }
 
+/** Offset from the normal closed position, in percent of Smartphone viewport. */
+export interface EnvelopeOffset {
+  x: number;
+  y: number;
+}
+
 export interface EnvelopeConfig {
   baseAsset?: EnvelopeAssetRef;
   flapAsset?: EnvelopeAssetRef;
   sealAsset?: EnvelopeAssetRef;
+  baseClosedOffset?: EnvelopeOffset;
+  flapClosedOffset?: EnvelopeOffset;
+  sealClosedOffset?: EnvelopeOffset;
   customBases?: EnvelopeAssetRef[];
   customFlaps?: EnvelopeAssetRef[];
   customSeals?: EnvelopeAssetRef[];

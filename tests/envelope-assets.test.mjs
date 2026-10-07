@@ -20,6 +20,7 @@ const hooks = registerHooks({
 });
 const { normalizeProject, upsertProject, getProject } = await import("../src/utils/storage.ts");
 const { sanitizeProjectForTemplate, instantiateProjectFromTemplate } = await import("../src/utils/templateSnapshot.ts");
+const { useEditorStore } = await import("../src/stores/editorStore.ts");
 const memory = new Map();
 globalThis.localStorage = { getItem: (key) => memory.get(key) ?? null, setItem: (key, value) => memory.set(key, value) };
 const custom = (part) => ({ type: "custom", id: `custom-${part}`, name: part, assetId: `asset-${part}`, url: `https://example.invalid/storage/v1/object/public/wedding-assets/owner/project/${ENVELOPE_PART_FIELDS[part].folder}/image.png`, width: 941, height: 1672 });
@@ -132,6 +133,29 @@ test("controls use shared UI sections, lazy original thumbnails and persist-befo
   const renderer = read("src/features/openings/animations/PngEnvelopeOpening.tsx");
   assert.match(renderer, /failedUrls\[selected\] \? PNG_ENVELOPE_ASSETS\[part\]/);
   assert.match(renderer, /assetsSettled[\s\S]*ready\[src\] \|\| failedUrls\[src\]/);
+});
+
+test("closed offsets persist through actual store, asset changes, undo/redo and project/template reload", () => {
+  const offsets={baseClosedOffset:{x:-4,y:2},flapClosedOffset:{x:3,y:-1},sealClosedOffset:{x:-6,y:4}};
+  const initial={...project,id:"closed-envelope-project",opening:{...project.opening,envelope:{...envelope,...offsets}}};
+  useEditorStore.setState({project:initial,past:[],future:[]});
+  for (const part of ENVELOPE_PARTS) {
+    const state=useEditorStore.getState();
+    state.updateOpening({...state.project.opening,envelope:{...state.project.opening.envelope,[ENVELOPE_PART_FIELDS[part].active]:ENVELOPE_PRESETS[part][1]}});
+    for (const [field,value] of Object.entries(offsets)) assert.deepEqual(useEditorStore.getState().project.opening.envelope[field],value);
+  }
+  const updated=useEditorStore.getState().project;
+  useEditorStore.getState().undo(); useEditorStore.getState().redo();
+  assert.deepEqual(useEditorStore.getState().project.opening.envelope,updated.opening.envelope);
+  upsertProject(updated);
+  assert.deepEqual(getProject(updated.id,"owner").opening.envelope,updated.opening.envelope);
+  const template={name:"Positioned",templateData:sanitizeProjectForTemplate(updated)};
+  const instance=instantiateProjectFromTemplate(template,"other-owner");
+  assert.deepEqual(instance.opening.envelope,updated.opening.envelope);
+  instance.opening.envelope.sealClosedOffset.x=12;
+  assert.equal(template.templateData.opening.envelope.sealClosedOffset.x,-6);
+  const reset={...updated.opening.envelope,flapClosedOffset:{x:0,y:0}};
+  assert.deepEqual(reset.baseClosedOffset,offsets.baseClosedOffset); assert.deepEqual(reset.sealClosedOffset,offsets.sealClosedOffset);
 });
 
 test.after(() => { hooks.deregister(); delete globalThis.localStorage; });
