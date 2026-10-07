@@ -610,15 +610,20 @@ export interface EnvelopeOffset {
   y: number;
 }
 
-export interface EnvelopeConfig {
-  baseAsset?: EnvelopeAssetRef;
-  flapAsset?: EnvelopeAssetRef;
-  sealAsset?: EnvelopeAssetRef;
+export interface EnvelopeDeviceSettings {
   baseClosedOffset?: EnvelopeOffset;
   flapClosedOffset?: EnvelopeOffset;
   sealClosedOffset?: EnvelopeOffset;
-  /** Smartphone seal size multiplier, 0.5–2; absent means the original size (1). */
+  /** Seal size multiplier, 0.5–2; absent means the original size (1). */
   sealScale?: number;
+}
+
+export interface EnvelopeConfig extends EnvelopeDeviceSettings {
+  baseAsset?: EnvelopeAssetRef;
+  flapAsset?: EnvelopeAssetRef;
+  sealAsset?: EnvelopeAssetRef;
+  /** Flat offsets/scale above are legacy Smartphone values only. */
+  responsive?: Partial<Record<"mobile" | "tablet" | "desktop", EnvelopeDeviceSettings>>;
   customBases?: EnvelopeAssetRef[];
   customFlaps?: EnvelopeAssetRef[];
   customSeals?: EnvelopeAssetRef[];

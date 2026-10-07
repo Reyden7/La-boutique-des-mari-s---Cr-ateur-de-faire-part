@@ -8,7 +8,8 @@ import { fileURLToPath } from "node:url";
 import { transformWithOxc } from "vite";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { PNG_ENVELOPE_ASSETS, getPngEnvelopeLayout, getPngEnvelopeDuration, getPngEnvelopeClosedLayout, resolveEnvelopeOffset, resolveEnvelopeSealScale } from "../src/features/openings/pngEnvelopeLayout.ts";
+import { PNG_ENVELOPE_ASSETS, getPngEnvelopeLayout, getPngEnvelopeDuration, getPngEnvelopeClosedLayout, resolveEnvelopeOffset, resolveEnvelopeSealScale, getPngEnvelopeDeviceLayout, resolveEnvelopeDeviceSettings, updateEnvelopeDeviceSettings, getLandscapePaperStyle } from "../src/features/openings/pngEnvelopeLayout.ts";
+import { ENVELOPE_PRESETS } from "../src/features/openings/envelopeAssets.ts";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const source = read("src/features/openings/animations/PngEnvelopeOpening.tsx");
@@ -101,12 +102,13 @@ test("seal is an ordinary image inside the single moving flap group, no old mech
   assert.match(source,/phase !== "complete" &&/);
   assert.match(source,/onAnimationComplete/);
 });
-test("forced Smartphone Preview chooses PNGs, Tablet and PC retain old renderer", () => {
+test("forced Preview chooses portrait Smartphone or landscape Tablet/PC PNGs", () => {
   assert.match(render(ResponsiveEnvelopeOpening,"mobile"),/png-envelope-stage/);
   for(const device of ["tablet","desktop"]) {
     const html=render(ResponsiveEnvelopeOpening,device);
-    assert.match(html,/portrait-envelope-stage/);
-    assert.doesNotMatch(html,/png-envelope-stage/);
+    assert.match(html,/png-envelope-stage png-envelope-landscape/);
+    assert.match(html,/png-envelope-frame/);
+    assert.doesNotMatch(html,/portrait-envelope-stage/);
   }
   assert.match(read("src/features/music/InvitationExperience.tsx"),/<OpeningRenderer[\s\S]*?device=\{activeDevice\}/);
   assert.match(read("src/features/openings/OpeningRenderer.tsx"),/device=\{device\}/);
@@ -167,8 +169,8 @@ test("actual renderer places offsets on local boxes, keeps seal inside group and
   }
   assert.doesNotMatch(html,/png-envelope-trigger/);
   assert.match(source,/closedPreview \? "Position fermée/);
-  assert.match(source,/animate=\{\{ x: opening \? layout.leftTravel : 0 \}\}/);
-  assert.match(source,/animate=\{\{ x: opening \? layout.rightTravel : 0 \}\}/);
+  assert.match(source,/animate=\{opening \? layout.baseMotion : \{ x: 0, y: 0 \}\}/);
+  assert.match(source,/animate=\{opening \? layout.flapMotion : \{ x: 0, y: 0 \}\}/);
   assert.match(source,/duration: duration - delay, delay: opening \? delay : 0, ease: "easeInOut"/);
 });
 test("Smartphone offsets and seal size never change Tablet or PC renderer output", () => {
@@ -222,17 +224,124 @@ test("size UI is seal-only, live, percent-based and reset restores size and posi
   assert.match(ui,/percent \/ 100/);
 });
 
-test("position UI follows each asset picker and editor closed overlay is Smartphone introduction only", () => {
+test("position UI follows each asset picker and editor closed overlay follows active introduction device", () => {
   const controls=read("src/features/openings/EnvelopePositionControls.tsx");
   assert.match(controls,/ENVELOPE_OFFSET_FIELDS\[part\]/);
   assert.match(controls,/Position horizontale/); assert.match(controls,/Position verticale/);
   assert.match(controls,/type="range"[\s\S]*min=\{-50\} max=\{50\} step=\{1\}/);
   assert.match(controls,/<DimensionInput/); assert.match(controls,/Réinitialiser la position/);
-  assert.match(controls,/\.\.\.opening.envelope/);
+  assert.match(controls,/updateEnvelopeDeviceSettings\(opening.envelope, device/);
   const picker=read("src/features/openings/EnvelopeAssetControls.tsx");
   assert.ok(picker.indexOf('<EnvelopePositionControls part={part}')>picker.indexOf('Télécharger le modèle'));
   const canvas=read("src/components/editor/EditorCanvas.tsx");
-  assert.match(canvas,/const isEnvelopeEditing = sidebarView === "introduction" && project\?\.introductionMode === "classic" && project.opening.type === "envelope" && previewDevice === "mobile"/);
-  assert.match(canvas,/<PngEnvelopeOpening config=\{project.opening\} couple=\{project.name\} closedPreview>/);
+  assert.match(canvas,/const isEnvelopeEditing = sidebarView === "introduction" && project\?\.introductionMode === "classic" && project.opening.type === "envelope";/);
+  assert.match(canvas,/<PngEnvelopeOpening key=\{previewDevice\} device=\{previewDevice\} config=\{project.opening\} couple=\{project.name\} closedPreview>/);
   assert.match(canvas,/height: \(isEnvelopeEditing \? viewport.height : documentHeight\) \* zoom/);
+});
+
+test("responsive writes preserve legacy mobile geometry and isolate all three devices", () => {
+  const original={...offsets,sealScale:1.2,sealAsset:{type:"preset",id:"seal",url:"/seal.png"}};
+  const snapshot=structuredClone(original);
+  let envelope=updateEnvelopeDeviceSettings(original,"tablet",{sealScale:1,baseClosedOffset:{x:3,y:4}});
+  envelope=updateEnvelopeDeviceSettings(envelope,"desktop",{sealScale:.9,sealClosedOffset:{x:-5,y:6}});
+  const mobile=getPngEnvelopeDeviceLayout(390,844,envelope,"mobile");
+  const before=getPngEnvelopeClosedLayout(390,844,original);
+  for (const key of ["base","flap","flapImage","seal","leftTravel","rightTravel"]) assert.deepEqual(mobile[key],before[key]);
+  assert.deepEqual(mobile.baseMotion,{x:before.leftTravel,y:0}); assert.deepEqual(mobile.flapMotion,{x:before.rightTravel,y:0});
+  assert.equal(resolveEnvelopeDeviceSettings(envelope,"mobile").sealScale,1.2);
+  assert.equal(resolveEnvelopeDeviceSettings(envelope,"tablet").sealScale,1);
+  assert.equal(resolveEnvelopeDeviceSettings(envelope,"desktop").sealScale,.9);
+  assert.deepEqual(resolveEnvelopeDeviceSettings(original,"tablet"),{});
+  assert.deepEqual(resolveEnvelopeDeviceSettings(original,"desktop"),{});
+  const mobileWrite=updateEnvelopeDeviceSettings(envelope,"mobile",{sealScale:1.6});
+  assert.equal(mobileWrite.sealScale,1.2,"legacy field remains untouched");
+  assert.equal(resolveEnvelopeDeviceSettings(mobileWrite,"mobile").sealScale,1.6);
+  assert.deepEqual(mobileWrite.responsive.tablet,envelope.responsive.tablet);
+  assert.deepEqual(mobileWrite.responsive.desktop,envelope.responsive.desktop);
+  assert.deepEqual(original,snapshot,"no source mutation");
+  assert.deepEqual(mobileWrite.sealAsset,original.sealAsset);
+});
+
+test("landscape viewport is full size and its centered uniform cover composition has no limiting caps", () => {
+  for (const device of ["tablet","desktop"]) for (const [w,h] of [[768,1024],[1440,900],[3840,1080],[900,300]]) {
+    const l=getPngEnvelopeDeviceLayout(w,h,undefined,device);
+    assert.deepEqual(l.frame,{x:0,y:0,width:w,height:h});
+    near(l.composition.x+l.composition.width/2,w/2); near(l.composition.y+l.composition.height/2,h/2);
+    near(l.composition.width/l.composition.height,844/390);
+    assert.ok(l.composition.width>=w-.001); assert.ok(l.composition.height>=h-.001);
+    assert.ok(Math.abs(l.composition.width-w)<.001||Math.abs(l.composition.height-h)<.001);
+    assert.equal(l.landscape,true);
+    const style=getLandscapePaperStyle(l.flapImage);
+    near(style.width/style.height,941/1672); assert.equal(style.transform,"rotate(-90deg)");
+    assert.ok(l.baseMotion.y>0); assert.ok(l.flapMotion.y<0);
+    assert.equal(l.baseMotion.x,0); assert.equal(l.flapMotion.x,0);
+  }
+});
+
+test("landscape user offsets are screen axes, centered seal scaling and complete vertical exits", () => {
+  for (const device of ["tablet","desktop"]) {
+    const base=getPngEnvelopeDeviceLayout(1440,900,undefined,device);
+    const l=getPngEnvelopeDeviceLayout(1440,900,{responsive:{[device]:{...offsets,sealScale:1.6}}},device);
+    near(l.base.x-base.base.x,-.04*l.composition.width); near(l.base.y-base.base.y,.02*l.composition.height);
+    near(l.flapImage.x-base.flapImage.x,.03*l.composition.width); near(l.flapImage.y-base.flapImage.y,-.01*l.composition.height);
+    near((l.seal.x+l.seal.width/2)-(base.seal.x+base.seal.width/2),-.06*l.composition.width);
+    near((l.seal.y+l.seal.height/2)-(base.seal.y+base.seal.height/2),.04*l.composition.height);
+    near(l.seal.width,base.seal.width*1.6);
+    for (const y of [-50,50]) {
+      const extreme=getPngEnvelopeDeviceLayout(1440,900,{responsive:{[device]:{baseClosedOffset:{x:0,y},flapClosedOffset:{x:0,y},sealClosedOffset:{x:0,y},sealScale:2}}},device);
+      assert.ok(extreme.composition.y+extreme.base.y+extreme.baseMotion.y>extreme.frame.height);
+      assert.ok(extreme.composition.y+extreme.flap.y+extreme.flapMotion.y+extreme.flapImage.y+extreme.flapImage.height<0);
+      assert.ok(extreme.composition.y+extreme.flap.y+extreme.flapMotion.y+extreme.seal.y+extreme.seal.height<0);
+    }
+  }
+});
+
+test("closed landscape alpha coverage has no slit after the proportional quarter-turn", () => {
+  const baseAlpha=pngAlpha(PNG_ENVELOPE_ASSETS.base),flapAlpha=pngAlpha(PNG_ENVELOPE_ASSETS.flap);
+  const alpha=(sample,box,x,y)=>sample((box.height-(y-box.y))*941/box.height,(x-box.x)*1672/box.width);
+  for (const [device,w,h] of [["tablet",768,1024],["desktop",1440,900],["desktop",3840,1080]]) {
+    const l=getPngEnvelopeDeviceLayout(w,h,undefined,device);
+    const base={...l.base,x:l.composition.x+l.base.x,y:l.composition.y+l.base.y};
+    const flap={...l.flapImage,x:l.composition.x+l.flap.x+l.flapImage.x,y:l.composition.y+l.flap.y+l.flapImage.y};
+    for (let y=4;y<h-4;y+=8) for (let x=4;x<w-4;x+=8) assert.ok(Math.max(alpha(baseAlpha,base,x,y),alpha(flapAlpha,flap,x,y))>=220,`Slit ${device} at ${x},${y}`);
+  }
+});
+
+test("cover resize uniformly scales all three layers, user offsets and user seal size", () => {
+  const envelope={responsive:{tablet:{...offsets,sealScale:1.6}}};
+  const a=getPngEnvelopeDeviceLayout(768,1024,envelope,"tablet");
+  const b=getPngEnvelopeDeviceLayout(1536,2048,envelope,"tablet");
+  for (const part of ["base","flap","flapImage","seal","composition"]) for (const field of ["x","y","width","height"]) near(b[part][field],a[part][field]*2);
+  near(b.baseMotion.y,a.baseMotion.y*2); near(b.flapMotion.y,a.flapMotion.y*2);
+  assert.equal(a.seal.width,a.seal.height);
+  const noScale=getPngEnvelopeDeviceLayout(768,1024,{responsive:{tablet:offsets}},"tablet");
+  near(a.seal.width,noScale.seal.width*1.6);
+  near(a.seal.x+a.seal.width/2,noScale.seal.x+noScale.seal.width/2);
+  assert.deepEqual(envelope.responsive.tablet,{...offsets,sealScale:1.6});
+});
+
+test("landscape renderer nests original layers in one cover composition clipped by the viewport", () => {
+  for (const device of ["tablet","desktop"]) {
+    const html=render(ResponsiveEnvelopeOpening,device);
+    assert.match(html,/png-envelope-frame[^>]*>\s*<div class="png-envelope-composition"[^>]*>[\s\S]*png-envelope-base[\s\S]*png-envelope-right-group/);
+  }
+  const css=read("src/styles.css");
+  assert.match(css,/\.png-envelope-frame \{[^}]*inset: 0;[^}]*overflow: hidden/);
+  assert.doesNotMatch(css.match(/\.png-envelope-frame \{[^}]*\}/)?.[0]??"",/border-radius|max-width|max-height/);
+});
+
+test("preset/custom/global asset sources remain common on all three responsive renderers", () => {
+  for (const type of ["preset","custom","global"]) {
+    const ref=(part)=>type==="preset"?ENVELOPE_PRESETS[part][1]:{type,id:part,url:`https://example.invalid/${type}-${part}.png`};
+    const envelope={baseAsset:ref("base"),flapAsset:ref("flap"),sealAsset:ref("seal"),
+      responsive:{mobile:{sealScale:1.2},tablet:{sealScale:1},desktop:{sealScale:.9}}};
+    for (const device of ["mobile","tablet","desktop"]) {
+      const html=renderToStaticMarkup(createElement(ResponsiveEnvelopeOpening,{config:{...config,envelope},device,couple:"Emma & Lucas"},"Vrai contenu"));
+      for (const part of ["base","flap","seal"]) assert.ok(html.includes(`src="${ref(part).url}"`));
+      assert.equal((html.match(/<img /g)||[]).length,3);
+      assert.match(html,/png-envelope-right-group[\s\S]*?png-envelope-flap[\s\S]*?png-envelope-seal[\s\S]*?<\/div>/);
+      if (device==="mobile") assert.doesNotMatch(html,/rotate\(-90deg\)|png-envelope-frame/);
+      else assert.match(html,/rotate\(-90deg\)/);
+    }
+  }
 });

@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import { decodeRgba, neutralTemplate } from "../scripts/generate-envelope-templates.mjs";
 import { ENVELOPE_PARTS, ENVELOPE_PART_FIELDS, ENVELOPE_PRESETS, resolveEnvelopeAsset, removeEnvelopeCustom, validateEnvelopeFile, ENVELOPE_MAX_FILE_BYTES } from "../src/features/openings/envelopeAssets.ts";
-import { getPngEnvelopeLayout } from "../src/features/openings/pngEnvelopeLayout.ts";
+import { getPngEnvelopeLayout, resolveEnvelopeDeviceSettings, updateEnvelopeDeviceSettings } from "../src/features/openings/pngEnvelopeLayout.ts";
 
 const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
 const hooks = registerHooks({
@@ -179,6 +179,35 @@ test("project seal scale survives preset/custom/global changes and template roun
   state.updateOpening({...state.project.opening,envelope:{...before,sealScale:1,sealClosedOffset:{x:0,y:0}}});
   assert.deepEqual(useEditorStore.getState().project.opening.envelope,{...before,sealScale:1,sealClosedOffset:{x:0,y:0}});
   state.undo(); assert.deepEqual(useEditorStore.getState().project.opening.envelope,before);
+});
+
+test("real store responsive envelope edits, resets, assets and templates preserve all devices", () => {
+  const legacy={...envelope,sealScale:1.2,sealClosedOffset:{x:-6,y:4}};
+  useEditorStore.setState({project:{...project,id:"responsive-envelope",opening:{...project.opening,envelope:legacy}},past:[],future:[]});
+  for (const [device,scale,x,y] of [["mobile",1.2,-6,4],["tablet",1,3,-2],["desktop",.9,-1,7]]) {
+    const state=useEditorStore.getState();
+    state.updateOpening({...state.project.opening,envelope:updateEnvelopeDeviceSettings(state.project.opening.envelope,device,{sealScale:scale,sealClosedOffset:{x,y},baseClosedOffset:{x:x+1,y:y-1},flapClosedOffset:{x:x-1,y:y+1}})});
+  }
+  const before=useEditorStore.getState().project;
+  for (const asset of [ENVELOPE_PRESETS.seal[1],custom("seal"),{type:"global",id:"global-responsive-seal",url:"https://example.invalid/storage/v1/object/public/global-assets/seal.png"}]) {
+    const state=useEditorStore.getState();
+    state.updateOpening({...state.project.opening,envelope:{...state.project.opening.envelope,sealAsset:asset}});
+    assert.deepEqual(useEditorStore.getState().project.opening.envelope.responsive,before.opening.envelope.responsive);
+  }
+  const saved=useEditorStore.getState().project;
+  upsertProject(saved); const restored=getProject(saved.id,"owner");
+  assert.deepEqual(restored.opening.envelope,saved.opening.envelope);
+  const template={name:"Responsive PNG envelope",templateData:sanitizeProjectForTemplate(saved)};
+  const instance=instantiateProjectFromTemplate(template,"other-owner");
+  assert.deepEqual(instance.opening.envelope,saved.opening.envelope);
+  instance.opening.envelope.responsive.tablet.sealScale=2;
+  assert.equal(template.templateData.opening.envelope.responsive.tablet.sealScale,1);
+  const reset=updateEnvelopeDeviceSettings(saved.opening.envelope,"tablet",{sealClosedOffset:{x:0,y:0},sealScale:1});
+  useEditorStore.getState().updateOpening({...saved.opening,envelope:reset});
+  for (const device of ["mobile","desktop"]) assert.deepEqual(resolveEnvelopeDeviceSettings(reset,device),resolveEnvelopeDeviceSettings(saved.opening.envelope,device));
+  assert.deepEqual(reset.responsive.tablet.baseClosedOffset,saved.opening.envelope.responsive.tablet.baseClosedOffset);
+  useEditorStore.getState().undo(); assert.deepEqual(useEditorStore.getState().project.opening.envelope,saved.opening.envelope);
+  useEditorStore.getState().redo(); assert.deepEqual(useEditorStore.getState().project.opening.envelope,reset);
 });
 
 test.after(() => { hooks.deregister(); delete globalThis.localStorage; });

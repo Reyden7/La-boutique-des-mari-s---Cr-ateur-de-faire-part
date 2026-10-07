@@ -11,7 +11,7 @@ import { useEditorStore, makeTextElement } from "../src/stores/editorStore";
 import { createBlankProject } from "../src/templates/templates";
 import { normalizeProject } from "../src/utils/storage";
 import { getOpeningDefinition } from "../src/features/openings/registry/openingRegistry";
-import { PREVIEW_DEVICES, type PreviewDevice } from "../src/config/previewDevices";
+import { PREVIEW_DEVICES } from "../src/config/previewDevices";
 import { EditorCanvas } from "../src/components/editor/EditorCanvas";
 import { EditorWorkspace } from "../src/components/editor/EditorWorkspace";
 import { upsertProject, getProject } from "../src/utils/storage";
@@ -50,7 +50,7 @@ function customSeal() {
 function Fixture() {
   const state = useEditorStore();
   const [mode, setMode] = useState("configuration");
-  const [device, setDevice] = useState<PreviewDevice>("mobile");
+  const device = state.previewDevice;
   const [key, setKey] = useState(0);
   const [report, setReport] = useState("");
   const [counts, setCounts] = useState({ interact: 0, complete: 0, action: 0 });
@@ -88,13 +88,14 @@ function Fixture() {
       });
       const seal = document.querySelector(".png-envelope-seal")?.getBoundingClientRect();
       const flap = document.querySelector(".png-envelope-right-group")?.getBoundingClientRect();
-      const sealAttached = !seal || !flap || !initialSeal || !initialFlap || Math.abs((seal.left-flap.left)-(initialSeal.left-initialFlap.left)) < .1;
+      const sealAttached = !seal || !flap || !initialSeal || !initialFlap || (Math.abs((seal.left-flap.left)-(initialSeal.left-initialFlap.left)) < .1 && Math.abs((seal.top-flap.top)-(initialSeal.top-initialFlap.top)) < .1);
       const sealSizeStable = !seal || !initialSeal || (Math.abs(seal.width-initialSeal.width)<.1 && Math.abs(seal.height-initialSeal.height)<.1);
       samples.push({ phase, time: Math.round(performance.now()-started.current), width: rect.width, top: rect.top, panels, sealAttached, sealSizeStable, sameNode: document.querySelector(".envelope-invitation, .png-envelope-content") === node, naturalWidthStable: (node as HTMLElement).clientWidth === initialWidth });
       if (phase === "complete") {
         const rows = samples as Array<{time:number;sameNode:boolean;naturalWidthStable:boolean;sealAttached:boolean;sealSizeStable:boolean;top:number;panels:Array<{id:string;x:number;y:number;rotation3D:boolean;opacity:string}>}>;
         const panels = rows.flatMap(r=>r.panels);
-        setReport(JSON.stringify({png,samples:rows.length,elapsed:rows.at(-1)?.time,sameNode:rows.every((s)=>s.sameNode),naturalWidthStable:rows.every((s)=>s.naturalWidthStable),stationaryDocument:rows.every(s=>Math.abs(s.top-initialTop)<.1),sealAttached:rows.every(s=>s.sealAttached),sealSizeStable:rows.every(s=>s.sealSizeStable),horizontalOnly:panels.every(p=>p.y===0&&!p.rotation3D),hingedTop:panels.some(p=>p.id.includes("envelope-top")&&p.rotation3D),sidesMoveOut:panels.some(p=>(p.id.includes("envelope-left")||p.id.includes("png-envelope-base"))&&p.x<0)&&panels.some(p=>p.id.includes("envelope-right")&&p.x>0),bottomMovesDown:panels.some(p=>p.id.includes("envelope-bottom")&&p.y>0),noOverlay:!document.querySelector(".envelope-overlay, .png-envelope-overlay")})); setInspecting(false);
+        const axes = {verticalOnly:panels.every(p=>p.x===0&&!p.rotation3D),baseMovesDown:panels.some(p=>p.id.includes("png-envelope-base")&&p.y>0),flapMovesUp:panels.some(p=>p.id.includes("png-envelope-right-group")&&p.y<0)};
+        setReport(JSON.stringify({png,...axes,samples:rows.length,elapsed:rows.at(-1)?.time,sameNode:rows.every((s)=>s.sameNode),naturalWidthStable:rows.every((s)=>s.naturalWidthStable),stationaryDocument:rows.every(s=>Math.abs(s.top-initialTop)<.1),sealAttached:rows.every(s=>s.sealAttached),sealSizeStable:rows.every(s=>s.sealSizeStable),horizontalOnly:panels.every(p=>p.y===0&&!p.rotation3D),hingedTop:panels.some(p=>p.id.includes("envelope-top")&&p.rotation3D),sidesMoveOut:panels.some(p=>(p.id.includes("envelope-left")||p.id.includes("png-envelope-base"))&&p.x<0)&&panels.some(p=>p.id.includes("envelope-right")&&p.x>0),bottomMovesDown:panels.some(p=>p.id.includes("envelope-bottom")&&p.y>0),noOverlay:!document.querySelector(".envelope-overlay, .png-envelope-overlay")})); setInspecting(false);
       }
       else request = requestAnimationFrame(inspect);
     };
@@ -115,7 +116,7 @@ function Fixture() {
   return <main style={{ padding: 12 }}>
     <h1>Enveloppe verticale — test local</h1><p>Projet temporaire : aucune publication ni sauvegarde distante.</p>
     <nav style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-      {(["mobile","tablet","desktop"] as const).map((d) => <button key={d} onClick={() => { setDevice(d); state.setPreviewDevice(d); replay(); }}>{PREVIEW_DEVICES[d].label}</button>)}
+      {(["mobile","tablet","desktop"] as const).map((d) => <button key={d} onClick={() => { state.setPreviewDevice(d); replay(); }}>{PREVIEW_DEVICES[d].label}</button>)}
       <button onClick={() => setMode("preview")}>Aperçu complet</button><button onClick={() => setMode("opening-preview")}>Aperçu de l’ouverture</button>
       <button onClick={() => { state.setSidebarView("introduction"); setMode("editor"); }}>Réglages dans le canvas</button>
       <button onClick={() => { setMode("public"); replay(); }}>Public responsive</button>

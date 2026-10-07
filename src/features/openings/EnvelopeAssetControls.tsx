@@ -95,5 +95,5 @@ function EnvelopePartControls({ part }: { part: EnvelopePart }) {
 
 export function EnvelopeAssetControls() {
   const projectId = useEditorStore((state) => state.project?.id);
-  return <div className="envelope-asset-controls">{ENVELOPE_PARTS.map((part) => <EnvelopePartControls key={`${projectId}-${part}`} part={part} />)}<small>Personnalisation Smartphone uniquement. L’ouverture Tablette / PC reste inchangée.</small></div>;
+  return <div className="envelope-asset-controls">{ENVELOPE_PARTS.map((part) => <EnvelopePartControls key={`${projectId}-${part}`} part={part} />)}<small>Les modèles sont communs aux trois supports. Positions et taille du cachet : support actif uniquement.</small></div>;
 }

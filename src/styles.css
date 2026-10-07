@@ -1665,6 +1665,8 @@ html:has(.public-invite .png-envelope-stage) { scrollbar-gutter: stable; }
 .png-envelope-base, .png-envelope-right-group { position: absolute; pointer-events: none; will-change: transform; }
 .png-envelope-base { z-index: 20; }
 .png-envelope-right-group { z-index: 30; }
+.png-envelope-frame { position: absolute; inset: 0; overflow: hidden; isolation: isolate; }
+.png-envelope-composition { position: absolute; }
 .png-envelope-base img, .png-envelope-flap { display: block; width: 100%; height: 100%; object-fit: contain; }
 .png-envelope-seal { position: absolute; z-index: 40; object-fit: contain; }
 .png-envelope-trigger { position: absolute; inset: 0; z-index: 50; width: 100%; height: 100%; border: 0; background: transparent; pointer-events: auto; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
