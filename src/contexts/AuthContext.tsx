@@ -1,6 +1,7 @@
 import type { Session, User } from "@supabase/supabase-js";
-import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from "react";
-import { isAuthenticatedSession, isSupabaseConfigured, supabase } from "../lib/supabase";
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { isAuthenticatedSession, isSupabaseConfigured, passwordRecoveryState, supabase } from "../lib/supabase";
+import { sendPasswordRecovery, updateRecoveredPassword } from "../lib/passwordRecovery";
 
 interface AuthContextValue {
   user: User | null;
@@ -12,14 +13,24 @@ interface AuthContextValue {
   signUp: (email: string, password: string) => Promise<{ confirmationRequired: boolean }>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  recoveryReady: boolean;
+  requestPasswordReset: (email: string) => Promise<void>;
+  resetPassword: (password: string) => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextValue | null>(null);
+export const AuthContext = createContext<AuthContextValue | null>(null);
 const PRODUCTION_SITE_URL = "https://www.laboutiquedesmaries.fr";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const recoveryMarker = useSyncExternalStore(passwordRecoveryState.subscribe, passwordRecoveryState.getSnapshot, () => null);
+  const recoveryReady = passwordRecoveryState.hasSession(session);
+  useEffect(() => {
+    if (!recoveryMarker) return;
+    const timer = setTimeout(passwordRecoveryState.clear, Math.max(0, recoveryMarker.expiresAt - Date.now()));
+    return () => clearTimeout(timer);
+  }, [recoveryMarker]);
 
   useEffect(() => {
     if (!supabase) {
@@ -56,9 +67,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     loading,
     configured: isSupabaseConfigured,
+    recoveryReady,
     isAdmin: session?.user.app_metadata?.role === "admin",
     signUp: async (email, password) => {
       if (!supabase) throw new Error("Supabase n’est pas configuré.");
+      passwordRecoveryState.clear();
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -69,15 +82,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     signIn: async (email, password) => {
       if (!supabase) throw new Error("Supabase n’est pas configuré.");
+      passwordRecoveryState.clear();
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
     },
     signOut: async () => {
+      passwordRecoveryState.clear();
       if (!supabase) return;
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
     },
-  }), [loading, session]);
+    requestPasswordReset: async (email) => {
+      if (!supabase) throw new Error("Impossible d’envoyer l’email pour le moment. Veuillez réessayer.");
+      await sendPasswordRecovery(supabase, email, window.location.origin);
+    },
+    resetPassword: async (password) => {
+      if (!supabase) throw new Error("Ce lien de réinitialisation est invalide ou a expiré.");
+      await updateRecoveredPassword(supabase, passwordRecoveryState, password);
+    },
+  }), [loading, session, recoveryReady]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

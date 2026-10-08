@@ -172,6 +172,11 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .auth-submit:disabled { opacity: .6; }
 .auth-switch { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 22px; color: var(--muted); font-size: 10px; }
 .auth-switch button { border: 0; background: transparent; color: #936c54; font-weight: 800; }
+.auth-forgot { justify-self: end; margin-top: -8px; padding: 4px 0; border: 0; background: transparent; color: #936c54; font-size: 11px; }
+.auth-forgot:hover { text-decoration: underline; }
+.auth-forgot:focus-visible, .auth-switch button:focus-visible, .auth-submit:focus-visible { outline: 2px solid var(--forest); outline-offset: 4px; }
+.auth-card a.auth-submit { text-decoration: none; font-size: 12px; padding: 10px; text-align: center; }
+.auth-card label > div:focus-within { border-color: var(--forest); }
 .auth-message { margin-bottom: 16px; padding: 11px 13px; border-radius: 8px; background: #e9f0e9; color: #405543; font-size: 10px; line-height: 1.5; }
 .auth-message.error, .project-sync-message { background: #f8e9e7; color: #8b3f3c; }
 .home-account { display: flex; align-items: center; gap: 12px; }
