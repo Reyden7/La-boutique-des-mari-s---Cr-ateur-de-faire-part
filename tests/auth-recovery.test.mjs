@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { createRecoveryState, isValidRecoveryEmail, validateNewPassword, sendPasswordRecovery, updateRecoveredPassword, RECOVERY_INVALID_MESSAGE } from "../src/lib/passwordRecovery.ts";
+import { createRecoveryState, getInitializedAuthSession, getRecoveryRedirect, isRecoveryCallback, isValidRecoveryEmail, validateNewPassword, sendPasswordRecovery, updateRecoveredPassword, RECOVERY_INVALID_MESSAGE } from "../src/lib/passwordRecovery.ts";
 
 const session = { user: { id: "fixture-user", is_anonymous: false, last_sign_in_at: "2026-10-08T10:00:00Z" }, expires_at: 4600 };
 function storage() {
@@ -47,6 +47,41 @@ test("ordinary sessions, anonymous and expired recovery sessions cannot enable r
   recovery.handleEvent("SIGNED_IN",session); assert.equal(recovery.hasSession(session),false);
   recovery.handleEvent("PASSWORD_RECOVERY",{...session,user:{...session.user,is_anonymous:true}}); assert.equal(recovery.hasSession(session),false);
   recovery.handleEvent("PASSWORD_RECOVERY",{...session,expires_at:900}); assert.equal(recovery.hasSession(session),false);
+});
+test("recovery routing overrides dashboard, login and admin, but never normal sessions", () => {
+  for (const path of ["/", "/auth", "/login", "/studio/fixture", "/admin/assets", "/unknown"]) {
+    assert.equal(getRecoveryRedirect(path, true), "/reset-password");
+    assert.equal(getRecoveryRedirect(path, false), null);
+  }
+  assert.equal(getRecoveryRedirect("/reset-password", true), null);
+  assert.equal(getRecoveryRedirect("/reset-password", false), null);
+});
+test("callback type is only a loading hint, not proof of recovery", () => {
+  assert.equal(isRecoveryCallback({search:"",hash:"#type=recovery"}), true);
+  assert.equal(isRecoveryCallback({search:"?type=recovery",hash:""}), true);
+  assert.equal(isRecoveryCallback({search:"?type=signup",hash:""}), false);
+  assert.equal(isRecoveryCallback({search:"",hash:""}), false);
+  const {recovery} = fixture();
+  assert.equal(recovery.hasSession(session), false);
+});
+test("auth bootstrap waits for the real SDK's deferred PASSWORD_RECOVERY before releasing routing", async () => {
+  const {recovery} = fixture(); const calls=[];
+  const client={auth:{
+    initialize: async()=>{
+      calls.push("initialize");
+      setTimeout(()=>{recovery.handleEvent("PASSWORD_RECOVERY",session);calls.push("PASSWORD_RECOVERY");},0);
+      return {error:null};
+    },
+    getSession:async()=>{calls.push("getSession");assert.equal(recovery.hasSession(session),true);return {data:{session},error:null};},
+  }};
+  assert.equal((await getInitializedAuthSession(client)).data.session,session);
+  assert.deepEqual(calls,["initialize","PASSWORD_RECOVERY","getSession"]);
+});
+test("invalid callback initialization cannot reuse an existing ordinary session", async () => {
+  let reads=0; const error={code:"otp_expired"};
+  const client={auth:{initialize:async()=>({error}),getSession:async()=>{reads++;return {data:{session},error:null};}}};
+  assert.deepEqual(await getInitializedAuthSession(client),{data:{session:null},error});
+  assert.equal(reads,0);
 });
 test("SDK recovery event survives refresh with a user-bound, expiring UI marker and no token", () => {
   const {recovery,store}=fixture(); let notifications=0;
@@ -118,5 +153,12 @@ test("public route, autocomplete, safe errors and synchronous double-submit guar
   assert.equal((source("../src/pages/ResetPasswordPage.tsx").match(/autoComplete="new-password"/g)??[]).length,2);
   for(const file of ["../src/pages/AuthPage.tsx","../src/pages/ResetPasswordPage.tsx"])assert.match(source(file),/if \(busy.current/);
   assert.match(source("../src/lib/supabase.ts"),/detectSessionInUrl: true/);
+  assert.match(source("../src/contexts/AuthContext.tsx"),/getInitializedAuthSession\(client\)/);
+  assert.match(source("../src/contexts/AuthContext.tsx"),/if \(initialized\) setLoading\(false\)/);
+  assert.match(source("../src/App.tsx"),/<RecoveryRouteGuard><Routes>/);
+  assert.match(source("../src/App.tsx"),/path="\/login" element={<AuthPage \/>}/);
+  assert.match(source("../src/pages/ResetPasswordPage.tsx"),/to="\/login"/);
+  for(const file of ["../src/pages/AuthPage.tsx","../src/components/auth/ProtectedRoute.tsx"])
+    assert.match(source(file),/getRecoveryRedirect\(location.pathname, recoveryReady\)/);
   const helper=source("../src/lib/passwordRecovery.ts");assert.ok(!helper.includes("access_token")&&!helper.includes("setSession(")&&!helper.includes(".from("));
 });

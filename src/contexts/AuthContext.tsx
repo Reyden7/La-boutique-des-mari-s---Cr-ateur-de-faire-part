@@ -1,7 +1,7 @@
 import type { Session, User } from "@supabase/supabase-js";
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { isAuthenticatedSession, isSupabaseConfigured, passwordRecoveryState, supabase } from "../lib/supabase";
-import { sendPasswordRecovery, updateRecoveredPassword } from "../lib/passwordRecovery";
+import { getInitializedAuthSession, sendPasswordRecovery, updateRecoveredPassword } from "../lib/passwordRecovery";
 
 interface AuthContextValue {
   user: User | null;
@@ -40,20 +40,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const client = supabase;
 
     let active = true;
-    void client.auth.getSession().then(async ({ data, error }) => {
+    let initialized = false;
+    void getInitializedAuthSession(client).then(async ({ data, error }) => {
       if (!active) return;
-      if (error) console.warn("Récupération de session impossible", error.message);
+      if (error) {
+        passwordRecoveryState.clear();
+        console.warn("Récupération de session impossible", error.code ?? "auth_error");
+      }
       if (data.session?.user.is_anonymous) await client.auth.signOut();
       if (active) {
+        initialized = true;
         setSession(isAuthenticatedSession(data.session) ? data.session : null);
         setLoading(false);
       }
+    }).catch(() => {
+      if (!active) return;
+      initialized = true;
+      passwordRecoveryState.clear();
+      setSession(null);
+      setLoading(false);
     });
 
-    const { data: listener } = client.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: listener } = client.auth.onAuthStateChange((event, nextSession) => {
       if (!active) return;
+      // Process recovery BEFORE exposing an authenticated user to route guards.
+      passwordRecoveryState.handleEvent(event, nextSession);
       setSession(isAuthenticatedSession(nextSession) ? nextSession : null);
-      setLoading(false);
+      if (initialized) setLoading(false);
     });
 
     return () => {

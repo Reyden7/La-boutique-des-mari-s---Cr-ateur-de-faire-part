@@ -7,6 +7,27 @@ const STORAGE_KEY = "lbm.auth.recovery-ui";
 type RecoveryMarker = { userId: string; signedInAt: string | null; expiresAt: number };
 type RecoveryStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
+export function isRecoveryCallback(location: Pick<Location, "search" | "hash">) {
+  // Routing hint only: NEVER grants access to the password form. Only the SDK's
+  // PASSWORD_RECOVERY event and its verified session can enable recoveryReady.
+  return new URLSearchParams(location.hash.slice(1)).get("type") === "recovery"
+    || new URLSearchParams(location.search).get("type") === "recovery";
+}
+
+export function getRecoveryRedirect(pathname: string, recoveryReady: boolean) {
+  return recoveryReady && pathname !== "/reset-password" ? "/reset-password" : null;
+}
+
+export async function getInitializedAuthSession(client: SupabaseClient) {
+  const { error } = await client.auth.initialize();
+  if (error) return { data: { session: null }, error };
+  // The installed SDK schedules PASSWORD_RECOVERY with setTimeout(0) AFTER
+  // saving the session. getSession alone can therefore unblock normal routing
+  // before the recovery event. Let that notification run before ending loading.
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  return client.auth.getSession();
+}
+
 export function isValidRecoveryEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 }

@@ -3,10 +3,10 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AuthCard } from "../components/auth/AuthCard";
 import { useAuth } from "../contexts/AuthContext";
-import { isValidRecoveryEmail, PASSWORD_MIN_LENGTH, RECOVERY_SENT_MESSAGE } from "../lib/passwordRecovery";
+import { getRecoveryRedirect, isValidRecoveryEmail, PASSWORD_MIN_LENGTH, RECOVERY_SENT_MESSAGE } from "../lib/passwordRecovery";
 
 export function AuthPage() {
-  const { user, loading, configured, signIn, signUp, requestPasswordReset } = useAuth();
+  const { user, loading, recoveryReady, configured, signIn, signUp, requestPasswordReset } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const routeState = location.state as { from?: string; forgotPassword?: boolean } | null;
@@ -20,8 +20,11 @@ export function AuthPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!loading && user && mode !== "recovery") navigate(destination, { replace: true });
-  }, [destination, loading, mode, navigate, user]);
+    if (loading) return;
+    const recoveryRedirect = getRecoveryRedirect(location.pathname, recoveryReady);
+    if (recoveryRedirect) navigate(recoveryRedirect, { replace: true });
+    else if (user && mode !== "recovery") navigate(destination, { replace: true });
+  }, [destination, loading, location.pathname, mode, navigate, recoveryReady, user]);
 
   const changeMode = (next: typeof mode) => {
     if (busy.current) return;

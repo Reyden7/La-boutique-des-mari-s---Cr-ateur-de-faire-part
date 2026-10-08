@@ -28,12 +28,12 @@ export function ResetPasswordPage() {
       setError(detail === RECOVERY_INVALID_MESSAGE ? detail : "Impossible de modifier le mot de passe pour le moment. Veuillez réessayer.");
     } finally { busy.current = false; setSubmitting(false); }
   };
-  return <AuthCard title="Nouveau mot de passe" intro="Choisissez votre nouveau mot de passe.">
+  return <AuthCard title="Nouveau mot de passe" intro="Choisissez un nouveau mot de passe pour votre compte.">
     {success ? <><div className="auth-message" role="status">Votre mot de passe a bien été modifié.</div>
-      <Link className="auth-submit" to="/auth">Se connecter<ArrowRight size={16}/></Link></>
+      <Link className="auth-submit" to="/login">Se connecter<ArrowRight size={16}/></Link></>
       : loading ? <div className="auth-message" role="status">Vérification du lien…</div>
       : !recoveryReady && !submitting ? <><div className="auth-message error" role="alert">{RECOVERY_INVALID_MESSAGE}</div>
-        <Link className="auth-submit" to="/auth" state={{ forgotPassword: true }}>Demander un nouveau lien<ArrowRight size={16}/></Link></>
+        <Link className="auth-submit" to="/login" state={{ forgotPassword: true }}>Demander un nouveau lien<ArrowRight size={16}/></Link></>
       : <>
         {error && <div className="auth-message error" id="reset-error" role="alert">{error}</div>}
         <form onSubmit={(event) => void submit(event)} noValidate aria-busy={submitting}>

@@ -1,10 +1,13 @@
 import { createClient, type Session, type User } from "@supabase/supabase-js";
-import { createRecoveryState } from "./passwordRecovery";
+import { createRecoveryState, isRecoveryCallback } from "./passwordRecovery";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
 const supabasePublishableKey = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_ANON_KEY)?.trim();
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabasePublishableKey);
+
+// Capture only the flow type before Supabase consumes/removes the callback URL.
+export const incomingPasswordRecovery = typeof window !== "undefined" && isRecoveryCallback(window.location);
 
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl!, supabasePublishableKey!, {
