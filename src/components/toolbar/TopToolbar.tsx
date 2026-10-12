@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { useEditorStore } from "../../stores/editorStore";
 import { remoteErrorSummary } from "../../utils/storage";
 import { formatPrice } from "../../config/commerce";
-import { PRICING, calculateTotalPricing, calculateGuestUpgrade, isValidGuestCount } from "../../config/pricing";
+import { PRICING, PRICING_CHANGED_MESSAGE, calculateTotalPricing, calculateGuestUpgrade, isValidGuestCount } from "../../config/pricing";
 import { useAuth } from "../../contexts/AuthContext";
 import { TemplatePublishModal } from "../../features/templates/TemplatePublishModal";
 import { PromoCodeInput } from "./PromoCodeInput";
@@ -74,7 +74,7 @@ export function TopToolbar({ onPreview, promoValidation = validatePromoCode }: {
       }
     } catch (error) {
       console.warn("Création du paiement impossible", remoteErrorSummary(error));
-      setPublishError(error instanceof Error && error.message === "Ce code promo n’est plus disponible." ? error.message : "Le paiement n’a pas pu être préparé. Vérifiez votre connexion puis réessayez.");
+      setPublishError(error instanceof Error && ["Ce code promo n’est plus disponible.", PRICING_CHANGED_MESSAGE].includes(error.message) ? error.message : "Le paiement n’a pas pu être préparé. Vérifiez votre connexion puis réessayez.");
       setPromo(null);
     } finally {
       setPublishing(false);
@@ -102,16 +102,16 @@ export function TopToolbar({ onPreview, promoValidation = validatePromoCode }: {
             <p className="eyebrow">Publication sécurisée</p>
             <h2 id="publication-title">{isUpgrade ? "Ajustez votre capacité" : "Publiez votre faire-part"}</h2>
             <label className="publication-guests field"><span>Nombre d’invités</span><input type="number" min={1} max={PRICING.maxGuestCount} step={1} value={guestCountDraft} disabled={publishing} onChange={(event) => setGuestCountDraft(event.target.value)} aria-describedby="publication-guest-help" /></label>
-            <p className="publication-responsive-help" id="publication-guest-help">Jusqu’à 40 invités inclus. Puis {formatPrice(PRICING.extraBlockPriceCents)} par tranche de 7 invités supplémentaires. Formulaire invité en option : +{formatPrice(PRICING.formPriceCents)}.</p>
+            <p className="publication-responsive-help" id="publication-guest-help">{formatPrice(PRICING.basePriceCents)} jusqu’à {PRICING.includedGuests} invités, puis {formatPrice(PRICING.extraGuestPriceCents)} par invité supplémentaire. Formulaire invité en option : +{formatPrice(PRICING.formPriceCents)}.</p>
             {!validGuestCount && <p className="form-error">Indiquez un nombre entier entre 1 et {PRICING.maxGuestCount.toLocaleString("fr-FR")}.</p>}
             {!isUpgrade && <PromoCodeInput value={promo} onChange={setPromo} disabled={publishing} onBusyChange={setValidatingPromo} validate={promoValidation} />}
             <dl className="publication-breakdown">
-              {upgrade ? <><div><dt>Capacité déjà achetée</dt><dd>{project.purchasedGuestCapacity} invités</dd></div><div><dt>{upgrade.additionalBlocks} tranche{upgrade.additionalBlocks !== 1 ? "s" : ""} supplémentaire{upgrade.additionalBlocks !== 1 ? "s" : ""} de 7 invités</dt><dd>{formatPrice(upgrade.upgradePriceCents)}</dd></div></> : <><div><dt>Faire-part — jusqu’à 40 invités</dt><dd>{formatPrice(PRICING.basePriceCents)}</dd></div>{pricing.extraBlocks > 0 && <div><dt>{pricing.extraBlocks} tranche{pricing.extraBlocks > 1 ? "s" : ""} supplémentaire{pricing.extraBlocks > 1 ? "s" : ""} de 7 invités</dt><dd>{formatPrice(pricing.extraBlocks * PRICING.extraBlockPriceCents)}</dd></div>}{includesForm && <div><dt>Formulaire invité</dt><dd>{formatPrice(pricing.formPriceCents)}</dd></div>}</>}
+              {upgrade ? <><div><dt>Capacité déjà achetée</dt><dd>{project.purchasedGuestCapacity} invités</dd></div><div><dt>Invités supplémentaires · {upgrade.additionalGuests} × {formatPrice(PRICING.extraGuestPriceCents)}</dt><dd>{formatPrice(upgrade.upgradePriceCents)}</dd></div></> : <><div><dt>Faire-part — jusqu’à 40 invités</dt><dd>{formatPrice(PRICING.basePriceCents)}</dd></div>{pricing.extraGuests > 0 && <div><dt>Invités supplémentaires · {pricing.extraGuests} × {formatPrice(PRICING.extraGuestPriceCents)}</dt><dd>{formatPrice(pricing.extraGuests * PRICING.extraGuestPriceCents)}</dd></div>}{includesForm && <div><dt>Formulaire invité</dt><dd>{formatPrice(pricing.formPriceCents)}</dd></div>}</>}
               {discount && <><div><dt>Sous-total</dt><dd>{formatPrice(publicationPrice)}</dd></div><div className="promo-discount"><dt>Code {promo!.code} · −{promo!.discountValue} %</dt><dd>−{formatPrice(discount.discountAmount)}</dd></div></>}
             </dl>
             {publishError && <p className="form-error" role="alert">{publishError}</p>}
             <p className="publication-price"><strong>Total : {validGuestCount ? publicationPriceLabel : "—"} TTC</strong><span>Licence pour un seul événement · capacité {upgrade?.guestCapacity ?? pricing.guestCapacity} invités</span></p>
-            {upgrade ? <p className="publication-responsive-help">Vous ne payez que les tranches supplémentaires. Réduire le nombre déclaré ne réduit pas votre capacité achetée et ne déclenche aucun remboursement.</p> : <ul>{publicationBenefits.map((benefit) => <li key={benefit}><Check size={15} /> {benefit}</li>)}{includesForm && <li><Check size={15} /> Formulaire invité et collecte des réponses</li>}</ul>}
+            {upgrade ? <p className="publication-responsive-help">Vous ne payez que les invités au-delà de votre capacité déjà achetée. Réduire le nombre déclaré ne réduit pas cette capacité et ne déclenche aucun remboursement.</p> : <ul>{publicationBenefits.map((benefit) => <li key={benefit}><Check size={15} /> {benefit}</li>)}{includesForm && <li><Check size={15} /> Formulaire invité et collecte des réponses</li>}</ul>}
             <label className="publication-responsive-confirmation">
               <input
                 type="checkbox"
@@ -128,7 +128,7 @@ export function TopToolbar({ onPreview, promoValidation = validatePromoCode }: {
               aria-describedby="publication-responsive-help"
               onClick={() => void beginCheckout()}
             >
-              {publishing ? "Préparation du paiement…" : upgrade ? upgrade.additionalBlocks > 0 ? "Payer les invités supplémentaires" : "Confirmer sans paiement" : "Payer et publier"}
+              {publishing ? "Préparation du paiement…" : upgrade ? upgrade.additionalGuests > 0 ? "Payer les invités supplémentaires" : "Confirmer sans paiement" : "Payer et publier"}
             </button>
             <small><LockKeyhole size={12} /> Paiement sécurisé par Stripe. Aucune donnée bancaire ne transite par le Studio.</small>
           </section>

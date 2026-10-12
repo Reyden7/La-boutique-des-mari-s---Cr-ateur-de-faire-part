@@ -84,6 +84,8 @@ Deno.serve(async (request) => {
   }
 
   console.info("stripe_event_received", { eventType: event.type });
+  // Shared receipt validation dispatches guest-v2 per-guest and historical
+  // guest-v1 snapshots separately; never reprice an old Stripe payment.
   const processGuestPayment = async (session: Stripe.Checkout.Session, refund = false) => {
     const receiptId = session.metadata?.receipt_id;
     const ownerId = session.metadata?.owner_id;

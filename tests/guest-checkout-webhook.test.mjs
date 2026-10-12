@@ -41,7 +41,7 @@ const client = {
   auth: {getUser:async () => ({data:{user:mock.user},error:null})}, from: query,
   rpc: async (name,params) => {
     mock.calls.push({kind:"rpc",name,params});
-    if (name !== "reserve_guest_checkout") return {data:null,error:null};
+    if (name !== "reserve_guest_checkout_v2") return {data:null,error:null};
     if (mock.rejectReservation) return {data:null,error:{code:"P0001",message:"CHECKOUT_BUSY"}};
     if (mock.invalidateOnReserve) return {data:null,error:{code:"P0001",message:"PROMO_UNAVAILABLE"}};
     const upgrade = mock.project.payment_status === "paid";
@@ -50,11 +50,12 @@ const client = {
     const additional = upgrade ? calculateGuestUpgrade(mock.project.purchased_guest_capacity,params.p_guest_count) : null;
     const receipt = {
       id:"33333333-3333-4333-8333-333333333333",project_id:projectId,owner_id:ownerId,
-      purchase_type:upgrade ? "guest_capacity_upgrade" : "initial_publication",pricing_version:"guest-v1",
-      guest_count:quote.guestCount,guest_capacity:quote.guestCapacity,extra_blocks:quote.extraBlocks,
-      previous_extra_blocks:mock.project.purchased_extra_blocks ?? 0,additional_blocks:additional?.additionalBlocks ?? quote.extraBlocks,
+      purchase_type:upgrade ? "guest_capacity_upgrade" : "initial_publication",pricing_version:"guest-v2",
+      guest_count:quote.guestCount,guest_capacity:quote.guestCapacity,extra_guests:quote.extraGuests,
+      previous_guest_capacity:upgrade ? mock.project.purchased_guest_capacity : 0,additional_guests:additional?.additionalGuests ?? quote.extraGuests,
       has_form:form,amount_cents:additional?.upgradePriceCents ?? quote.totalPriceCents,currency:"eur",
       stripe_checkout_session_id:null,stripe_payment_intent_id:null,status:"pending",created_at:new Date().toISOString(),
+      subtotal_amount:additional?.upgradePriceCents ?? quote.totalPriceCents,discount_amount:0,
     };
     if (params.p_promo_code) {
       const promo = mock.promos.find((item) => item.code === params.p_promo_code && item.is_active);
@@ -103,23 +104,26 @@ const hooks = registerHooks({
 current="checkout";await import("../supabase/functions/create-checkout-session/index.ts");
 current="webhook";await import("../supabase/functions/stripe-webhook/index.ts");
 current="validate";await import("../supabase/functions/validate-promo-code/index.ts");
-const checkout = (body,auth=true) => handlers.checkout(new Request("https://edge.invalid",{method:"POST",headers:{"Content-Type":"application/json",...(auth?{Authorization:"Bearer token"}:{})},body:JSON.stringify(body)}));
+const checkout = (body,auth=true) => handlers.checkout(new Request("https://edge.invalid",{method:"POST",headers:{"Content-Type":"application/json",...(auth?{Authorization:"Bearer token"}:{})},body:JSON.stringify({pricingVersion:"guest-v2",...body})}));
 const webhook = (type,object,signature="valid-test-signature") => handlers.webhook(new Request("https://edge.invalid",{method:"POST",headers:{"Stripe-Signature":signature},body:JSON.stringify({type,data:{object}})}));
 const calls = (kind) => mock.calls.filter((call)=>call.kind===kind);
 
-test("real Checkout handler computes all tiers, ignores client amount and generates complete server quote metadata", async () => {
-  for (const guests of [1,40,41,47,48,54,55,61,62]) for (const form of [false,true]) {
+test("real Checkout handler computes per-guest prices, ignores client amount and generates complete server quote metadata", async () => {
+  for (const guests of [1,40,41,42,45,47,48,50,53,54,55,60,80,100]) for (const form of [false,true]) {
     reset(form);
     assert.equal((await checkout({projectId,guestCount:guests,amount:1,extraBlocks:0,hasForm:false})).status,200);
     const {params,options} = calls("stripe-create")[0];
     assert.equal(params.line_items.reduce((sum,item)=>sum+item.quantity*item.price_data.unit_amount,0),calculateTotalPricing(guests,form).totalPriceCents);
     assert.equal(params.metadata.has_form,String(form)); assert.equal(params.metadata.guest_count,String(guests));
-    const blocks = Math.max(0,Math.ceil((guests-40)/7));
+    const extras = Math.max(0,guests-40);
+    const subtotal=2450+extras*100+(form?990:0);
     assert.deepEqual(params.metadata,{
       receipt_id:"33333333-3333-4333-8333-333333333333",project_id:projectId,owner_id:ownerId,
-      purchase_type:"initial_publication",pricing_version:"guest-v1",guest_count:String(guests),
-      guest_capacity:String(40+7*blocks),extra_blocks:String(blocks),previous_extra_blocks:"0",
-      additional_blocks:String(blocks),has_form:String(form),includes_form:String(form),form_amount_cents:String(form?990:0),
+      purchase_type:"initial_publication",pricing_version:"guest-v2",guest_count:String(guests),
+      guest_capacity:String(Math.max(40,guests)),included_guests:"40",extra_guests:String(extras),extra_guest_unit_price:"100",
+      previous_guest_capacity:"0",additional_guests:String(extras),invitation_price:String(2450+extras*100),form_price:String(form?990:0),
+      subtotal:String(subtotal),subtotal_amount:String(subtotal),discount_amount:"0",final_amount:String(subtotal),
+      has_form:String(form),includes_form:String(form),form_amount_cents:String(form?990:0),
     });
     assert.deepEqual(params.metadata,params.payment_intent_data.metadata);
     assert.equal(params.managed_payments.enabled,false); assert.equal(params.payment_method_types,undefined);
@@ -133,8 +137,18 @@ test("invalid guest count, absent/anonymous session or another owner's project n
   reset();mock.project.owner_id="other";assert.equal((await checkout({projectId,guestCount:40})).status,403);
   assert.equal(calls("stripe-create").length,0);
 });
-test("paid capacity upgrades charge only additional blocks, never base or form", async () => {
-  for (const [capacity,count,amount] of [[40,47,450],[40,54,900],[47,54,450],[54,53,0]]) {
+
+test("a stale UI cannot create a differently-priced session", async () => {
+  for(const pricingVersion of [undefined,"guest-v1","unknown"]) {
+    reset();const response=await checkout({projectId,guestCount:55,pricingVersion});
+    assert.equal(response.status,409);assert.equal((await response.json()).code,"pricing_changed");
+    assert.equal(mock.calls.length,0);
+  }
+  reset();const response=await checkout({projectId,guestCount:55});
+  assert.equal((await response.json()).pricingVersion,"guest-v2");
+});
+test("paid capacity upgrades charge only additional guests, never base or form", async () => {
+  for (const [capacity,count,amount] of [[40,41,100],[40,47,700],[40,54,1400],[47,54,700],[54,60,600],[53,54,100],[54,45,0]]) {
     reset(true);Object.assign(mock.project,{payment_status:"paid",status:"published",purchased_guest_capacity:capacity,purchased_extra_blocks:(capacity-40)/7});
     const response=await checkout({projectId,guestCount:count});
     if (!amount) {assert.equal(response.status,409);assert.equal(calls("stripe-create").length,0);continue;}
@@ -142,9 +156,10 @@ test("paid capacity upgrades charge only additional blocks, never base or form",
     assert.equal(params.line_items[0].quantity*params.line_items[0].price_data.unit_amount,amount);
     assert.equal(params.metadata.has_form,"false");assert.equal(params.metadata.purchase_type,"guest_capacity_upgrade");
     assert.equal(params.metadata.guest_count,String(count));
-    assert.equal(params.metadata.guest_capacity,String(40+7*Math.max(0,Math.ceil((count-40)/7))));
-    assert.equal(params.metadata.previous_extra_blocks,String((capacity-40)/7));
-    assert.equal(params.metadata.additional_blocks,String(amount/450));
+    assert.equal(params.metadata.guest_capacity,String(count));
+    assert.equal(params.metadata.previous_guest_capacity,String(capacity));
+    assert.equal(params.metadata.additional_guests,String(amount/100));
+    assert.equal("extra_blocks" in params.metadata,false);
     assert.deepEqual(params.metadata,params.payment_intent_data.metadata);
   }
 });
@@ -168,7 +183,7 @@ test("new webhook validates signature, Stripe settlement, persisted receipt, all
   assert.equal((await webhook("checkout.session.completed",{...session,amount_total:1})).status,409);assert.equal(calls("rpc").length,0);
   assert.equal((await webhook("checkout.session.completed",{...session,metadata:{...session.metadata,guest_capacity:"999"}})).status,409);assert.equal(calls("rpc").length,0);
   assert.equal((await webhook("checkout.session.completed",session)).status,200);
-  assert.equal(calls("rpc")[0].name,"finalize_guest_checkout");assert.equal(calls("rpc")[0].params.p_amount_cents,4340);
+  assert.equal(calls("rpc")[0].name,"finalize_guest_checkout");assert.equal(calls("rpc")[0].params.p_amount_cents,4740);
   assert.equal((await webhook("checkout.session.async_payment_succeeded",session)).status,200);
   assert.equal((await webhook("checkout.session.async_payment_failed",session)).status,200);
   assert.equal(calls("rpc").at(-1).name,"fail_guest_checkout");
@@ -176,8 +191,25 @@ test("new webhook validates signature, Stripe settlement, persisted receipt, all
 test("guest full refund routes to atomic refund RPC; partial refunds do not revoke publication", async () => {
   reset(true);await checkout({projectId,guestCount:53});mock.calls=[];
   assert.equal((await webhook("charge.refunded",{refunded:false,payment_intent:"pi_created",currency:"eur",amount_refunded:100})).status,200);assert.equal(calls("rpc").length,0);
-  assert.equal((await webhook("charge.refunded",{refunded:true,payment_intent:"pi_created",currency:"eur",amount_refunded:4340})).status,200);
+  assert.equal((await webhook("charge.refunded",{refunded:true,payment_intent:"pi_created",currency:"eur",amount_refunded:4740})).status,200);
   assert.equal(calls("rpc")[0].name,"refund_guest_checkout");
+});
+
+test("historical guest-v1 payments and refunds remain payable; an open old quote is not reused for a new purchase", async () => {
+  reset(true);
+  const old={id:"old-receipt",project_id:projectId,owner_id:ownerId,purchase_type:"initial_publication",pricing_version:"guest-v1",
+    guest_count:53,guest_capacity:54,extra_blocks:2,previous_extra_blocks:0,additional_blocks:2,has_form:true,amount_cents:4340,
+    currency:"eur",status:"pending",stripe_checkout_session_id:"cs_v1",stripe_payment_intent_id:null,created_at:new Date().toISOString()};
+  const session={id:"cs_v1",currency:"eur",amount_total:4340,payment_status:"paid",payment_intent:"pi_v1",metadata:guestCheckoutMetadata(old)};
+  mock.receipts=[old];mock.sessions.cs_v1=session;
+  assert.equal((await webhook("checkout.session.completed",session)).status,200);
+  assert.equal(calls("rpc").at(-1).params.p_amount_cents,4340);
+  assert.equal((await webhook("charge.refunded",{refunded:true,payment_intent:"pi_v1",currency:"eur",amount_refunded:4340})).status,200);
+  assert.equal(calls("rpc").at(-1).name,"refund_guest_checkout");
+  mock.calls=[];mock.sessions.cs_v1={...session,status:"open",payment_status:"unpaid",url:"https://checkout.stripe.invalid/old"};
+  assert.equal((await checkout({projectId,guestCount:53})).status,200);
+  assert.equal(calls("expire")[0].id,"cs_v1");assert.equal(calls("stripe-create").length,1);
+  assert.equal(mock.sessions.cs_created.amount_total,4740);
 });
 test("legacy 24.90 and 34.80 payments/refunds retain their existing RPC path", async () => {
   for (const includes of [false,true]) {
@@ -206,7 +238,7 @@ test("promo validation is authenticated, normalized and never lists codes or rec
   mock.user.is_anonymous=true;assert.equal((await validate({promoCode:"WP21"})).status,401);
 });
 test("actual Checkout promo handlers ignore forged amounts and generate exact net charge and both metadata snapshots", async () => {
-  for (const [count,form,subtotal,discount,final] of [[40,false,2450,245,2205],[40,true,3440,344,3096],[54,true,4340,434,3906]]) {
+  for (const [count,form,subtotal,discount,final] of [[40,false,2450,245,2205],[40,true,3440,344,3096],[54,true,4840,484,4356],[55,true,4940,494,4446]]) {
     reset(form);
     assert.equal((await checkout({projectId,guestCount:count,promoCode:" wp21 ",discountPercentage:90,discountAmount:999999,finalAmount:1})).status,200);
     const params=calls("stripe-create")[0].params;

@@ -17,7 +17,7 @@ globalThis.__guestDataMock={
         single:async()=>({data:{...row,status:operation==="insert"?"draft":"published",payment_status:operation==="insert"?"unpaid":"paid"},error:null}),
       };return chain;
     },
-    functions:{invoke:async(name,options)=>{calls.push({kind:"checkout",name,...options});return{data:{url:"https://checkout.invalid"},error:null};}},
+    functions:{invoke:async(name,options)=>{calls.push({kind:"checkout",name,...options});return{data:{url:"https://checkout.invalid",pricingVersion:"guest-v2"},error:null};}},
   },
 };
 const hooks=registerHooks({
@@ -45,12 +45,23 @@ test("save writes only editable columns; declaration persists but purchased righ
     else {assert.equal(write.value.status,"draft");assert.equal(write.value.payment_status,"unpaid");assert.equal(write.value.public_id,null);assert.equal(write.value.owner_id,"owner");}
   }
 });
-test("loading cannot trust forged rights inside editable JSON; Checkout sends only ID and guest count",async()=>{
+test("loading cannot trust forged rights inside editable JSON; Checkout sends ID, count and pricing version, never a price",async()=>{
   const project=repository.projectFromRow({...row,project_data:{...row.project_data,purchasedGuestCapacity:999}});
   assert.equal(project.purchasedGuestCapacity,54);
   assert.equal(repository.projectFromRow({...row,purchased_guest_capacity:null}).purchasedGuestCapacity,undefined);
   calls.length=0;await repository.startProjectCheckout("project",53);
-  assert.deepEqual(calls[0].body,{projectId:"project",guestCount:53});
+  assert.deepEqual(calls[0].body,{projectId:"project",guestCount:53,pricingVersion:"guest-v2"});
+});
+
+test("frontend refuses the URL from an old or missing backend pricing version",async()=>{
+  const functions=globalThis.__guestDataMock.supabase.functions;
+  const original=functions.invoke;
+  try {
+    for(const pricingVersion of [undefined,"guest-v1"]){
+      functions.invoke=async()=>({data:{url:"https://checkout.invalid/old",pricingVersion},error:null});
+      await assert.rejects(repository.startProjectCheckout("project",55),/tarification a été mise à jour/);
+    }
+  } finally {functions.invoke=original;}
 });
 test("remote project_data save and reload retain editor-only names without changing content",async()=>{
   calls.length=0;exists=true;

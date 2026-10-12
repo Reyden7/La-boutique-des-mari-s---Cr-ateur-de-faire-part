@@ -1,7 +1,7 @@
 import Stripe from "npm:stripe@22.6.0";
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 import { corsHeaders, jsonResponse } from "../_shared/http.ts";
-import { calculateGuestUpgrade, isValidGuestCount, PRICING } from "../_shared/pricing.ts";
+import { calculateGuestUpgrade, isValidGuestCount, PRICING, PRICING_CHANGED_MESSAGE } from "../_shared/pricing.ts";
 import { guestCheckoutMetadata, guestReceiptAmount, matchesGuestCheckout, type GuestPaymentReceipt } from "../_shared/guestPayment.ts";
 import { normalizePromoCode } from "../_shared/promo.ts";
 
@@ -29,16 +29,19 @@ Deno.serve(async (request) => {
     });
     const { data: auth, error: authError } = await admin.auth.getUser(accessToken);
     if (authError || !auth.user || auth.user.is_anonymous) return jsonResponse({ error: "Invalid authentication" }, 401, true);
-    let body: { projectId?: unknown; guestCount?: unknown; promoCode?: unknown };
+    let body: { projectId?: unknown; guestCount?: unknown; promoCode?: unknown; pricingVersion?: unknown };
     try { body = await request.json(); } catch { return jsonResponse({ error: "Invalid JSON body" }, 400, true); }
     if (!body || typeof body.projectId !== "string"
       || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.projectId)) {
       return jsonResponse({ error: "A valid projectId is required" }, 400, true);
     }
     if (!isValidGuestCount(body.guestCount)) return jsonResponse({ error: "Invalid guestCount: use an integer between 1 and 100000" }, 400, true);
+    // A version handshake prevents a cached old UI showing a different tariff.
+    // It never trusts any price/total supplied by the browser.
+    if (body.pricingVersion !== PRICING.version) return jsonResponse({ error: PRICING_CHANGED_MESSAGE, code: "pricing_changed" }, 409, true);
     const projectId = body.projectId;
     const { data: project, error: projectError } = await admin.from("projects")
-      .select("id, owner_id, status, payment_status, project_data, purchased_guest_capacity, purchased_extra_blocks")
+      .select("id, owner_id, status, payment_status, project_data, purchased_guest_capacity")
       .eq("id", projectId).maybeSingle();
     if (projectError) throw projectError;
     if (!project) return jsonResponse({ error: "Project not found" }, 404, true);
@@ -61,7 +64,7 @@ Deno.serve(async (request) => {
         return jsonResponse({ error: "Historical or inactive licence: no automatic guest charge", code: "already_paid" }, 409, true);
       }
       const upgrade = calculateGuestUpgrade(project.purchased_guest_capacity, body.guestCount);
-      if (!upgrade.additionalBlocks) return jsonResponse({ error: "Capacity already covered", code: "capacity_covered" }, 409, true);
+      if (!upgrade.additionalGuests) return jsonResponse({ error: "Capacity already covered", code: "capacity_covered" }, 409, true);
     } else if (project.status === "published") return jsonResponse({ error: "Project already published" }, 409, true);
 
     const stripe = new Stripe(key, { httpClient: Stripe.createFetchHttpClient() });
@@ -73,7 +76,7 @@ Deno.serve(async (request) => {
     if (formError) throw formError;
     const includesForm = !isUpgrade && project.project_data?.rsvp?.enabled === true && form?.status !== "paid";
     if (includesForm && Number(requireEnvironment("RSVP_ADDON_PRICE_CENTS")) !== PRICING.formPriceCents) {
-      throw new Error("Configured form price differs from guest-v1 pricing");
+      throw new Error("Configured form price differs from guest-v2 pricing");
     }
     if (pending?.stripe_checkout_session_id) {
       const existing = await stripe.checkout.sessions.retrieve(pending.stripe_checkout_session_id);
@@ -81,12 +84,12 @@ Deno.serve(async (request) => {
       if (existing.status === "complete" || existing.payment_status === "paid") {
         return jsonResponse({ error: "Payment confirmation is in progress", code: "confirmation_pending" }, 409, true);
       }
-      if (existing.status === "open" && existing.url && pending.guest_count === body.guestCount
+      if (pending.pricing_version === PRICING.version && existing.status === "open" && existing.url && pending.guest_count === body.guestCount
         && pending.has_form === includesForm && pending.purchase_type === (isUpgrade ? "guest_capacity_upgrade" : "initial_publication")
-        && (!isUpgrade || pending.previous_extra_blocks === project.purchased_extra_blocks)
+        && (!isUpgrade || pending.previous_guest_capacity === project.purchased_guest_capacity)
         && (pending.promo_code_id ?? null) === (promo?.id ?? null)
         && (!promo || (pending.promo_code === promo.code && Number(pending.discount_value) === Number(promo.discount_value)))
-        && matchesGuestCheckout(existing, pending)) return jsonResponse({ url: existing.url }, 200, true);
+        && matchesGuestCheckout(existing, pending)) return jsonResponse({ url: existing.url, pricingVersion: PRICING.version }, 200, true);
       if (existing.status === "open") await stripe.checkout.sessions.expire(existing.id);
     }
     // Resolve/expire a legacy pending Checkout before switching prices.
@@ -106,7 +109,7 @@ Deno.serve(async (request) => {
         if (failed.error) throw failed.error;
       }
     }
-    const { data: receipt, error: reserveError } = await admin.rpc("reserve_guest_checkout", {
+    const { data: receipt, error: reserveError } = await admin.rpc("reserve_guest_checkout_v2", {
       p_project_id: projectId, p_owner_id: auth.user.id, p_guest_count: body.guestCount,
       p_previous_session_id: pending?.stripe_checkout_session_id ?? null,
       p_promo_code: promoCode || null,
@@ -119,7 +122,7 @@ Deno.serve(async (request) => {
     }
     const payment = receipt as GuestPaymentReceipt;
     try {
-      if (!payment || payment.amount_cents !== guestReceiptAmount(payment)) throw new Error("Server quote mismatch");
+      if (!payment || payment.pricing_version !== PRICING.version || payment.amount_cents !== guestReceiptAmount(payment)) throw new Error("Server quote mismatch");
       const metadata = guestCheckoutMetadata(payment);
       const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
       const addItem = (name: string, unitAmount: number, quantity = 1) => lineItems.push({
@@ -130,7 +133,7 @@ Deno.serve(async (request) => {
         addItem(`Faire-part — capacité ${payment.guest_capacity} invités${payment.has_form ? " + Formulaire invité" : ""} — ${payment.promo_code} (-${payment.discount_value} %)`, payment.amount_cents);
       } else {
         if (payment.purchase_type === "initial_publication") addItem("Faire-part — licence pour un événement, jusqu’à 40 invités", PRICING.basePriceCents);
-        if (payment.additional_blocks) addItem("Tranche de 7 invités supplémentaires", PRICING.extraBlockPriceCents, payment.additional_blocks);
+        if (payment.additional_guests) addItem("Invité supplémentaire", PRICING.extraGuestPriceCents, payment.additional_guests);
         if (payment.has_form) addItem("Formulaire invité et collecte des réponses", PRICING.formPriceCents);
       }
       const session = await stripe.checkout.sessions.create({
@@ -146,7 +149,7 @@ Deno.serve(async (request) => {
         await stripe.checkout.sessions.expire(session.id);
         throw attached.error;
       }
-      return jsonResponse({ url: session.url }, 200, true);
+      return jsonResponse({ url: session.url, pricingVersion: PRICING.version }, 200, true);
     } catch {
       await admin.rpc("fail_guest_checkout", { p_receipt_id: payment.id, p_session_id: null });
       console.error("guest_checkout_failed", { projectId, receiptId: payment.id });

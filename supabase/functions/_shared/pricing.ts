@@ -1,14 +1,15 @@
 /** Shared by the UI and Edge Functions. Amounts are integer euro cents. */
 export const PRICING = {
-  version: "guest-v1",
+  version: "guest-v2",
   basePriceCents: 2450,
   includedGuests: 40,
-  extraGuestsPerBlock: 7,
-  extraBlockPriceCents: 450,
+  extraGuestPriceCents: 100,
   formPriceCents: 990,
   // Operational bound, not a visitor counter. Keeps Stripe/SQL integers safe.
   maxGuestCount: 100000,
 } as const;
+
+export const PRICING_CHANGED_MESSAGE = "La tarification a été mise à jour. Rechargez la page avant de payer.";
 
 export function isValidGuestCount(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value)
@@ -17,12 +18,12 @@ export function isValidGuestCount(value: unknown): value is number {
 
 export function calculateGuestPricing(guestCount: number) {
   if (!isValidGuestCount(guestCount)) throw new Error("Nombre d’invités invalide.");
-  const extraBlocks = Math.max(0, Math.ceil((guestCount - PRICING.includedGuests) / PRICING.extraGuestsPerBlock));
+  const extraGuests = Math.max(0, guestCount - PRICING.includedGuests);
   return {
     guestCount,
-    extraBlocks,
-    guestCapacity: PRICING.includedGuests + extraBlocks * PRICING.extraGuestsPerBlock,
-    invitationPriceCents: PRICING.basePriceCents + extraBlocks * PRICING.extraBlockPriceCents,
+    extraGuests,
+    guestCapacity: Math.max(PRICING.includedGuests, guestCount),
+    invitationPriceCents: PRICING.basePriceCents + extraGuests * PRICING.extraGuestPriceCents,
   };
 }
 
@@ -33,18 +34,19 @@ export function calculateTotalPricing(guestCount: number, hasForm: boolean) {
 }
 
 export function calculateGuestUpgrade(currentCapacity: number, requestedGuestCount: number) {
-  if (!Number.isSafeInteger(currentCapacity) || currentCapacity < PRICING.includedGuests
-    || (currentCapacity - PRICING.includedGuests) % PRICING.extraGuestsPerBlock !== 0) {
+  if (!Number.isSafeInteger(currentCapacity) || currentCapacity < PRICING.includedGuests || currentCapacity > PRICING.maxGuestCount) {
     throw new Error("Capacité achetée invalide.");
   }
   const requested = calculateGuestPricing(requestedGuestCount);
-  const purchasedExtraBlocks = (currentCapacity - PRICING.includedGuests) / PRICING.extraGuestsPerBlock;
-  const additionalBlocks = Math.max(0, requested.extraBlocks - purchasedExtraBlocks);
+  const additionalGuests = Math.max(0, requestedGuestCount - currentCapacity);
   return {
     requestedGuestCount,
-    additionalBlocks,
-    extraBlocks: purchasedExtraBlocks + additionalBlocks,
+    additionalGuests,
     guestCapacity: Math.max(currentCapacity, requested.guestCapacity),
-    upgradePriceCents: additionalBlocks * PRICING.extraBlockPriceCents,
+    upgradePriceCents: additionalGuests * PRICING.extraGuestPriceCents,
   };
 }
+
+export const calculateInvitationPrice = (guestCount: number) => calculateGuestPricing(guestCount).invitationPriceCents;
+export const calculateGuestUpgradePrice = (currentPaidCapacity: number, requestedGuestCount: number) =>
+  calculateGuestUpgrade(currentPaidCapacity, requestedGuestCount).upgradePriceCents;
