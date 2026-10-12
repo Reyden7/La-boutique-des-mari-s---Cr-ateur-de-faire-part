@@ -1,0 +1,27 @@
+/* Scoped to a reader session; no change to the desktop editor/site layout. */
+html.invitation-viewer-open { height: 100%; overflow: hidden; scrollbar-gutter: auto !important; }
+body.invitation-viewer-open { position: fixed; inset: 0; width: 100%; height: 100%; min-width: 0; min-height: 0; margin: 0; padding: 0; overflow: hidden; }
+body.invitation-viewer-open #root { height: 100%; overflow: hidden; }
+.invitation-viewer { position: fixed; inset: 0; top: var(--viewer-top, 0px); z-index: 2000; width: 100%; max-width: none; height: 100vh; height: 100dvh; height: var(--viewer-height, 100dvh); margin: 0; padding: 0; overflow: hidden; isolation: isolate; }
+.invitation-viewer-scroll { position: relative; width: 100%; height: 100%; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y pinch-zoom; -webkit-overflow-scrolling: touch; scrollbar-width: none; outline: none; }
+.invitation-viewer-scroll::-webkit-scrollbar { display: none; }
+.invitation-viewer-scroll:focus-visible { outline: 2px solid #9a6d51; outline-offset: -2px; }
+.invitation-viewer-scroll:has(.welcome-page),
+.invitation-viewer-scroll:has(.png-envelope-stage:not(.is-opened)),
+.invitation-viewer-scroll:has(.png-doors-stage:not([data-door-phase="complete"])),
+.invitation-viewer-scroll:has(.immersive-envelope-stage:not(.is-opened)) { overflow-y: hidden; }
+.invitation-viewer .invitation-experience, .invitation-viewer .invitation-content-layer { min-height: var(--viewer-height); }
+.invitation-viewer .renderer-wrap { width: 100%; max-width: none; min-height: var(--viewer-height); display: block; }
+.invitation-viewer .renderer-document { width: 100%; max-width: none; margin: 0; border-radius: 0; box-shadow: none; }
+.invitation-viewer .welcome-page { position: fixed; width: 100%; height: var(--viewer-height); }
+.invitation-viewer .invitation-experience > .particle-layer { height: var(--viewer-height); }
+.invitation-viewer .guest-audio-control { right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); }
+.invitation-viewer .loading-screen, .invitation-viewer .invite-not-found { min-height: var(--viewer-height); }
+body.invitation-viewer-open > .calendar-agenda-menu { z-index: 2100; }
+
+.immersive-preview-controls { position: absolute; z-index: 100; top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); display: grid; justify-items: end; gap: 8px; max-width: calc(100% - 20px); }
+.immersive-preview-controls button { min-width: 40px; min-height: 40px; border: 1px solid #ffffff55; border-radius: 20px; padding: 9px; display: inline-flex; justify-content: center; align-items: center; gap: 6px; background: #292725bd; color: #fff; backdrop-filter: blur(12px); font-size: 11px; }
+.immersive-preview-menu { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.immersive-preview-controls button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.immersive-preview-menu .template-preview-devices { display: flex; flex-wrap: wrap; justify-content: flex-end; }
+.immersive-preview-menu .template-preview-devices button.active { background: #fffaf4; color: #795844; }

@@ -22,7 +22,7 @@ import { AnimatedElement } from "./AnimatedElement";
 import { getSectionRenderGroups } from "../../utils/sectionRenderGroups";
 import { resolveElementVisualStyle } from "../../utils/responsiveVisualStyle";
 
-const backgroundStyle = (background: PageBackground): CSSProperties => {
+export const backgroundStyle = (background: PageBackground): CSSProperties => {
   if (background.type === "image") return { backgroundImage: `url(${background.imageUrl})`, backgroundSize: "cover", backgroundPosition: "center" };
   if (background.type === "gradient" && background.gradient) {
     const value = background.gradient.type === "radial"

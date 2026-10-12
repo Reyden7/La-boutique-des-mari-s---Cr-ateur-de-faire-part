@@ -1,9 +1,11 @@
-import { Monitor, RotateCcw, Smartphone, Tablet, X } from "lucide-react";
+import { Monitor, MoreHorizontal, RotateCcw, Smartphone, Tablet, X } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import type { WeddingProject } from "../../types/editor";
 import { InvitationExperience } from "../../features/music/InvitationExperience";
 import { PREVIEW_DEVICES, type PreviewDevice } from "../../config/previewDevices";
 import { AnimationViewportProvider } from "../renderer/AnimatedElement";
+import { InvitationViewer } from "../../features/viewer/InvitationViewer";
+import { useViewerViewport } from "../../features/viewer/useViewerViewport";
 
 const INTERACTIVE_SELECTOR = [
   "button", "a", "input", "textarea", "select", "label", "iframe", "audio", "video", "img",
@@ -91,6 +93,8 @@ function PreviewDeviceViewport({ project, device, scale }: { project: WeddingPro
 export function PreviewMode({ project, device, onClose, allowDeviceSwitching = false, actions }: { project: WeddingProject; device: PreviewDevice; onClose: () => void; allowDeviceSwitching?: boolean; actions?: ReactNode }) {
   const [replayKey, setReplayKey] = useState(0);
   const [activeDevice, setActiveDevice] = useState(device);
+  const [controlsOpen, setControlsOpen] = useState(false);
+  const readerViewport = useViewerViewport();
   const [windowSize, setWindowSize] = useState(() => ({
     width: typeof window === "undefined" ? 0 : window.innerWidth,
     height: typeof window === "undefined" ? 0 : window.innerHeight,
@@ -105,6 +109,18 @@ export function PreviewMode({ project, device, onClose, allowDeviceSwitching = f
       window.visualViewport?.removeEventListener("resize", measure);
     };
   }, []);
+
+  if (readerViewport.immersive) return <InvitationViewer key={replayKey} project={project} device={allowDeviceSwitching ? activeDevice : readerViewport.device} mode="preview" controls={
+    <div className="immersive-preview-controls">
+      <button type="button" aria-label="Contrôles de l’aperçu" aria-expanded={controlsOpen} aria-controls="immersive-preview-menu" onClick={() => setControlsOpen((value) => !value)}><MoreHorizontal size={18} /></button>
+      {controlsOpen && <div id="immersive-preview-menu" className="immersive-preview-menu">
+        <button type="button" onClick={onClose}><X size={16} /> Retour</button>
+        <button type="button" onClick={() => { setReplayKey((key) => key + 1); setControlsOpen(false); }}><RotateCcw size={16} /> Rejouer</button>
+        {allowDeviceSwitching && <div className="template-preview-devices">{(["mobile", "tablet", "desktop"] as const).map((value) => <button type="button" key={value} className={activeDevice === value ? "active" : ""} onClick={() => setActiveDevice(value)}>{PREVIEW_DEVICES[value].label}</button>)}</div>}
+        {actions}
+      </div>}
+    </div>
+  } />;
 
   const viewport = PREVIEW_DEVICES[activeDevice];
   const scale = windowSize.width && windowSize.height

@@ -1,0 +1,15 @@
+{
+  "name": "Le Bureau des Mariés — Faire-part",
+  "short_name": "Faire-part",
+  "lang": "fr",
+  "description": "Votre invitation de mariage, en lecture immersive.",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fffdf9",
+  "theme_color": "#f7f5f2",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
