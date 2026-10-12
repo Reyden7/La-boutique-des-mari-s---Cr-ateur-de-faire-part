@@ -1,10 +1,12 @@
 export type ElementType = "text" | "image" | "shape" | "icon" | "scratch" | "carousel" | "location" | "schedule" | "calendar" | "countdown" | "button" | "section";
-export type AnimationType = "none" | "fade" | "slide-left" | "slide-right" | "slide-up" | "slide-down" | "zoom" | "rotate";
+export type TextAnimationType = "typewriter" | "handwriting" | "word-by-word" | "letter-by-letter" | "draw-underline";
+export type AnimationType = "none" | "fade" | "slide-left" | "slide-right" | "slide-up" | "slide-down" | "zoom" | "rotate" | TextAnimationType;
 
 export interface AnimationConfig {
   type: AnimationType;
   duration: number;
   delay: number;
+  showCursor?: boolean;
 }
 
 export interface ResponsiveElementLayout {
@@ -184,6 +186,14 @@ export interface TextElement extends BaseElement {
   letterSpacing: number;
   italic: boolean;
   underline: boolean;
+  curve?: TextCurveConfig;
+}
+
+/** Global text style. Device positions, box size and font size stay independent. */
+export interface TextCurveConfig {
+  enabled: boolean;
+  amount: number;
+  direction: "up" | "down";
 }
 
 export type ImageFrameType =
@@ -636,6 +646,24 @@ export interface OpeningAnimationConfig {
   customSettings?: Record<string, unknown>;
   /** Smartphone PNG composition; other devices retain their existing opening. */
   envelope?: EnvelopeConfig;
+  doors?: DoorConfig;
+}
+
+export interface DoorDeviceSettings {
+  leftClosedOffset?: EnvelopeOffset;
+  rightClosedOffset?: EnvelopeOffset;
+  /** Uniform scale of both panels around the viewport centre (0.5–1.5). */
+  scale?: number;
+}
+
+export interface DoorConfig {
+  /** Legacy flat Smartphone scale, if present. New edits use responsive. */
+  doorScale?: number;
+  leftAsset?: EnvelopeAssetRef;
+  rightAsset?: EnvelopeAssetRef;
+  customLefts?: EnvelopeAssetRef[];
+  customRights?: EnvelopeAssetRef[];
+  responsive?: Partial<Record<"mobile" | "tablet" | "desktop", DoorDeviceSettings>>;
 }
 
 export interface EnvelopeAssetRef {

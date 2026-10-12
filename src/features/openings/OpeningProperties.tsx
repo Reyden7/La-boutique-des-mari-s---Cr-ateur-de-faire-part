@@ -4,7 +4,8 @@ import type { OpeningAnimationType } from "../../types/editor";
 import { useEditorStore } from "../../stores/editorStore";
 import { getOpeningDefinition } from "./registry/openingRegistry";
 import { getPngEnvelopeDuration } from "./pngEnvelopeLayout";
-import { EnvelopeAssetControls } from "./EnvelopeAssetControls";
+import { DoorAssetControls, EnvelopeAssetControls } from "./EnvelopeAssetControls";
+import { DoorSizeControls } from "./DoorSizeControls";
 
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => <label className="field"><span>{label}</span>{children}</label>;
 
@@ -28,6 +29,7 @@ export function OpeningProperties({ onPreview }: { onPreview: (type: OpeningAnim
         <EnvelopeAssetControls />
         <Field label="Texte d’indication"><input value={typeof opening.customSettings?.hintText === "string" ? opening.customSettings.hintText : "Touchez pour ouvrir"} onChange={(event) => updateSetting("hintText", event.target.value)} /></Field>
       </> : <div className="field-row"><Field label="Couleur principale"><StableColorInput value={colors[0] ?? "#d8b99d"} onChange={(value) => updateColor(0, value)} /></Field><Field label="Couleur secondaire"><StableColorInput value={colors[1] ?? "#fffaf2"} onChange={(value) => updateColor(1, value)} /></Field></div>}
+      {opening.type === "doors" && <><DoorAssetControls /><DoorSizeControls /></>}
       <Field label={`Durée · ${duration.toFixed(1)} s`}><input type="range" min={pngEnvelope ? "0.9" : "1.4"} max={pngEnvelope ? "1.2" : "4"} step="0.1" value={duration} onChange={(event) => updateOpening(pngEnvelope ? { ...opening, customSettings: { ...opening.customSettings, [durationKey]: Number(event.target.value) } } : { ...opening, duration: Number(event.target.value) })} /></Field></>}
     <button className="large-preview-button" onClick={() => onPreview(opening.type)}><Play size={14} fill="currentColor" /> Voir l’ouverture</button>
     <div className="background-tip"><span>Design préservé</span><p>Vous pouvez changer d’ouverture à tout moment : vos pages, textes et images ne seront pas modifiés.</p></div>

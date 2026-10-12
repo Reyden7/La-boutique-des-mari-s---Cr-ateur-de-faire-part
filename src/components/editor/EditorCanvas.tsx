@@ -53,6 +53,9 @@ import { hasImageAppearance, resolveImageAppearance, type ResolvedImageAppearanc
 import { useImageAppearance } from "../../features/images/useImageAppearance";
 import { getLogicalCanvasPointer, getPointerDragDelta, type CanvasPoint } from "../../utils/selectionDrag";
 import { PngEnvelopeOpening } from "../../features/openings/animations/PngEnvelopeOpening";
+import { CurvedTextCanvas } from "../../features/text/CurvedTextCanvas";
+import { curvedTextOptions, hasTextCurve } from "../../features/text/curvedTextLayout";
+import { DoorsOpening } from "../../features/openings/animations/DoorsOpening";
 
 type DragNodeSnapshot = { node: Konva.Node; x: number; y: number; bounds: AlignmentBounds };
 
@@ -243,6 +246,7 @@ function CanvasElement({
     shadowOpacity: selected ? 0.22 : 0,
   };
 
+  if (element.type === "text" && hasTextCurve(element.curve)) return <CurvedTextCanvas {...common} options={curvedTextOptions(element, layout.width, layout.height, layout.fontSize ?? element.fontSize)} color={element.color} />;
   if (element.type === "text") return <Text {...common} text={element.text} fontFamily={element.fontFamily} fontSize={layout.fontSize ?? element.fontSize} fontStyle={`${element.italic ? "italic" : "normal"} ${element.fontWeight >= 600 ? "bold" : "normal"}`} fill={element.color} align={element.textAlign} lineHeight={element.lineHeight} letterSpacing={element.letterSpacing} textDecoration={element.underline ? "underline" : ""} verticalAlign="middle" />;
   if (element.type === "image") return image
     ? (() => {
@@ -372,6 +376,7 @@ export function EditorCanvas() {
   const welcomeConfig = useMemo(() => project ? resolveWelcomePage(project.welcomePage) : undefined, [project?.welcomePage]);
   const isWelcomeEditing = sidebarView === "introduction" && project?.introductionMode === "welcome";
   const isEnvelopeEditing = sidebarView === "introduction" && project?.introductionMode === "classic" && project.opening.type === "envelope";
+  const isDoorsEditing = sidebarView === "introduction" && project?.introductionMode === "classic" && project.opening.type === "doors";
   const activeElements = isWelcomeEditing ? welcomeConfig?.elements : page?.elements;
   const elements = useMemo(() => [...(activeElements ?? [])].sort((a, b) => getElementZIndex(a, previewDevice) - getElementZIndex(b, previewDevice)), [activeElements, previewDevice]);
   const viewport = PREVIEW_DEVICES[previewDevice];
@@ -733,7 +738,7 @@ export function EditorCanvas() {
         className="preview-device-screen"
         style={{
           width: viewport.width * zoom,
-          height: (isEnvelopeEditing ? viewport.height : documentHeight) * zoom,
+          height: (isEnvelopeEditing || isDoorsEditing ? viewport.height : documentHeight) * zoom,
         }}
       >
         {project && <ProjectFontLoader project={project} />}
@@ -842,8 +847,8 @@ export function EditorCanvas() {
 
         {rsvpMeasurement}
         {project?.particles?.enabled && project.particles.layer === "front" && <ParticleRenderer config={project.particles} />}
-        {isEnvelopeEditing && <div className="envelope-editor-closed-preview" style={{ width: viewport.width, height: viewport.height, transform: `scale(${zoom})`, "--preview-device-height": `${viewport.height}px` } as CSSProperties}>
-          <PngEnvelopeOpening key={previewDevice} device={previewDevice} config={project.opening} couple={project.name} closedPreview>{null}</PngEnvelopeOpening>
+        {(isEnvelopeEditing || isDoorsEditing) && <div className="envelope-editor-closed-preview" style={{ width: viewport.width, height: viewport.height, transform: `scale(${zoom})`, "--preview-device-height": `${viewport.height}px` } as CSSProperties}>
+          {isDoorsEditing ? <DoorsOpening key={previewDevice} device={previewDevice} config={project.opening} couple={project.name} closedPreview>{null}</DoorsOpening> : <PngEnvelopeOpening key={previewDevice} device={previewDevice} config={project.opening} couple={project.name} closedPreview>{null}</PngEnvelopeOpening>}
         </div>}
       </div>
     </div>

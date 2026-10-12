@@ -1,5 +1,5 @@
 import { isSupabaseConfigured, requireSupabaseSession, supabase } from "../lib/supabase";
-import type { EnvelopeGlobalAssetType, GlobalAssetRecord, GlobalAssetType, PublishGlobalAssetInput } from "../types/globalAssets";
+import type { OpeningGlobalAssetType, GlobalAssetRecord, GlobalAssetType, PublishGlobalAssetInput } from "../types/globalAssets";
 import { validateEnvelopeFile } from "../features/openings/envelopeAssets";
 
 interface GlobalAssetRow {
@@ -91,7 +91,7 @@ async function invokeEnvelopeAction<T>(body: FormData | Record<string, unknown>)
   return data;
 }
 
-export async function publishGlobalEnvelopeAsset(file: File, type: EnvelopeGlobalAssetType, name: string) {
+export async function publishGlobalEnvelopeAsset(file: File, type: OpeningGlobalAssetType, name: string) {
   validateEnvelopeFile(file);
   const body = new FormData();
   body.set("file", file); body.set("type", type); body.set("name", name.trim());

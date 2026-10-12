@@ -1,6 +1,9 @@
 export const ENVELOPE_TYPES = ["envelope_base", "envelope_flap", "envelope_seal"] as const;
 export const isEnvelopeType = (type: unknown): type is typeof ENVELOPE_TYPES[number] => ENVELOPE_TYPES.includes(type as typeof ENVELOPE_TYPES[number]);
 
+export const OPENING_IMAGE_TYPES = [...ENVELOPE_TYPES, "door_left", "door_right"] as const;
+export const isOpeningImageType = (type: unknown): type is typeof OPENING_IMAGE_TYPES[number] => OPENING_IMAGE_TYPES.includes(type as typeof OPENING_IMAGE_TYPES[number]);
+
 /** Validate extension, declared MIME, size AND file header; never trust browser metadata. */
 export async function inspectEnvelopeUpload(file: File) {
   const extension = file.name.split(".").pop()?.toLowerCase();

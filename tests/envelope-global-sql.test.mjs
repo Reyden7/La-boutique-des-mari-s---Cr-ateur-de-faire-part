@@ -31,10 +31,23 @@ test("real PostgreSQL envelope migration + transaction: RLS, stable URLs, refere
   await db.exec(await read('supabase/migrations/20260930061120_global_admin_assets.sql'));
   await db.exec('grant all on public.global_assets to service_role');
   await db.exec(await read('supabase/migrations/20261007075714_envelope_global_assets_admin.sql'));
+  await db.exec(await read('supabase/migrations/20261012072232_door_global_assets_admin.sql'));
   const results = await db.exec(await read('supabase/tests/envelope_global_assets_rls_audit.sql'));
   const report = results.find((result) => result.rows[0]?.test);
   assert.ok(report.rows.length >= 22, `Only ${report.rows.length} checks returned`); assert.ok(report.rows.every((row) => row.passed));
   for (const row of report.rows) t.diagnostic(`PASS ${row.test}`);
+  for (const table of ['global_assets','projects','templates']) assert.equal((await db.query(`select count(*)::int as count from public.${table}`)).rows[0].count,0);
+  assert.ok((await db.query('select raw_app_meta_data from auth.users')).rows.every((row) => Object.keys(row.raw_app_meta_data).length===0));
+  assert.equal((await db.query("select to_regclass('pg_temp.envelope_audit_results') as table_name")).rows[0].table_name,null);
+  // Same real policies, locks and RPCs exercised for BOTH door categories.
+  const doorAudit = (await read('supabase/tests/envelope_global_assets_rls_audit.sql'))
+    .replaceAll("'envelope_base'", "'door_left'").replaceAll("'envelope_flap'", "'door_right'").replaceAll("'envelope_seal'", "'door_right'")
+    .replaceAll("envelope/bases/", "doors/left/").replaceAll("envelope/flaps/", "doors/right/").replaceAll("envelope/seals/", "doors/right/")
+    .replaceAll("'envelope',jsonb_build_object('baseAsset'", "'doors',jsonb_build_object('leftAsset'");
+  const doorResults = await db.exec(doorAudit);
+  const doorReport = doorResults.find((result) => result.rows[0]?.test);
+  assert.ok(doorReport.rows.length >= 22);
+  for (const row of doorReport.rows) { assert.ok(row.passed); t.diagnostic(`PASS doors ${row.test}`); }
   for (const table of ['global_assets','projects','templates']) assert.equal((await db.query(`select count(*)::int as count from public.${table}`)).rows[0].count,0);
   assert.ok((await db.query('select raw_app_meta_data from auth.users')).rows.every((row) => Object.keys(row.raw_app_meta_data).length===0));
   assert.equal((await db.query("select to_regclass('pg_temp.envelope_audit_results') as table_name")).rows[0].table_name,null);

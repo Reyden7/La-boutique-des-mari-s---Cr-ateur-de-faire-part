@@ -2,8 +2,10 @@ import { motion, useReducedMotion } from "framer-motion";
 import { createContext, useContext, type CSSProperties, type ReactNode, type RefObject } from "react";
 import type { AnimationConfig } from "../../types/editor";
 import { animationOpacityPlacement, elementAnimationFrames, resolveElementAnimation } from "../../utils/elementAnimation";
+import { isTextAnimation } from "../../utils/textAnimation";
 
 const AnimationViewportContext = createContext<RefObject<HTMLElement | null> | undefined>(undefined);
+export const useAnimationViewport = () => useContext(AnimationViewportContext);
 
 export function AnimationViewportProvider({ root, children }: { root: RefObject<HTMLElement | null>; children: ReactNode }) {
   return <AnimationViewportContext.Provider value={root}>{children}</AnimationViewportContext.Provider>;
@@ -23,7 +25,7 @@ export function AnimatedElement({ animation, opacity, rotation = 0, rotationOrig
 }) {
   const root = useContext(AnimationViewportContext);
   const reducedMotion = useReducedMotion();
-  const resolved = !reducedMotion ? resolveElementAnimation(animation) : null;
+  const resolved = !reducedMotion && !isTextAnimation(animation?.type) ? resolveElementAnimation(animation) : null;
   // A Section animates its group, but its configured opacity belongs to its own
   // surface. Applying it to the group would permanently dim every child.
   const { motionOpacity, contentOpacity } = animationOpacityPlacement(opacity, overlayChildren !== undefined);

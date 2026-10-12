@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { ENVELOPE_GLOBAL_TYPES, ENVELOPE_PART_FIELDS, ENVELOPE_PARTS, validateEnvelopeFile, type EnvelopePart } from "../../features/openings/envelopeAssets";
+import { DOOR_GLOBAL_TYPES, DOOR_PART_FIELDS, DOOR_PARTS, type DoorPart } from "../../features/openings/doorAssets";
 import { publishGlobalEnvelopeAsset } from "../../services/globalAssetRepository";
 import type { GlobalAssetRecord } from "../../types/globalAssets";
 import { remoteErrorSummary } from "../../utils/storage";
 
-export function GlobalEnvelopeAssetImport({ onPublished }: { onPublished: (asset: GlobalAssetRecord) => void }) {
+export function GlobalEnvelopeAssetImport({ onPublished, category = "envelope" }: { category?: "envelope" | "doors"; onPublished: (asset: GlobalAssetRecord) => void }) {
   const [open, setOpen] = useState(false);
-  const [part, setPart] = useState<EnvelopePart>("base");
+  const [part, setPart] = useState<EnvelopePart | DoorPart>(category === "doors" ? "left" : "base");
   const [name, setName] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
@@ -38,16 +39,19 @@ export function GlobalEnvelopeAssetImport({ onPublished }: { onPublished: (asset
     }).catch((cause) => { if (active) { setDimensions(null); setError(remoteErrorSummary(cause)); } });
     return () => { active = false; URL.revokeObjectURL(url); };
   }, [file]);
-  const fields = ENVELOPE_PART_FIELDS[part];
+  const parts = category === "doors" ? DOOR_PARTS : ENVELOPE_PARTS;
+  const getFields = (value: EnvelopePart | DoorPart) => value === "left" || value === "right" ? DOOR_PART_FIELDS[value] : ENVELOPE_PART_FIELDS[value];
+  const getType = (value: EnvelopePart | DoorPart) => value === "left" || value === "right" ? DOOR_GLOBAL_TYPES[value] : ENVELOPE_GLOBAL_TYPES[value];
+  const fields = getFields(part);
   const reset = () => { setFile(null); setName(""); if (input.current) input.current.value = ""; };
   return <section className="admin-envelope-import">
-    <button type="button" className="primary-button" disabled={busy} onClick={() => setOpen(!open)} aria-expanded={open}>+ Ajouter un élément d’enveloppe</button>
+    <button type="button" className="primary-button" disabled={busy} onClick={() => setOpen(!open)} aria-expanded={open}>{category === "doors" ? "+ Ajouter un design de porte" : "+ Ajouter un élément d’enveloppe"}</button>
     {open && <form onSubmit={(event) => {
       event.preventDefault(); if (!file || !dimensions || busy) return;
       setBusy(true); setError("");
-      void publishGlobalEnvelopeAsset(file, ENVELOPE_GLOBAL_TYPES[part], name).then((asset) => { onPublished(asset); reset(); setOpen(false); }).catch((cause) => setError(remoteErrorSummary(cause))).finally(() => setBusy(false));
+      void publishGlobalEnvelopeAsset(file, getType(part), name).then((asset) => { onPublished(asset); reset(); setOpen(false); }).catch((cause) => setError(remoteErrorSummary(cause))).finally(() => setBusy(false));
     }}>
-      <label>Type<select value={part} disabled={busy} onChange={(event) => setPart(event.target.value as EnvelopePart)}>{ENVELOPE_PARTS.map((value) => <option key={value} value={value}>{ENVELOPE_PART_FIELDS[value].label} d’enveloppe</option>)}</select></label>
+      <label>Type<select value={part} disabled={busy} onChange={(event) => setPart(event.target.value as EnvelopePart | DoorPart)}>{parts.map((value) => <option key={value} value={value}>{getFields(value).label}{category === "envelope" ? " d’enveloppe" : ""}</option>)}</select></label>
       <label>Nom<input required maxLength={160} value={name} disabled={busy} onChange={(event) => setName(event.target.value)} /></label>
       <label>Fichier PNG / WebP · 5 Mo maximum<input ref={input} type="file" accept=".png,.webp,image/png,image/webp" disabled={busy} onChange={(event) => {
         setError(""); setDimensions(null); setHasTransparency(null); const chosen = event.target.files?.[0]; setFile(null);

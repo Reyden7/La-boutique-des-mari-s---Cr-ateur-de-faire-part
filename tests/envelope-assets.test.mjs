@@ -18,6 +18,7 @@ const hooks = registerHooks({
     return next(url, context);
   },
 });
+const { DOOR_PRESETS, resolveDoorDeviceScale, updateDoorDeviceSettings } = await import("../src/features/openings/doorAssets.ts");
 const { normalizeProject, upsertProject, getProject } = await import("../src/utils/storage.ts");
 const { sanitizeProjectForTemplate, instantiateProjectFromTemplate } = await import("../src/utils/templateSnapshot.ts");
 const { useEditorStore } = await import("../src/stores/editorStore.ts");
@@ -124,7 +125,7 @@ test("downloadable guides preserve every source alpha pixel, canvas and neutral 
 
 test("controls use shared UI sections, lazy original thumbnails and persist-before-delete helper", () => {
   const ui = read("src/features/openings/EnvelopeAssetControls.tsx");
-  assert.match(ui, /<PropertySection sectionKey=\{`envelope-\$\{part\}`\}/);
+  assert.match(ui, /<PropertySection sectionKey=\{isDoor \? `door-\$\{part\}` : `envelope-\$\{part\}`\}/);
   assert.match(ui, /loading="lazy"/); assert.match(ui, /download=\{/);
   assert.match(ui, /role="alertdialog"/); assert.match(ui, /deleteProjectAssetIfUnused\(latest/);
   assert.match(ui, /await decodeEnvelopeFile\(file\)[\s\S]*?await uploadProjectAsset/);
@@ -210,4 +211,19 @@ test("real store responsive envelope edits, resets, assets and templates preserv
   useEditorStore.getState().redo(); assert.deepEqual(useEditorStore.getState().project.opening.envelope,reset);
 });
 
+test("actual store, undo/redo, save/reload and templates preserve independent door refs, scales and positions", () => {
+  const doors = { leftAsset: DOOR_PRESETS.left[2], rightAsset: {type:"global",id:"door-r",url:"https://example.invalid/right.png"}, customLefts: [{type:"custom",id:"mine",assetId:"asset-mine",url:"https://example.invalid/mine.png"}],
+    responsive: {mobile:{scale:.75,leftClosedOffset:{x:7,y:8}},tablet:{scale:1.25},desktop:{scale:1.5,rightClosedOffset:{x:-5,y:12}}} };
+  const source=normalizeProject({...project,id:"doors-project",opening:{type:"doors",duration:2,doors}});
+  useEditorStore.setState({project:source,past:[],future:[]});
+  const changed=updateDoorDeviceSettings(doors,"tablet",{scale:1,leftClosedOffset:{x:1,y:2}});
+  useEditorStore.getState().updateOpening({...source.opening,doors:changed});
+  assert.equal(resolveDoorDeviceScale(changed,"mobile"),.75);assert.equal(resolveDoorDeviceScale(changed,"desktop"),1.5);
+  useEditorStore.getState().undo();assert.deepEqual(useEditorStore.getState().project.opening.doors,doors);
+  useEditorStore.getState().redo();assert.deepEqual(useEditorStore.getState().project.opening.doors,changed);
+  upsertProject(useEditorStore.getState().project);const restored=getProject(source.id,"owner");
+  assert.deepEqual(restored.opening.doors,changed);
+  const instance=instantiateProjectFromTemplate({name:"Portes",templateData:sanitizeProjectForTemplate(restored)},"other-owner");
+  assert.deepEqual(instance.opening.doors,changed);assert.notEqual(instance.opening.doors,restored.opening.doors);
+});
 test.after(() => { hooks.deregister(); delete globalThis.localStorage; });

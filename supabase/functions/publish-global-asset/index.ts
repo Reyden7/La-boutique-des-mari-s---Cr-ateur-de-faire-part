@@ -2,9 +2,9 @@ import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 import { corsHeaders, jsonResponse } from "../_shared/http.ts";
 import { getGlobalFontMetadata } from "../_shared/fontFormats.ts";
 import { getProgramIconFileInfo } from "../_shared/programIconFormats.ts";
-import { ENVELOPE_TYPES, inspectEnvelopeUpload, isEnvelopeType } from "../_shared/envelopeFormats.ts";
+import { OPENING_IMAGE_TYPES, inspectEnvelopeUpload, isOpeningImageType } from "../_shared/envelopeFormats.ts";
 
-const TYPES = ["font", "welcome_arch", "welcome_background", "music", "particle", "decoration", "program_icon", ...ENVELOPE_TYPES] as const;
+const TYPES = ["font", "welcome_arch", "welcome_background", "music", "particle", "decoration", "program_icon", ...OPENING_IMAGE_TYPES] as const;
 type GlobalAssetType = typeof TYPES[number];
 
 type Body = {
@@ -46,6 +46,7 @@ const destinationFolder: Record<GlobalAssetType, string> = {
   envelope_base: "envelope/bases",
   envelope_flap: "envelope/flaps",
   envelope_seal: "envelope/seals",
+  door_left: "doors/left", door_right: "doors/right",
 };
 
 const expectedKind: Record<GlobalAssetType, SourceAsset["kind"]> = {
@@ -59,6 +60,7 @@ const expectedKind: Record<GlobalAssetType, SourceAsset["kind"]> = {
   envelope_base: "image",
   envelope_flap: "image",
   envelope_seal: "image",
+  door_left: "image", door_right: "image",
 };
 
 const sanitizeMetadata = (type: GlobalAssetType, input: Record<string, unknown>, source: SourceAsset) => {
@@ -111,7 +113,7 @@ Deno.serve(async (request) => {
       if (reserveError) throw reserveError;
       if (reserved.blocked) return jsonResponse({ ...reserved, error: `Cet élément est utilisé par ${reserved.projects} projet(s) et ${reserved.templates} template(s). Dépubliez-le sans supprimer son fichier.` }, 409, true);
       const path = reserved.storagePath;
-      if (typeof path !== "string" || !/^envelope\/(bases|flaps|seals)\/[a-zA-Z0-9_.-]+$/.test(path)) throw new Error("Chemin Storage non sûr.");
+      if (typeof path !== "string" || !/^(?:envelope\/(?:bases|flaps|seals)|doors\/(?:left|right))\/[a-zA-Z0-9_.-]+$/.test(path)) throw new Error("Chemin Storage non sûr.");
       const { error: removeError } = await admin.storage.from("global-assets").remove([path]);
       // On failure keep the record reserved/unpublished: never expose a possibly
       // partially removed file to new projects. Retrying deletion is safe.
@@ -121,7 +123,7 @@ Deno.serve(async (request) => {
       return jsonResponse({ deleted: true }, 200, true);
     }
     if (!TYPES.includes(body.type) || typeof body.name !== "string" || !body.name.trim() || body.name.trim().length > 160 || (!form && !body.sourceAssetId)) return jsonResponse({ error: "Invalid asset payload" }, 400, true);
-    if (form && !isEnvelopeType(body.type)) return jsonResponse({ error: "L’import direct est réservé aux bases, rabats et cachets." }, 400, true);
+    if (form && !isOpeningImageType(body.type)) return jsonResponse({ error: "L’import direct est réservé aux bases, rabats, cachets et portes." }, 400, true);
 
     let source: SourceAsset;
     let directFile: File | null = null;
@@ -155,7 +157,7 @@ Deno.serve(async (request) => {
       try { getProgramIconFileInfo({ name: source.storage_path, type: source.mime_type, size: source.size_bytes ?? 0 }); }
       catch (error) { return jsonResponse({ error: error instanceof Error ? error.message : "Invalid program icon" }, 400, true); }
     }
-    if (isEnvelopeType(body.type)) {
+    if (isOpeningImageType(body.type)) {
       const { data: blob, error: downloadError } = await admin.storage.from("wedding-assets").download(source.storage_path);
       if (downloadError || !blob) throw new Error("Impossible de lire l’image source.");
       try {
@@ -166,7 +168,7 @@ Deno.serve(async (request) => {
     }
     }
 
-    const filename = isEnvelopeType(body.type) ? `asset.${source.storage_path.split(".").pop()?.toLowerCase()}` : source.storage_path.split("/").pop() ?? crypto.randomUUID();
+    const filename = isOpeningImageType(body.type) ? `asset.${source.storage_path.split(".").pop()?.toLowerCase()}` : source.storage_path.split("/").pop() ?? crypto.randomUUID();
     copiedPath = `${destinationFolder[body.type]}/${crypto.randomUUID()}-${filename}`;
     const { error: copyError } = directFile
       ? await admin.storage.from("global-assets").upload(copiedPath, directFile, { contentType: source.mime_type!, upsert: false })
@@ -178,7 +180,7 @@ Deno.serve(async (request) => {
     const baseSlug = slugify(body.slug?.trim() || body.name);
     const { data: slugMatch } = await admin.from("global_assets").select("id").eq("slug", baseSlug).maybeSingle();
     const slug = slugMatch ? `${baseSlug}-${crypto.randomUUID().slice(0, 8)}` : baseSlug;
-    const visual = ["welcome_arch", "welcome_background", "particle", "decoration", "program_icon", ...ENVELOPE_TYPES].includes(body.type);
+    const visual = ["welcome_arch", "welcome_background", "particle", "decoration", "program_icon", ...OPENING_IMAGE_TYPES].includes(body.type);
     const { data: asset, error: insertError } = await admin.from("global_assets").insert({
       type: body.type,
       name: body.name.trim(),

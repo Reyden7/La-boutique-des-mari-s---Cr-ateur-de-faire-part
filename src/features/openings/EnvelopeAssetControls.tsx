@@ -6,24 +6,33 @@ import { useEditorStore } from "../../stores/editorStore";
 import { deleteProjectAsset, deleteProjectAssetIfUnused, uploadProjectAsset } from "../../services/assetRepository";
 import { decodeEnvelopeFile, ENVELOPE_GLOBAL_TYPES, globalEnvelopeChoices, ENVELOPE_PART_FIELDS, ENVELOPE_PARTS, ENVELOPE_PRESETS, removeEnvelopeCustom, resolveEnvelopeAsset, type EnvelopePart } from "./envelopeAssets";
 import { useGlobalAssets } from "../../hooks/useGlobalAssets";
+import { DOOR_PART_FIELDS, DOOR_GLOBAL_TYPES, DOOR_PARTS, DOOR_PRESETS, globalDoorChoices, removeDoorCustom, resolveDoorAsset, type DoorPart } from "./doorAssets";
+import { DoorPositionControls } from "./DoorPositionControls";
 import { EnvelopePositionControls } from "./EnvelopePositionControls";
 
-function EnvelopePartControls({ part }: { part: EnvelopePart }) {
+function EnvelopePartControls({ part }: { part: EnvelopePart | DoorPart }) {
   const project = useEditorStore((state) => state.project);
-  const globals = useGlobalAssets(ENVELOPE_GLOBAL_TYPES[part]);
+  const isDoor = part === "left" || part === "right";
+  const configKey = isDoor ? "doors" : "envelope";
+  const globals = useGlobalAssets(isDoor ? DOOR_GLOBAL_TYPES[part] : ENVELOPE_GLOBAL_TYPES[part]);
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [pendingDelete, setPendingDelete] = useState<EnvelopeAssetRef | null>(null);
   if (!project) return null;
-  const fields = ENVELOPE_PART_FIELDS[part];
-  const selected = resolveEnvelopeAsset(project.opening.envelope, part);
-  const custom = project.opening.envelope?.[fields.library] ?? [];
+  const fields = isDoor ? DOOR_PART_FIELDS[part] : ENVELOPE_PART_FIELDS[part];
+  const presets = isDoor ? DOOR_PRESETS[part] : ENVELOPE_PRESETS[part];
+  const selected = isDoor ? resolveDoorAsset(project.opening.doors, part) : resolveEnvelopeAsset(project.opening.envelope, part);
+  const getLibrary = (opening: typeof project.opening): EnvelopeAssetRef[] => {
+    if (isDoor) return opening.doors?.[DOOR_PART_FIELDS[part].library] ?? [];
+    return opening.envelope?.[ENVELOPE_PART_FIELDS[part].library] ?? [];
+  };
+  const custom = getLibrary(project.opening);
   const select = (asset: EnvelopeAssetRef) => {
     const current = useEditorStore.getState();
-    if (current.project?.id !== project.id) return;
-    current.updateOpening({ ...current.project.opening, envelope: { ...current.project.opening.envelope, [fields.active]: asset } });
+    if (current.project?.id !== project.id || current.project.opening.type !== configKey) return;
+    current.updateOpening({ ...current.project.opening, [configKey]: { ...current.project.opening[configKey], [fields.active]: asset } });
   };
   const importImage = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -33,17 +42,17 @@ function EnvelopePartControls({ part }: { part: EnvelopePart }) {
     try {
       const dimensions = await decodeEnvelopeFile(file);
       const beforeUpload = useEditorStore.getState().project;
-      if (beforeUpload?.id !== project.id || beforeUpload.opening.type !== "envelope") return;
+      if (beforeUpload?.id !== project.id || beforeUpload.opening.type !== configKey) return;
       const uploaded = await uploadProjectAsset(beforeUpload, file, "image", { folder: fields.folder });
       const current = useEditorStore.getState();
-      if (current.project?.id !== project.id || current.project.opening.type !== "envelope") {
+      if (current.project?.id !== project.id || current.project.opening.type !== configKey) {
         // Upload can finish after navigation: safely remove the unreferenced new file.
         await deleteProjectAsset(uploaded.id);
         return;
       }
       const asset: EnvelopeAssetRef = { type: "custom", id: crypto.randomUUID(), assetId: uploaded.id, url: uploaded.url, name: file.name, ...dimensions };
-      const envelope = current.project.opening.envelope;
-      current.updateOpening({ ...current.project.opening, envelope: { ...envelope, [fields.active]: asset, [fields.library]: [...(envelope?.[fields.library] ?? []), asset] } });
+      const envelope = current.project.opening[configKey];
+      current.updateOpening({ ...current.project.opening, [configKey]: { ...envelope, [fields.active]: asset, [fields.library]: [...getLibrary(current.project.opening), asset] } });
       if (dimensions.width !== fields.width || dimensions.height !== fields.height) setNotice("Dimensions différentes du modèle. L’image sera ajustée automatiquement.");
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Impossible d’importer l’image."); }
     finally { setBusy(false); }
@@ -51,14 +60,14 @@ function EnvelopePartControls({ part }: { part: EnvelopePart }) {
   const remove = async (asset: EnvelopeAssetRef, confirmed = false) => {
     if (!asset.id || busy || asset.type !== "custom") return;
     const current = useEditorStore.getState();
-    if (current.project?.id !== project.id) return;
-    if (!(current.project.opening.envelope?.[fields.library] ?? []).some((item) => item.id === asset.id)) { setPendingDelete(null); return; }
+    if (current.project?.id !== project.id || current.project.opening.type !== configKey) return;
+    if (!getLibrary(current.project.opening).some((item) => item.id === asset.id)) { setPendingDelete(null); return; }
     // The same custom image can also be used as another component or in the document.
-    const referenced = { ...current.project, opening: { ...current.project.opening, envelope: { ...current.project.opening.envelope, [fields.library]: [] } } };
+    const referenced = { ...current.project, opening: { ...current.project.opening, [configKey]: { ...current.project.opening[configKey], [fields.library]: [] } } };
     if (!confirmed && JSON.stringify(referenced).includes(asset.url)) { setPendingDelete(asset); return; }
     setPendingDelete(null);
     setBusy(true); setError(""); setNotice("");
-    const next = { ...current.project, opening: { ...current.project.opening, envelope: removeEnvelopeCustom(current.project.opening.envelope, part, asset.id) } };
+    const next = { ...current.project, opening: { ...current.project.opening, [configKey]: isDoor ? removeDoorCustom(current.project.opening.doors, part, asset.id) : removeEnvelopeCustom(current.project.opening.envelope, part, asset.id) } };
     current.updateOpening(next.opening);
     try {
       // Latest project prevents a stale selection/edit made during confirmation from deleting a used file.
@@ -69,14 +78,14 @@ function EnvelopePartControls({ part }: { part: EnvelopePart }) {
   };
   const tile = (asset: EnvelopeAssetRef) => <div className="envelope-asset-tile" key={asset.id ?? asset.url}>
     <button type="button" disabled={busy || Boolean(pendingDelete)} className="envelope-asset-choice" aria-pressed={selected.type === asset.type && selected.id === asset.id && selected.url === asset.url} title={asset.name} onClick={() => select(asset)}>
-      <img src={asset.url} alt="" loading="lazy" /><span>{asset.name ?? fields.label}</span>
+      {asset.url ? <img src={asset.url} alt="" loading="lazy" /> : <span className="door-generated-thumbnail" style={{ background: project.opening.colors?.[0] ?? "#f4efe7", borderColor: project.opening.colors?.[1] ?? "#b2905d" }} />}<span>{asset.name ?? fields.label}</span>
     </button>
     {asset.type === "custom" && <button type="button" className="envelope-asset-delete" aria-label={`Supprimer ${asset.name ?? fields.label}`} disabled={busy || Boolean(pendingDelete)} onClick={() => void remove(asset)}><Trash2 size={13} /></button>}
   </div>;
-  return <PropertySection sectionKey={`envelope-${part}`} title={fields.label}>
+  return <PropertySection sectionKey={isDoor ? `door-${part}` : `envelope-${part}`} title={fields.label}>
     <p className="envelope-asset-current">Sélection : {selected.name ?? fields.label}</p>
-    <h4>Modèles</h4><div className="envelope-assets-grid">{ENVELOPE_PRESETS[part].map(tile)}</div>
-    {globals.length > 0 && <><h4>Bibliothèque générale</h4><div className="envelope-assets-grid">{globalEnvelopeChoices(globals, part).map(tile)}</div></>}
+    <h4>Modèles</h4><div className="envelope-assets-grid">{presets.map(tile)}</div>
+    {globals.length > 0 && <><h4>Bibliothèque générale</h4><div className="envelope-assets-grid">{(isDoor ? globalDoorChoices(globals, part) : globalEnvelopeChoices(globals, part)).map(tile)}</div></>}
     <h4>{fields.plural}</h4><div className="envelope-assets-grid">{custom.map(tile)}</div>
     {!custom.length && <small>Aucun élément importé.</small>}
     {pendingDelete && <div role="alertdialog" aria-modal="false" aria-label={`Supprimer ${pendingDelete.name ?? fields.label} ?`} className="envelope-delete-confirm" onKeyDown={(event) => { if (event.key === "Escape") setPendingDelete(null); }}>
@@ -86,14 +95,20 @@ function EnvelopePartControls({ part }: { part: EnvelopePart }) {
     </div>}
     <input ref={input} type="file" accept=".png,.webp,image/png,image/webp" hidden disabled={busy} onChange={(event) => void importImage(event)} />
     <button type="button" className="envelope-asset-import" disabled={busy || Boolean(pendingDelete)} onClick={() => input.current?.click()}><Upload size={14} />{busy ? "Traitement…" : `Importer ${fields.noun}`}</button>
-    <a className="envelope-asset-download" href={`/envelope-templates/envelope-${fields.guide}-template.png`} download={`modele-${fields.label.toLowerCase()}-enveloppe-laboutiquedesmaries.png`}><Download size={14} />Télécharger le modèle</a>
+    <a className="envelope-asset-download" href={isDoor ? DOOR_PRESETS[part][1].url : `/envelope-templates/envelope-${fields.guide}-template.png`} download={`modele-${fields.label.toLowerCase()}-laboutiquedesmaries.png`}><Download size={14} />Télécharger le modèle</a>
     <small>{part === "seal" ? "Utilisez un PNG transparent. Le cachet sera automatiquement positionné sur le rabat." : "Téléchargez le modèle, personnalisez-le en conservant la transparence, puis importez votre PNG."} PNG / WebP · 5 Mo maximum · modèle {fields.width} × {fields.height} px.</small>
     {notice && <p role="status">{notice}</p>}{error && <p role="alert">{error}</p>}
-    <EnvelopePositionControls part={part} />
+    {isDoor ? <DoorPositionControls part={part} /> : <EnvelopePositionControls part={part} />}
   </PropertySection>;
 }
 
 export function EnvelopeAssetControls() {
   const projectId = useEditorStore((state) => state.project?.id);
   return <div className="envelope-asset-controls">{ENVELOPE_PARTS.map((part) => <EnvelopePartControls key={`${projectId}-${part}`} part={part} />)}<small>Les modèles sont communs aux trois supports. Positions et taille du cachet : support actif uniquement.</small></div>;
+}
+
+
+export function DoorAssetControls() {
+  const projectId = useEditorStore((state) => state.project?.id);
+  return <div className="envelope-asset-controls">{DOOR_PARTS.map((part) => <EnvelopePartControls key={`${projectId}-${part}`} part={part} />)}<small>Modèles communs aux supports. Positions : support actif uniquement. Les couleurs s’appliquent au modèle « Classique / couleurs personnalisables », pas aux PNG importés.</small></div>;
 }

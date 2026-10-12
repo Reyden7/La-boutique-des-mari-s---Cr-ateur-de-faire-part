@@ -1,5 +1,7 @@
 export type EnvelopeGlobalAssetType = "envelope_base" | "envelope_flap" | "envelope_seal";
-export type GlobalAssetType = "font" | "welcome_arch" | "welcome_background" | "music" | "particle" | "decoration" | "program_icon" | EnvelopeGlobalAssetType;
+export type DoorGlobalAssetType = "door_left" | "door_right";
+export type OpeningGlobalAssetType = EnvelopeGlobalAssetType | DoorGlobalAssetType;
+export type GlobalAssetType = "font" | "welcome_arch" | "welcome_background" | "music" | "particle" | "decoration" | "program_icon" | OpeningGlobalAssetType;
 
 export interface GlobalAssetRecord {
   id: string;

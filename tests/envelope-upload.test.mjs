@@ -33,7 +33,7 @@ const hooks = registerHooks({
 const { uploadProjectAsset, deleteProjectAssetIfUnused } = await import("../src/services/assetRepository.ts");
 const project = { id: "project", ownerId: "owner" };
 test("real uploader uses owned envelope paths, original File, PNG/WebP MIME and existing wedding-assets", async () => {
-  for (const folder of ["envelope/bases", "envelope/flaps", "envelope/seals"]) for (const [extension, mime] of [["png", "image/png"], ["webp", "image/webp"]]) {
+  for (const folder of ["envelope/bases", "envelope/flaps", "envelope/seals", "doors/left", "doors/right"]) for (const [extension, mime] of [["png", "image/png"], ["webp", "image/webp"]]) {
     calls.length = 0;
     const file = new File(["original bytes"], `Modèle.${extension}`, { type: mime });
     const asset = await uploadProjectAsset(project, file, "image", { folder });

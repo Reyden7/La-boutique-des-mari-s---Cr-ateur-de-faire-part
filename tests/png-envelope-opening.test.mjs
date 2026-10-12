@@ -236,7 +236,7 @@ test("position UI follows each asset picker and editor closed overlay follows ac
   const canvas=read("src/components/editor/EditorCanvas.tsx");
   assert.match(canvas,/const isEnvelopeEditing = sidebarView === "introduction" && project\?\.introductionMode === "classic" && project.opening.type === "envelope";/);
   assert.match(canvas,/<PngEnvelopeOpening key=\{previewDevice\} device=\{previewDevice\} config=\{project.opening\} couple=\{project.name\} closedPreview>/);
-  assert.match(canvas,/height: \(isEnvelopeEditing \? viewport.height : documentHeight\) \* zoom/);
+  assert.match(canvas,/height: \(isEnvelopeEditing \|\| isDoorsEditing \? viewport.height : documentHeight\) \* zoom/);
 });
 
 test("responsive writes preserve legacy mobile geometry and isolate all three devices", () => {

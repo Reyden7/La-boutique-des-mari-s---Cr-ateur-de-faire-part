@@ -607,7 +607,7 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .opening-content-behind { position: absolute; inset: 0; z-index: 0; display: grid; place-items: center; transform-origin: center center; }
 .opening-stage.is-opened { display: block; min-height: 100dvh; overflow: visible; }
 .opening-stage.is-opened .opening-content-behind { position: relative; inset: auto; display: block; }
-.curtains-scene, .doors-scene { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; overflow: hidden; border: 0; padding: 0; background: transparent; perspective: 1600px; }
+.curtains-scene { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; overflow: hidden; border: 0; padding: 0; background: transparent; perspective: 1600px; }
 .curtain-panel { position: absolute; z-index: 2; top: 0; bottom: -3%; width: 52%; overflow: hidden; background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--opening-primary), #fff 13%) 0 7%, var(--opening-primary) 13% 17%, color-mix(in srgb, var(--opening-primary), #000 21%) 26% 34%, color-mix(in srgb, var(--opening-primary), #fff 6%) 43% 50%); box-shadow: inset -18px 0 34px rgba(0,0,0,.2), 0 0 36px rgba(0,0,0,.28); will-change: transform; }
 .curtain-panel::after { content: ""; position: absolute; inset: 0; opacity: .42; background: linear-gradient(to bottom, rgba(255,255,255,.11), transparent 18%, rgba(0,0,0,.1) 82%, rgba(0,0,0,.24)); }
 .curtain-panel i { position: absolute; top: 0; bottom: 0; width: 2px; background: linear-gradient(to bottom, rgba(255,255,255,.2), rgba(0,0,0,.24)); opacity: .45; }
@@ -618,23 +618,10 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .curtain-tie { position: absolute; z-index: 5; top: 48%; width: 44px; height: 9px; border-radius: 999px; background: linear-gradient(to bottom, color-mix(in srgb, var(--opening-accent), #fff 22%), var(--opening-accent)); box-shadow: 0 3px 8px rgba(0,0,0,.28); pointer-events: none; }
 .curtain-tie::after { content: ""; position: absolute; top: 7px; width: 2px; height: 34px; background: var(--opening-accent); box-shadow: 5px 5px 0 -1px var(--opening-accent); }
 .curtain-tie-left { left: 8%; transform: rotate(-4deg); }.curtain-tie-right { right: 8%; transform: rotate(4deg); }.curtain-tie-left::after { left: 28px; }.curtain-tie-right::after { right: 28px; }
-.curtain-intro, .door-intro { position: absolute; z-index: 4; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff8ee; text-shadow: 0 2px 12px rgba(0,0,0,.35); pointer-events: none; }
-.curtain-intro > span, .door-intro > span { font: 500 clamp(42px, 9vw, 68px) "Great Vibes", cursive; }
-.curtain-intro small, .door-intro small { margin-top: 7px; font: 11px "Cormorant Garamond", serif; letter-spacing: .19em; text-transform: uppercase; }
-.curtain-intro b, .door-intro b { margin-top: 30px; padding: 11px 18px; border: 1px solid currentColor; border-radius: 999px; font: 600 9px "Montserrat", sans-serif; letter-spacing: .12em; text-transform: uppercase; }
-.doors-theme { background: radial-gradient(circle at 50% 42%, #eee8df, #ac8b6c); }
-.door-light { position: absolute; z-index: 1; inset: -15%; pointer-events: none; background: radial-gradient(ellipse at center, rgba(255,250,220,.82), rgba(255,238,191,.18) 35%, transparent 67%); mix-blend-mode: screen; }
-.door-panel { position: absolute; z-index: 2; top: 0; bottom: 0; width: 50.2%; background: linear-gradient(100deg, color-mix(in srgb, var(--opening-primary), #fff 12%), var(--opening-primary) 42%, color-mix(in srgb, var(--opening-primary), #000 7%)); transform-style: preserve-3d; backface-visibility: hidden; border: 7px solid color-mix(in srgb, var(--opening-accent), #fff 25%); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--opening-accent), #000 8%), inset -14px 0 26px rgba(79,57,35,.11), 0 0 42px rgba(35,25,18,.34); will-change: transform; }
-.door-panel::before, .door-panel::after { content: ""; position: absolute; left: 16%; right: 16%; border: 3px solid color-mix(in srgb, var(--opening-accent), #fff 24%); box-shadow: inset 0 0 18px rgba(117,84,49,.13); }
-.door-panel::before { top: 11%; height: 31%; }
-.door-panel::after { bottom: 10%; height: 39%; }
-.door-left { left: 0; transform-origin: left center; }
-.door-right { right: 0; transform-origin: right center; background: linear-gradient(260deg, color-mix(in srgb, var(--opening-primary), #fff 12%), var(--opening-primary) 42%, color-mix(in srgb, var(--opening-primary), #000 7%)); }
-.door-panel i { position: absolute; top: 49%; width: 12px; height: 12px; border-radius: 50%; background: var(--opening-accent); box-shadow: 0 2px 5px rgba(0,0,0,.25); }
-.door-left i { right: 12%; }.door-right i { left: 12%; }
-.door-panel > span { position: absolute; top: 0; bottom: 0; width: 8px; opacity: .8; background: linear-gradient(90deg, color-mix(in srgb, var(--opening-accent), #fff 30%), color-mix(in srgb, var(--opening-accent), #000 28%)); }
-.door-left > span { right: -7px; }.door-right > span { left: -7px; transform: scaleX(-1); }
-.door-intro { color: color-mix(in srgb, var(--opening-accent), #000 28%); text-shadow: 0 1px 0 rgba(255,255,255,.6); }
+.curtain-intro { position: absolute; z-index: 4; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff8ee; text-shadow: 0 2px 12px rgba(0,0,0,.35); pointer-events: none; }
+.curtain-intro > span { font: 500 clamp(42px, 9vw, 68px) "Great Vibes", cursive; }
+.curtain-intro small { margin-top: 7px; font: 11px "Cormorant Garamond", serif; letter-spacing: .19em; text-transform: uppercase; }
+.curtain-intro b { margin-top: 30px; padding: 11px 18px; border: 1px solid currentColor; border-radius: 999px; font: 600 9px "Montserrat", sans-serif; letter-spacing: .12em; text-transform: uppercase; }
 .invitation-experience { min-height: 100vh; min-height: 100dvh; width: 100%; position: relative; }
 .guest-audio-control { position: fixed; z-index: 30; right: 16px; bottom: 16px; display: flex; align-items: center; gap: 6px; padding: 5px 10px 5px 5px; border-radius: 999px; color: #fff; background: rgba(36,34,31,.72); backdrop-filter: blur(12px); box-shadow: 0 8px 24px rgba(0,0,0,.18); }
 .guest-audio-control button { width: 34px; height: 34px; border: 0; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.16); color: #fff; }
@@ -1683,6 +1670,19 @@ html:has(.public-invite .png-envelope-stage) { scrollbar-gutter: stable; }
 .png-envelope-artwork-preview { display: flex; align-items: center; justify-content: center; gap: 8px; }
 .png-envelope-artwork-preview img { width: 60px; height: 96px; object-fit: contain; }
 .envelope-editor-closed-preview { position: absolute; left: 0; top: 0; z-index: 60; transform-origin: top left; }
+.png-doors-stage { --png-envelope-height: var(--preview-device-height, 100dvh); position: relative; width: 100%; height: var(--png-envelope-height); overflow: hidden; isolation: isolate; }
+.png-doors-stage[data-door-phase="complete"] { height: auto; overflow: visible; }
+.preview-device-viewport:has(.png-doors-stage:not([data-door-phase="complete"])) { overflow-y: hidden; }
+html:has(.public-invite .png-doors-stage) { scrollbar-gutter: stable; }
+.png-doors-overlay { position: absolute; inset: 0; z-index: 20; overflow: hidden; }
+.png-door-group { position: absolute; inset: 0; transform-origin: center center; }
+.png-door-panel { position: absolute; pointer-events: none; }
+.png-door-panel img { display: block; width: 100%; height: 100%; max-width: none; user-select: none; }
+.png-doors-intro { position: absolute; z-index: 2; top: 50%; left: 50%; transform: translate(-50%, -50%); width: max-content; max-width: 88%; padding: 12px 18px; border-radius: 28px; background: #fffaf0ed; color: #60482f; box-shadow: 0 2px 16px #0002; text-align: center; pointer-events: none; }
+.png-doors-intro > span { font: 500 clamp(16px, 2.3vw, 20px)/1.35 "Cormorant Garamond", serif; }
+.door-generated-thumbnail { display: block; width: 36px; height: 70px; margin: 8px auto; border: 3px double; }
+.text-typing-cursor { position: absolute; width: 1.5px; pointer-events: none; animation: text-cursor-blink .7s steps(1) infinite; }
+@keyframes text-cursor-blink { 50% { opacity: 0; } }
 .envelope-position-controls { margin: 14px 0 0; padding: 12px 0 0; border: 0; border-top: 1px solid #e3d6cd; min-width: 0; display: grid; gap: 12px; }
 .envelope-position-controls legend { padding: 0 0 6px; font-size: 12px; font-weight: 600; }
 .envelope-position-field { display: grid; gap: 6px; font-size: 11px; }

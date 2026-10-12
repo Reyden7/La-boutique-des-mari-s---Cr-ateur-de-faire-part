@@ -46,7 +46,7 @@ export async function decodeEnvelopeFile(file: File) {
     const image = new Image();
     image.src = url;
     await image.decode();
-    if (!image.naturalWidth || !image.naturalHeight) throw new Error("Dimensions de l’image invalides.");
+    if (!image.naturalWidth || !image.naturalHeight || Math.max(image.naturalWidth, image.naturalHeight) > 16384 || image.naturalWidth * image.naturalHeight > 40_000_000) throw new Error("Dimensions invalides : 40 mégapixels maximum.");
     return { width: image.naturalWidth, height: image.naturalHeight };
   } finally { URL.revokeObjectURL(url); }
 }

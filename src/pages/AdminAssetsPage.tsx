@@ -13,9 +13,10 @@ const FILTERS: Array<{ type?: GlobalAssetType; label: string }> = [
   { type: "particle", label: "Particules" }, { type: "decoration", label: "Décorations" },
   { type: "program_icon", label: "Icônes Programme" },
   { type: "envelope_base", label: "Bases d’enveloppe" }, { type: "envelope_flap", label: "Rabats d’enveloppe" }, { type: "envelope_seal", label: "Cachets d’enveloppe" },
+  { type: "door_left", label: "Portes gauches" }, { type: "door_right", label: "Portes droites" },
 ];
-const labels: Record<GlobalAssetType, string> = { font: "Police", welcome_arch: "Arche", welcome_background: "Paysage", music: "Musique", particle: "Particule", decoration: "Décoration", program_icon: "Icône Programme", envelope_base: "Base d’enveloppe", envelope_flap: "Rabat d’enveloppe", envelope_seal: "Cachet d’enveloppe" };
-const isEnvelope = (asset: GlobalAssetRecord) => ["envelope_base", "envelope_flap", "envelope_seal"].includes(asset.type);
+const labels: Record<GlobalAssetType, string> = { font: "Police", welcome_arch: "Arche", welcome_background: "Paysage", music: "Musique", particle: "Particule", decoration: "Décoration", program_icon: "Icône Programme", envelope_base: "Base d’enveloppe", envelope_flap: "Rabat d’enveloppe", envelope_seal: "Cachet d’enveloppe", door_left: "Porte gauche", door_right: "Porte droite" };
+const isEnvelope = (asset: GlobalAssetRecord) => ["envelope_base", "envelope_flap", "envelope_seal", "door_left", "door_right"].includes(asset.type);
 
 export function AdminAssetsPage() {
   const { isAdmin } = useAuth();
@@ -59,6 +60,7 @@ export function AdminAssetsPage() {
     <main>
       <p className="admin-templates-lead">Les assets publiés sont proposés à tous. Dépublier retire un choix des bibliothèques sans casser les projets qui conservent déjà son URL.</p>
       <GlobalEnvelopeAssetImport onPublished={(asset) => setAssets((items) => [...items.filter((item) => item.id !== asset.id), asset])} />
+      <GlobalEnvelopeAssetImport category="doors" onPublished={(asset) => setAssets((items) => [...items.filter((item) => item.id !== asset.id), asset])} />
       <nav className="admin-asset-filters">{FILTERS.map((item) => <button className={filter === item.type ? "active" : ""} key={item.label} onClick={() => setFilter(item.type)}>{item.label}</button>)}</nav>
       {error && <div className="template-admin-message error">{error}</div>}
       <div className="admin-template-list">{visible.map((asset) => <article className={`admin-template-row admin-asset-row${isEnvelope(asset) ? " admin-envelope-row" : ""}`} key={asset.id}>
@@ -71,7 +73,7 @@ export function AdminAssetsPage() {
       {rename && <form className="admin-envelope-dialog" role="dialog" aria-label="Renommer l’asset" onSubmit={(event) => { event.preventDefault(); const asset = assets.find((item) => item.id === rename.id); if (asset && rename.name.trim()) { void mutate(asset, { name: rename.name }); setRename(null); } }}><label>Nom<input autoFocus required maxLength={160} value={rename.name} onChange={(event) => setRename({ ...rename, name: event.target.value })} /></label><button type="button" onClick={() => setRename(null)}>Annuler</button><button type="submit">Enregistrer</button></form>}
       {deletion && <div className="admin-envelope-dialog" role="alertdialog" aria-label="Suppression définitive" aria-modal="false">
         <h2>{deletion.asset.name}</h2><p>Utilisé par {deletion.usage.projects} projet(s) et {deletion.usage.templates} template(s).</p>
-        {deletion.usage.projects + deletion.usage.templates > 0 ? <p>Suppression interdite pour protéger ces enveloppes. Vous pouvez dépublier cet élément sans casser les projets existants.</p> : <p>Supprimer définitivement le fichier Storage et son entrée dans la bibliothèque ? Cette action est irréversible. Le serveur vérifiera à nouveau ses références.</p>}
+        {deletion.usage.projects + deletion.usage.templates > 0 ? <p>Suppression interdite pour protéger ces ouvertures. Vous pouvez dépublier cet élément sans casser les projets existants.</p> : <p>Supprimer définitivement le fichier Storage et son entrée dans la bibliothèque ? Cette action est irréversible. Le serveur vérifiera à nouveau ses références.</p>}
         <button type="button" disabled={Boolean(busy)} onClick={() => setDeletion(null)}>Annuler</button>
         {deletion.asset.isPublished && <button type="button" disabled={Boolean(busy)} onClick={() => { void mutate(deletion.asset, { isPublished: false }); setDeletion(null); }}>Dépublier seulement</button>}
         {deletion.usage.projects + deletion.usage.templates === 0 && <button type="button" disabled={Boolean(busy)} onClick={() => {

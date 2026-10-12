@@ -6,13 +6,13 @@ import { inspectEnvelopeUpload } from "../supabase/functions/_shared/envelopeFor
 
 const bytes = readFileSync(new URL('../public/assets/openings/envelope/cachet1.png',import.meta.url));
 const id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
-let user, usage, uploadError, insertError, removeError, finishError, copyError;
+let user, usage, uploadError, insertError, removeError, finishError, copyError, deletionPath;
 const calls=[];
-function reset() { user={id:'owner',app_metadata:{role:'admin'}}; usage={projects:0,templates:0}; uploadError=insertError=removeError=finishError=copyError=null; calls.length=0; }
+function reset() { user={id:'owner',app_metadata:{role:'admin'}}; usage={projects:0,templates:0}; uploadError=insertError=removeError=finishError=copyError=null; deletionPath='envelope/seals/unused.png'; calls.length=0; }
 reset();
 globalThis.__envelopeEdgeClient={
   auth:{getUser:async()=>({data:{user},error:null})},
-  rpc:async(name,args)=>{ calls.push({op:'rpc',name,args}); return {data:name==='envelope_asset_usage'?usage:name==='reserve_envelope_asset_deletion'?{...usage,blocked:usage.projects+usage.templates>0,storagePath:'envelope/seals/unused.png'}:true,error:name==='finish_envelope_asset_deletion'?finishError:null}; },
+  rpc:async(name,args)=>{ calls.push({op:'rpc',name,args}); return {data:name==='envelope_asset_usage'?usage:name==='reserve_envelope_asset_deletion'?{...usage,blocked:usage.projects+usage.templates>0,storagePath:deletionPath}:true,error:name==='finish_envelope_asset_deletion'?finishError:null}; },
   from:(table)=>{ let mutation; const query={select:()=>query,eq:()=>query,maybeSingle:async()=>({data:null,error:null}),insert:(data)=>{mutation=data; calls.push({op:'insert',table,data}); return query;},single:async()=>table==='assets'?{data:{id:'source',owner_id:'owner',kind:'image',storage_path:'owner/project/envelope/seals/custom.png',mime_type:'image/png',size_bytes:bytes.length},error:null}:{data:{id,...mutation},error:insertError}};return query;},
   storage:{from:(bucket)=>({
     upload:async(path,file,options)=>{calls.push({op:'upload',bucket,path,options,bytes:new Uint8Array(await file.arrayBuffer())});return {error:uploadError};},
@@ -30,11 +30,11 @@ const json=(body)=>new Request('https://example.invalid',{method:'POST',headers:
 function upload(type='envelope_seal',file=new File([bytes],'Seal.PNG',{type:'image/png'}),name='Or alliances') {const form=new FormData();form.set('type',type);form.set('name',name);form.set('file',file);return new Request('https://example.invalid',{method:'POST',headers:{Authorization:'Bearer fixture'},body:form});}
 
 test('all three direct uploads go straight to global-assets, keep original bytes/alpha, trusted dimensions and MIME',async()=>{
-  for (const [type,folder] of [['envelope_base','bases'],['envelope_flap','flaps'],['envelope_seal','seals']]) {
+  for (const [type,folder] of [['envelope_base','envelope/bases'],['envelope_flap','envelope/flaps'],['envelope_seal','envelope/seals'],['door_left','doors/left'],['door_right','doors/right']]) {
     reset();const response=await handler(upload(type));assert.equal(response.status,200);const {asset}=await response.json();
     assert.equal(asset.type,type);assert.equal(asset.is_published,true);assert.equal(asset.source_asset_id,null);
     assert.equal(asset.metadata.width,1254);assert.equal(asset.metadata.height,1254);assert.equal(asset.metadata.mimeType,'image/png');
-    assert.equal(calls[0].op,'upload');assert.equal(calls[0].bucket,'global-assets');assert.match(calls[0].path,new RegExp(`^envelope/${folder}/.+-asset\\.png$`));
+    assert.equal(calls[0].op,'upload');assert.equal(calls[0].bucket,'global-assets');assert.match(calls[0].path,new RegExp(`^${folder}/.+-asset\\.png$`));
     assert.deepEqual(Buffer.from(calls[0].bytes),bytes);assert.equal(calls[0].options.upsert,false);assert.equal(calls[0].options.contentType,'image/png');
     assert.ok(!calls.some(call=>call.bucket==='wedding-assets'));assert.equal(asset.thumbnail_url,asset.url);
   }
@@ -76,4 +76,14 @@ test('safe deletion reserves, removes through Storage API, then finalizes DB onl
   assert.deepEqual(calls[2].paths,['envelope/seals/unused.png']);assert.equal(calls[2].bucket,'global-assets');
   reset();removeError=new Error('expected remove failure');assert.equal((await handler(json({action:'delete',assetId:id,confirmed:true}))).status,500);assert.ok(!calls.some(call=>call.name==='finish_envelope_asset_deletion'));assert.ok(!calls.some(call=>call.op==='insert'));
   reset();finishError=new Error('expected DB failure');const response=await handler(json({action:'delete',assetId:id,confirmed:true}));assert.equal(response.status,500);assert.match((await response.json()).error,/finalisation DB/);
+});
+test('both door folders use the same guarded deletion; out-of-scope paths never reach Storage',async()=>{
+  for(const path of ['doors/left/unused.png','doors/right/unused.webp']) {
+    reset();deletionPath=path;assert.equal((await handler(json({action:'delete',assetId:id,confirmed:true}))).status,200);
+    assert.deepEqual(calls.find(call=>call.op==='remove').paths,[path]);
+  }
+  for(const path of ['doors/left/../../other.png','fonts/unused.ttf','doors/left/nested/file.png']) {
+    reset();deletionPath=path;assert.equal((await handler(json({action:'delete',assetId:id,confirmed:true}))).status,500);
+    assert.ok(!calls.some(call=>call.op==='remove'));
+  }
 });

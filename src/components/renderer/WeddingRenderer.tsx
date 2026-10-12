@@ -15,6 +15,9 @@ import { ImageContentRenderer } from "../../features/images/ImageContentRenderer
 import { resolveImageAppearance } from "../../utils/imageAppearance";
 import { resolveImageFrame } from "../../config/imageFrames";
 import { resolveImageFit, resolveImageTransform } from "../../utils/imageLayout";
+import { TextEntrance } from "./TextEntrance";
+import { CurvedTextRenderer } from "../../features/text/CurvedTextRenderer";
+import { curvedTextOptions, hasTextCurve } from "../../features/text/curvedTextLayout";
 import { AnimatedElement } from "./AnimatedElement";
 import { getSectionRenderGroups } from "../../utils/sectionRenderGroups";
 import { resolveElementVisualStyle } from "../../utils/responsiveVisualStyle";
@@ -41,7 +44,8 @@ export function RenderElement({ element, device, documentHeight, playAnimation =
   };
   const overlayChildren = element.type === "section" ? <>{[...sectionChildren].sort((a, b) => getElementZIndex(a, device) - getElementZIndex(b, device)).map((child) => <RenderElement key={child.id} element={child} device={device} documentHeight={documentHeight} playAnimation={playAnimation} origin={{ x: layout.x, y: layout.y, width: layout.width, height: layout.height }} />)}{sectionExtra}</> : undefined;
   const wrap = (content: React.ReactNode, className?: string) => <AnimatedElement animation={element.animation} opacity={element.opacity ?? 1} rotation={layout.rotation} rotationOrigin={element.type === "image" ? getImageRotationFrame(layout).transformOrigin : undefined} style={style} className={className} overlayChildren={overlayChildren} play={playAnimation}>{content}</AnimatedElement>;
-  if (element.type === "text") return wrap(<div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", color: element.color, fontFamily: element.fontFamily, fontSize: `${(layout.fontSize ?? element.fontSize) / viewport.width * 100}cqw`, fontWeight: element.fontWeight, fontStyle: element.italic ? "italic" : "normal", textDecoration: element.underline ? "underline" : "none", textAlign: element.textAlign, lineHeight: element.lineHeight, letterSpacing: element.letterSpacing, whiteSpace: "pre-wrap", justifyContent: element.textAlign === "center" ? "center" : element.textAlign === "right" ? "flex-end" : "flex-start" }}>{element.text}</div>);
+  if (element.type === "text" && hasTextCurve(element.curve)) return wrap(<CurvedTextRenderer options={curvedTextOptions(element, layout.width, layout.height, layout.fontSize ?? element.fontSize)} color={element.color} animation={element.animation} play={playAnimation} />);
+  if (element.type === "text") return wrap(<TextEntrance text={element.text} animation={element.animation} play={playAnimation} style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", color: element.color, fontFamily: element.fontFamily, fontSize: `${(layout.fontSize ?? element.fontSize) / viewport.width * 100}cqw`, fontWeight: element.fontWeight, fontStyle: element.italic ? "italic" : "normal", textDecoration: element.underline ? "underline" : "none", textAlign: element.textAlign, lineHeight: element.lineHeight, letterSpacing: element.letterSpacing, whiteSpace: "pre-wrap", justifyContent: element.textAlign === "center" ? "center" : element.textAlign === "right" ? "flex-end" : "flex-start" }} />);
   if (element.type === "image") {
     const frame = resolveImageFrame(element.imageStyle?.frame);
     const fit = resolveImageFit(element.fit);
