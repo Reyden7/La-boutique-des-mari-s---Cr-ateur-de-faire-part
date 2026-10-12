@@ -12,8 +12,10 @@ import type { RsvpRenderMode } from "../rsvp/RsvpFormRenderer";
 import { useResponsiveDevice } from "../../hooks/useResponsiveDevice";
 import { WelcomePageRenderer } from "../welcome/WelcomePageRenderer";
 import { resolveWelcomePage } from "../welcome/welcomeDefaults";
+import { normalizeRetiredOpening } from "../openings/legacyOpening";
 
-export function InvitationExperience({ project, device, mode = "public" }: { project: WeddingProject; device?: PreviewDevice; mode?: RsvpRenderMode }) {
+export function InvitationExperience({ project: sourceProject, device, mode = "public" }: { project: WeddingProject; device?: PreviewDevice; mode?: RsvpRenderMode }) {
+  const project = normalizeRetiredOpening(sourceProject);
   const controllerRef = useRef<AudioController | null>(null);
   const [playing, setPlaying] = useState(false);
   const [audioReady, setAudioReady] = useState(false);

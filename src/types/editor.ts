@@ -636,7 +636,7 @@ export interface RsvpFormConfig {
   typography?: RsvpFormTypography;
 }
 
-export type OpeningAnimationType = "none" | "envelope" | "curtains" | "doors" | "scroll" | "book" | "veil" | "floral-gates";
+export type OpeningAnimationType = "none" | "envelope" | "doors" | "scroll" | "book" | "veil" | "floral-gates";
 
 export interface OpeningAnimationConfig {
   type: OpeningAnimationType;

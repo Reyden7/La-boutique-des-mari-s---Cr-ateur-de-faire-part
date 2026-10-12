@@ -7,6 +7,7 @@ import { normalizeSectionMembership } from "./sectionLayout";
 import { normalizeElementLocks } from "./elementLocking";
 import { materializeElementLayouts } from "./responsiveLayout";
 import { materializeRsvpComposition } from "../features/rsvp/rsvpEditorElement";
+import { normalizeRetiredOpening } from "../features/openings/legacyOpening";
 
 const STORAGE_KEY = "lbm-studio-projects-v1";
 
@@ -27,7 +28,7 @@ const normalizeBackground = (background: WeddingProject["pages"][number]["backgr
 
 export const normalizeProject = (value: unknown): WeddingProject | null => {
   if (!value || typeof value !== "object") return null;
-  const legacy = value as Partial<WeddingProject> & { openingAnimation?: string; published?: boolean };
+  const legacy = normalizeRetiredOpening(value as Partial<WeddingProject> & { openingAnimation?: string; published?: boolean });
   if (!legacy.id || !legacy.name || !Array.isArray(legacy.pages)) return null;
   const legacyType: OpeningAnimationType = legacy.openingAnimation === "none" ? "none" : "envelope";
   const pages = migratePagesToScrollableDocument(legacy.pages).map((page) => ({

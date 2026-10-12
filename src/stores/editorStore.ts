@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { normalizeRetiredOpening } from "../features/openings/legacyOpening";
 
 import type {
   EditorElement,
@@ -221,23 +222,26 @@ const clone = (
 ) => structuredClone(project);
 
 const normalizeProject = (
-  project: WeddingProject
-): WeddingProject => ({
-  ...project,
+  source: WeddingProject
+): WeddingProject => {
+  const project = normalizeRetiredOpening(source);
+  return {
+    ...project,
 
-  pages: project.pages.map((page) => ({
-    ...page,
-    elements: normalizeElementLocks(normalizeSectionMembership(page.elements)).map(materializeElementLayouts),
-  })),
+    pages: project.pages.map((page) => ({
+      ...page,
+      elements: normalizeElementLocks(normalizeSectionMembership(page.elements)).map(materializeElementLayouts),
+    })),
 
-  welcomePage: (() => { const welcome = resolveWelcomePage(project.welcomePage); return { ...welcome, elements: welcome.elements.map(materializeElementLayouts) }; })(),
+    welcomePage: (() => { const welcome = resolveWelcomePage(project.welcomePage); return { ...welcome, elements: welcome.elements.map(materializeElementLayouts) }; })(),
 
-  rsvp: project.rsvp ? materializeRsvpComposition({ ...project.rsvp, locked: project.rsvp.locked ?? false }) : undefined,
+    rsvp: project.rsvp ? materializeRsvpComposition({ ...project.rsvp, locked: project.rsvp.locked ?? false }) : undefined,
 
-  particles:
-    project.particles ??
-    structuredClone(defaultParticles),
-});
+    particles:
+      project.particles ??
+      structuredClone(defaultParticles),
+  };
+};
 
 const uid = () =>
   crypto.randomUUID();

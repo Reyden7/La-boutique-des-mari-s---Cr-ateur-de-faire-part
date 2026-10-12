@@ -24,7 +24,7 @@ export function OpeningProperties({ onPreview }: { onPreview: (type: OpeningAnim
   const updateSetting = (key: string, value: string) => updateOpening({ ...opening, customSettings: { ...opening.customSettings, [key]: value } });
   return <aside className="properties-panel"><div className="properties-heading"><div><small>Expérience invité</small><h2>{definition.name}</h2></div><span className="type-pill">ouverture</span></div>
     <div className={`opening-property-hero ${opening.type}`}><span>{definition.thumbnail}</span><p>{definition.description}</p></div>
-    {opening.type !== "none" && <><Field label="Style"><select value={opening.variant ?? "classic"} onChange={(event) => updateOpening({ ...opening, variant: event.target.value })}>{opening.type === "curtains" ? <><option value="velvet">Velours</option><option value="soft">Tissu doux</option></> : opening.type === "envelope" ? <option value="classic">Classique</option> : <><option value="classic">Classique</option><option value="modern">Moderne</option></>}</select></Field>
+    {opening.type !== "none" && <><Field label="Style"><select value={opening.variant ?? "classic"} onChange={(event) => updateOpening({ ...opening, variant: event.target.value })}>{opening.type === "envelope" ? <option value="classic">Classique</option> : <><option value="classic">Classique</option><option value="modern">Moderne</option></>}</select></Field>
       {pngEnvelope ? <>
         <EnvelopeAssetControls />
         <Field label="Texte d’indication"><input value={typeof opening.customSettings?.hintText === "string" ? opening.customSettings.hintText : "Touchez pour ouvrir"} onChange={(event) => updateSetting("hintText", event.target.value)} /></Field>

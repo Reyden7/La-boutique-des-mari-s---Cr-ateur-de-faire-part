@@ -483,14 +483,12 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .opening-card-main small { color: #948a82; font-size: 8px; line-height: 1.35; }
 .opening-glyph { width: 42px; height: 48px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 7px; background: linear-gradient(145deg, #f1e7de, #dcc1aa); color: #76503a; font: 20px "Cormorant Garamond", serif; }
 .opening-glyph.none { background: #f4f1ed; color: #938a83; }
-.opening-glyph.curtains { color: #f0d6a2; background: linear-gradient(90deg, #8c2938, #54111e, #8c2938); font-size: 15px; }
 .opening-glyph.doors { color: #a4804e; background: #eee6da; box-shadow: inset 0 0 0 3px #d2b88f; }
 .opening-preview-button { width: 51px; border: 0; border-left: 1px solid #eee8e2; background: #faf8f6; color: #8d6249; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 8px; }
 .opening-property-hero { height: 112px; margin-bottom: 18px; border-radius: 12px; background: linear-gradient(145deg, #f2e5db, #dcbda4); display: flex; align-items: center; justify-content: center; flex-direction: column; color: #76503a; }
 .opening-property-hero > span { font: 34px "Cormorant Garamond", serif; }
 .opening-property-hero p { max-width: 210px; margin: 7px 0 0; text-align: center; font: 10px/1.4 "Lora", serif; }
 .opening-property-hero.none { background: #f2efec; color: #847c75; }
-.opening-property-hero.curtains { color: #f3d9a2; background: linear-gradient(90deg, #8d2b3b, #49101a, #8d2b3b); }
 .opening-property-hero.doors { color: #9a7547; background: repeating-linear-gradient(90deg, #eee6da 0 48%, #c8a77b 48% 49%, #eee6da 49% 100%); }
 .large-preview-button { width: 100%; border: 0; border-radius: 9px; background: #2f332e; color: #fff; padding: 11px; display: flex; align-items: center; justify-content: center; gap: 7px; font-size: 10px; }
 .preview-controls .use-opening-button { background: #fff; color: #403a35; }
@@ -607,21 +605,6 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .opening-content-behind { position: absolute; inset: 0; z-index: 0; display: grid; place-items: center; transform-origin: center center; }
 .opening-stage.is-opened { display: block; min-height: 100dvh; overflow: visible; }
 .opening-stage.is-opened .opening-content-behind { position: relative; inset: auto; display: block; }
-.curtains-scene { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; overflow: hidden; border: 0; padding: 0; background: transparent; perspective: 1600px; }
-.curtain-panel { position: absolute; z-index: 2; top: 0; bottom: -3%; width: 52%; overflow: hidden; background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--opening-primary), #fff 13%) 0 7%, var(--opening-primary) 13% 17%, color-mix(in srgb, var(--opening-primary), #000 21%) 26% 34%, color-mix(in srgb, var(--opening-primary), #fff 6%) 43% 50%); box-shadow: inset -18px 0 34px rgba(0,0,0,.2), 0 0 36px rgba(0,0,0,.28); will-change: transform; }
-.curtain-panel::after { content: ""; position: absolute; inset: 0; opacity: .42; background: linear-gradient(to bottom, rgba(255,255,255,.11), transparent 18%, rgba(0,0,0,.1) 82%, rgba(0,0,0,.24)); }
-.curtain-panel i { position: absolute; top: 0; bottom: 0; width: 2px; background: linear-gradient(to bottom, rgba(255,255,255,.2), rgba(0,0,0,.24)); opacity: .45; }
-.curtain-panel i:nth-child(1) { left: 24%; }.curtain-panel i:nth-child(2) { left: 52%; }.curtain-panel i:nth-child(3) { left: 78%; }
-.curtain-left { left: 0; transform-origin: left 8%; border-right: 2px solid color-mix(in srgb, var(--opening-accent), transparent 20%); border-radius: 0 0 52% 0 / 0 0 8% 0; }
-.curtain-right { right: 0; transform-origin: right 8%; border-left: 2px solid color-mix(in srgb, var(--opening-accent), transparent 20%); border-radius: 0 0 0 52% / 0 0 0 8%; }
-.curtain-valance { position: absolute; z-index: 3; left: -3%; right: -3%; top: -1%; height: 8%; background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--opening-primary), #fff 12%) 0 7%, var(--opening-primary) 12% 18%, color-mix(in srgb, var(--opening-primary), #000 17%) 24% 34%); border-bottom: 2px solid color-mix(in srgb, var(--opening-accent), transparent 12%); box-shadow: 0 8px 18px rgba(0,0,0,.22); }
-.curtain-tie { position: absolute; z-index: 5; top: 48%; width: 44px; height: 9px; border-radius: 999px; background: linear-gradient(to bottom, color-mix(in srgb, var(--opening-accent), #fff 22%), var(--opening-accent)); box-shadow: 0 3px 8px rgba(0,0,0,.28); pointer-events: none; }
-.curtain-tie::after { content: ""; position: absolute; top: 7px; width: 2px; height: 34px; background: var(--opening-accent); box-shadow: 5px 5px 0 -1px var(--opening-accent); }
-.curtain-tie-left { left: 8%; transform: rotate(-4deg); }.curtain-tie-right { right: 8%; transform: rotate(4deg); }.curtain-tie-left::after { left: 28px; }.curtain-tie-right::after { right: 28px; }
-.curtain-intro { position: absolute; z-index: 4; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff8ee; text-shadow: 0 2px 12px rgba(0,0,0,.35); pointer-events: none; }
-.curtain-intro > span { font: 500 clamp(42px, 9vw, 68px) "Great Vibes", cursive; }
-.curtain-intro small { margin-top: 7px; font: 11px "Cormorant Garamond", serif; letter-spacing: .19em; text-transform: uppercase; }
-.curtain-intro b { margin-top: 30px; padding: 11px 18px; border: 1px solid currentColor; border-radius: 999px; font: 600 9px "Montserrat", sans-serif; letter-spacing: .12em; text-transform: uppercase; }
 .invitation-experience { min-height: 100vh; min-height: 100dvh; width: 100%; position: relative; }
 .guest-audio-control { position: fixed; z-index: 30; right: 16px; bottom: 16px; display: flex; align-items: center; gap: 6px; padding: 5px 10px 5px 5px; border-radius: 999px; color: #fff; background: rgba(36,34,31,.72); backdrop-filter: blur(12px); box-shadow: 0 8px 24px rgba(0,0,0,.18); }
 .guest-audio-control button { width: 34px; height: 34px; border: 0; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.16); color: #fff; }

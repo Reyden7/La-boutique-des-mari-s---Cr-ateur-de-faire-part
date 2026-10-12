@@ -19,7 +19,7 @@ npm run dev
 - annuler/rétablir, copier/coller, duplication et raccourcis ;
 - sauvegarde locale automatique ;
 - moteur d’ouverture indépendant du design ;
-- ouvertures Sans animation, Enveloppe, Rideaux et Porte ;
+- ouvertures Sans animation, Enveloppe et Porte ;
 - prévisualisation et personnalisation des couleurs et de la durée ;
 - bibliothèque musicale CC0, import audio personnel et lecture après interaction ;
 - volume, boucle, fondu et contrôle pause/reprise côté invité ;

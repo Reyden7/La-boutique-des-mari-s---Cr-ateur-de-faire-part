@@ -23,7 +23,7 @@ export function IntroductionPanel({ onPreview }: { onPreview: (type: OpeningAnim
       <div className="introduction-mode-grid">
         <button className={mode === "none" ? "selected" : ""} onClick={() => updateIntroductionMode("none")}><X size={16} /><span><b>Aucune</b><small>Accès direct</small></span>{mode === "none" && <Check size={14} />}</button>
         <button className={mode === "welcome" ? "selected" : ""} onClick={() => updateIntroductionMode("welcome")}><Home size={16} /><span><b>Page d’accueil</b><small>Arche, paysage et textes</small></span>{mode === "welcome" && <Check size={14} />}</button>
-        <button className={mode === "classic" ? "selected" : ""} onClick={chooseClassic}><Sparkles size={16} /><span><b>Ouverture classique</b><small>Enveloppe, rideaux ou porte</small></span>{mode === "classic" && <Check size={14} />}</button>
+        <button className={mode === "classic" ? "selected" : ""} onClick={chooseClassic}><Sparkles size={16} /><span><b>Ouverture classique</b><small>Enveloppe ou porte</small></span>{mode === "classic" && <Check size={14} />}</button>
       </div>
     </section>
     {mode === "none" && <div className="introduction-empty"><X size={20} /><strong>Aucune introduction</strong><p>Les invités arriveront directement sur le document principal.</p></div>}
