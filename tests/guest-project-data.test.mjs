@@ -23,11 +23,13 @@ globalThis.__guestDataMock={
 const hooks=registerHooks({
   resolve(specifier,context,nextResolve){
     if(context.parentURL?.endsWith("/src/services/projectRepository.ts") && specifier==="../lib/supabase")return{url:"guest-data:client",shortCircuit:true};
+    if(context.parentURL?.endsWith("/src/services/projectRepository.ts") && specifier==="./previewVideoRepository")return{url:"guest-data:video-cleanup",shortCircuit:true};
     if(context.parentURL?.endsWith("/src/utils/templateSnapshot.ts") && specifier==="./storage")return{url:"guest-data:normalizer",shortCircuit:true};
     return nextResolve(specifier,context);
   },
   load(url,context,nextLoad){
     if(url==="guest-data:client")return{format:"module",source:"export const {supabase,isSupabaseConfigured,requireSupabaseSession}=globalThis.__guestDataMock;",shortCircuit:true};
+    if(url==="guest-data:video-cleanup")return{format:"module",source:"export const flushPreviewVideoCleanup = async () => {};",shortCircuit:true};
     if(url==="guest-data:normalizer")return{format:"module",source:"export const normalizeProject = (project) => project;",shortCircuit:true};
     return nextLoad(url,context);
   },

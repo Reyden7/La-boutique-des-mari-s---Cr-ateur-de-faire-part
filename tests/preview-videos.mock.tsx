@@ -2,7 +2,8 @@
 export const QA_OWNER = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 export const isSupabaseConfigured = true;
 export const requireSupabaseSession = async () => ({ id: QA_OWNER });
-export const useAuth = () => ({ isAdmin: true, user: { id: QA_OWNER, email: "demo@local.invalid" }, loading: false, signOut: async () => {} });
+const qaUser = { id: QA_OWNER, email: "demo@local.invalid" };
+export const useAuth = () => ({ isAdmin: true, user: qaUser, loading: false, signOut: async () => {} });
 const tables: Record<string, Record<string, any>[]> = { projects: [], templates: [], preview_video_cleanup: [] };
 const files = new Map<string, string>();
 export const qaCounts = { uploads: 0, signatures: 0, removals: 0 };
