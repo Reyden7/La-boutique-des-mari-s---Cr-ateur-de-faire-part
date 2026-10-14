@@ -5,7 +5,6 @@ export type AnimationType = "none" | "fade" | "slide-left" | "slide-right" | "sl
 export interface AnimationConfig {
   type: AnimationType;
   duration: number;
-  delay: number;
   showCursor?: boolean;
 }
 

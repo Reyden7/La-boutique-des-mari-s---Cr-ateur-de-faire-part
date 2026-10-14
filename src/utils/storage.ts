@@ -8,6 +8,7 @@ import { normalizeElementLocks } from "./elementLocking";
 import { materializeElementLayouts } from "./responsiveLayout";
 import { materializeRsvpComposition } from "../features/rsvp/rsvpEditorElement";
 import { normalizeRetiredOpening } from "../features/openings/legacyOpening";
+import { withoutProjectAnimationDelays } from "./animationData";
 
 const STORAGE_KEY = "lbm-studio-projects-v1";
 
@@ -45,7 +46,7 @@ export const normalizeProject = (value: unknown): WeddingProject | null => {
   const resolvedWelcomePage = { ...welcome, elements: welcome.elements.map(materializeElementLayouts) };
   const introductionMode: IntroductionMode = legacy.introductionMode
     ?? (resolvedWelcomePage.enabled ? "welcome" : (legacy.opening?.type ?? legacyType) !== "none" ? "classic" : "none");
-  return {
+  return withoutProjectAnimationDelays({
     ...legacy,
     id: legacy.id,
     name: legacy.name,
@@ -61,7 +62,7 @@ export const normalizeProject = (value: unknown): WeddingProject | null => {
     welcomePage: { ...resolvedWelcomePage, enabled: introductionMode === "welcome" },
     status: legacy.status ?? (legacy.published ? "published" : "draft"),
     paymentStatus: legacy.paymentStatus ?? "unpaid",
-  };
+  });
 };
 
 export const loadProjects = (): WeddingProject[] => {
@@ -75,7 +76,7 @@ export const loadProjects = (): WeddingProject[] => {
 };
 
 export const saveProjects = (projects: WeddingProject[]) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(projects.map(withoutProjectAnimationDelays)));
 };
 
 export const upsertProject = (project: WeddingProject) => {
@@ -87,8 +88,9 @@ export const upsertProject = (project: WeddingProject) => {
 };
 
 export const syncProject = async (project: WeddingProject) => {
-  if (!isSupabaseConfigured) return project;
-  const remoteProject = await saveRemoteProject(project);
+  const normalized = withoutProjectAnimationDelays(project);
+  if (!isSupabaseConfigured) return normalized;
+  const remoteProject = await saveRemoteProject(normalized);
   upsertProject(remoteProject);
   return remoteProject;
 };

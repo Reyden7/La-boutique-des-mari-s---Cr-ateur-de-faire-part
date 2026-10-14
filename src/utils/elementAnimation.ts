@@ -12,7 +12,6 @@ export function resolveElementAnimation(animation?: AnimationConfig | null) {
   return {
     type: animation.type,
     duration: parseAnimationSeconds(animation.duration, 0.8),
-    delay: parseAnimationSeconds(animation.delay, 0),
   };
 }
 

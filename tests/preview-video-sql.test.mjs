@@ -9,8 +9,8 @@ test('real Postgres card-video RLS, validation, private bucket, atomic retiremen
     create table auth.users(id uuid primary key,raw_app_meta_data jsonb default '{}');
     create function auth.jwt() returns jsonb language sql as $$select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb$$;
     create function auth.uid() returns uuid language sql as $$select (auth.jwt()->>'sub')::uuid$$;
-    create table public.projects(id uuid primary key,owner_id uuid references auth.users(id),project_data jsonb default '{}');
-    create table public.templates(id uuid primary key,created_by uuid references auth.users(id),is_published boolean default false,template_data jsonb default '{}');
+    create table public.projects(id uuid primary key,name text not null default 'Project QA',owner_id uuid references auth.users(id),project_data jsonb default '{}');
+    create table public.templates(id uuid primary key,name text not null default 'Template QA',created_by uuid references auth.users(id),is_published boolean default false,template_data jsonb default '{}');
     create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
     create table storage.objects(id uuid default gen_random_uuid(),bucket_id text,name text,metadata jsonb,unique(bucket_id,name));
     alter table public.projects enable row level security;alter table public.templates enable row level security;alter table storage.objects enable row level security;
@@ -28,6 +28,7 @@ test('real Postgres card-video RLS, validation, private bucket, atomic retiremen
   await db.exec(`create policy template_read on public.templates for select to anon,authenticated using(is_published or (select private.is_admin()));
     create policy template_update on public.templates for update to authenticated using((select private.is_admin())) with check((select private.is_admin()));`);
   await db.exec(await readFile(new URL('../supabase/migrations/20261014072906_card_preview_videos.sql',import.meta.url),'utf8')).catch(error=>{throw new Error(`${error.message}; position ${error.position}; internal ${error.internalQuery}; context ${error.where}`);});
+  await db.exec(await readFile(new URL('../supabase/migrations/20261014095009_fix_preview_video_template_read_policy.sql',import.meta.url),'utf8'));
   const login=async(id,anonymous=false,role='authenticated')=>db.exec(`reset role;set request.jwt.claims='${JSON.stringify({sub:id,is_anonymous:anonymous})}';set role ${role};`);
   const upload=async(path,size=200,mime='video/mp4')=>db.query(`insert into storage.objects(bucket_id,name,metadata)values('card-preview-videos',$1,jsonb_build_object('size',$2::bigint,'mimetype',$3::text))`,[path,size,mime]);
   const path=`projects/${owner}/${project}/11111111-1111-4111-8111-111111111111.mp4`,next=path.replace('11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222'),third=path.replace('11111111-1111-4111-8111-111111111111','33333333-3333-4333-8333-333333333333');

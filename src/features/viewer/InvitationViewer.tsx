@@ -18,6 +18,7 @@ export function InvitationViewer({ project, device, mode = "public", controls, c
 }) {
   const viewport = useViewerViewport();
   const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (mode === "preview" && scrollRef.current) scrollRef.current.scrollTop = 0; }, [device, mode]);
   useEffect(() => {
     lockPage ??= createViewerPageLock(document, window);
     return lockPage();
@@ -32,7 +33,7 @@ export function InvitationViewer({ project, device, mode = "public", controls, c
   } as CSSProperties;
   const viewer = <main className={`invitation-viewer invitation-viewer-${mode}`} style={style} aria-label={mode === "preview" ? "Aperçu immersif du faire-part" : "Faire-part"}>
     <div ref={scrollRef} className="invitation-viewer-scroll" tabIndex={0} aria-label="Contenu du faire-part">
-      <AnimationViewportProvider root={scrollRef}>
+      <AnimationViewportProvider root={scrollRef} key={mode === "preview" ? device ?? viewport.device : undefined}>
         {project ? <InvitationExperience project={project} device={device ?? viewport.device} mode={mode} /> : children}
       </AnimationViewportProvider>
     </div>

@@ -38,7 +38,6 @@ const text = (
   animation: {
     type: "fade",
     duration: 0.8,
-    delay: Math.max(0, y / 900),
   },
 });
 
@@ -66,7 +65,6 @@ const ornament = (
   animation: {
     type: "zoom",
     duration: 0.8,
-    delay: 0.2,
   },
 });
 

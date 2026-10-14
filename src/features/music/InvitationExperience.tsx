@@ -1,6 +1,6 @@
 import { Music2, Pause, Play, Volume2 } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import type { AudioController } from "./audioEngine";
 import { createAudioController } from "./audioEngine";
 import type { WeddingProject } from "../../types/editor";
@@ -13,9 +13,12 @@ import { useResponsiveDevice } from "../../hooks/useResponsiveDevice";
 import { WelcomePageRenderer } from "../welcome/WelcomePageRenderer";
 import { resolveWelcomePage } from "../welcome/welcomeDefaults";
 import { normalizeRetiredOpening } from "../openings/legacyOpening";
+import { AnimationHistoryContext } from "../../components/renderer/useEntranceVisibility";
 
 export function InvitationExperience({ project: sourceProject, device, mode = "public" }: { project: WeddingProject; device?: PreviewDevice; mode?: RsvpRenderMode }) {
   const project = normalizeRetiredOpening(sourceProject);
+  const parentHistory = useContext(AnimationHistoryContext);
+  const history = useRef(new Set<string>());
   const controllerRef = useRef<AudioController | null>(null);
   const [playing, setPlaying] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
@@ -43,9 +46,6 @@ export function InvitationExperience({ project: sourceProject, device, mode = "p
     else { await controller.resume(); setPlaying(true); }
   };
   const onInteract = () => {
-    // Start element entrances behind the opening paper, not after its removal.
-    // This avoids revealing hidden elements and then flashing them into view.
-    if (introductionMode === "classic" && project.opening.type === "envelope") setDocumentAnimationReady(true);
     if (project.audio.startMode === "opening-interaction") void start();
   };
   const enterWelcome = () => {
@@ -57,7 +57,7 @@ export function InvitationExperience({ project: sourceProject, device, mode = "p
   const couple = project.name.match(/—\s*(.*)/)?.[1] ?? project.name;
 
  return (
-  <div className="invitation-experience">
+  <AnimationHistoryContext.Provider value={parentHistory ?? history.current}><div className="invitation-experience">
     {project.particles?.layer ===
       "behind" && (
       <ParticleRenderer
@@ -147,6 +147,6 @@ export function InvitationExperience({ project: sourceProject, device, mode = "p
         </span>
       </div>
     )}
-  </div>
+  </div></AnimationHistoryContext.Provider>
 );
 }

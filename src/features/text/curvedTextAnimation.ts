@@ -7,8 +7,7 @@ import type { CurvedGlyph, CurvedTextLayout } from "./curvedTextLayout";
 export function curvedTextAnimationFrame(layout: CurvedTextLayout, animation: AnimationConfig | undefined, elapsed: number, reducedMotion = false) {
   const enabled = !reducedMotion && isTextAnimation(animation?.type);
   const duration = parseAnimationSeconds(animation?.duration, .8);
-  const delay = parseAnimationSeconds(animation?.delay, 0);
-  const progress = enabled ? Math.min(1, Math.max(0, duration ? (elapsed - delay) / duration : elapsed >= delay ? 1 : 0)) : 1;
+  const progress = enabled ? Math.min(1, Math.max(0, duration ? elapsed / duration : elapsed >= 0 ? 1 : 0)) : 1;
   const count = animation?.type === "word-by-word" ? layout.wordCount : layout.unitCount;
   const amount = progress * Math.max(1, count);
   const glyphOpacity = (glyph: CurvedGlyph) => {

@@ -1484,7 +1484,6 @@ export const makeTextElement =
 
       duration: 0.8,
 
-      delay: 0,
     },
   });
 
@@ -1553,6 +1552,5 @@ export const makeShapeElement = (
 
     duration: 0.8,
 
-    delay: 0,
   },
 });

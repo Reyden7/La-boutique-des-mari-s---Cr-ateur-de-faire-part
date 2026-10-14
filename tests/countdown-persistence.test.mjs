@@ -56,7 +56,7 @@ test("rename, duplication, undo/redo, local reload and templates retain date/sty
   upsertProject(useEditorStore.getState().project);const loaded=getProject("countdown-project","owner");
   const template={name:"Modèle",templateData:sanitizeProjectForTemplate(loaded)},instance=instantiateProjectFromTemplate(template,"other");
   for(const project of [loaded,instance]) {
-    const restored=project.pages[0].elements.find(e=>e.id===id);for(const key of Object.keys(data)) assert.deepEqual(restored[key],data[key]);
+    const restored=project.pages[0].elements.find(e=>e.id===id);for(const key of Object.keys(data)) assert.deepEqual(restored[key],key==='animation'?{type:'fade',duration:1.2}:data[key]);
     assert.equal(restored.editorName,"Notre décompte");assert.equal("daysRemaining" in restored,false);
     assert.equal(getCountdownDays(restored.targetDate,"2026-10-07"),312);assert.equal(getCountdownDays(restored.targetDate,"2026-10-08"),311);
   }

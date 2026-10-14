@@ -15,10 +15,9 @@ function SecondsInput({ label, value, minimum, onChange }: { label: string; valu
 
 export function AnimationProperties({ animation, onChange, text = false }: { animation?: AnimationConfig; text?: boolean; onChange: (animation: AnimationConfig) => void }) {
   const current: AnimationConfig = {
-    ...animation,
     type: animation?.type ?? "none",
     duration: parseAnimationSeconds(animation?.duration, 0.8),
-    delay: parseAnimationSeconds(animation?.delay, 0),
+    ...(animation?.showCursor !== undefined ? { showCursor: animation.showCursor } : {}),
   };
   return <>
     <label className="field"><span>Effet</span><select value={current.type} onChange={(event) => onChange({ ...current, type: event.target.value as AnimationType })}>
@@ -27,7 +26,6 @@ export function AnimationProperties({ animation, onChange, text = false }: { ani
     </select></label>
     <div className="field-row">
       <SecondsInput label="Durée (s)" value={current.duration} minimum={0.1} onChange={(duration) => onChange({ ...current, duration })} />
-      <SecondsInput label="Délai (s)" value={current.delay} minimum={0} onChange={(delay) => onChange({ ...current, delay })} />
     </div>
     {text && current.type === "typewriter" && <label className="checkbox-field"><input type="checkbox" checked={current.showCursor !== false} onChange={(event) => onChange({ ...current, showCursor: event.target.checked })} />Afficher le curseur</label>}
     {text && current.type === "handwriting" && <small>Écriture simulée par une révélation fluide, compatible avec toutes les polices.</small>}

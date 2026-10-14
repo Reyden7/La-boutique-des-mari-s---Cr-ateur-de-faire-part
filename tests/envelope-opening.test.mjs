@@ -138,7 +138,9 @@ test("opening preview reuses the actual fixed device viewport and whole invitati
   assert.match(preview,/<PreviewMode/); assert.match(preview,/introductionMode: "classic"/); assert.match(preview,/device=\{device\}/);
   assert.doesNotMatch(preview,/<WeddingRenderer|<OpeningRenderer/);
   const experience = readFileSync(new URL("../src/features/music/InvitationExperience.tsx",import.meta.url),"utf8");
-  assert.match(experience,/const onInteract = \(\) => \{[\s\S]*?project.opening.type === "envelope"\) setDocumentAnimationReady\(true\)/);
+  const interaction=experience.slice(experience.indexOf('const onInteract'),experience.indexOf('const enterWelcome'));
+  assert.doesNotMatch(interaction,/setDocumentAnimationReady/);
+  assert.match(experience,/onComplete=\{\(\) => setDocumentAnimationReady\(true\)\}/);
 });
 test("saved project and independent template keep custom seal config unchanged", () => {
   const project = normalizeProject(createBlankProject());

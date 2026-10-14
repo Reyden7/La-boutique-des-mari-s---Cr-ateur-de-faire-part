@@ -60,14 +60,14 @@ test('painter used by BOTH renderers preserves inherited alpha and does not alte
   assert.equal(alpha,.4);assert.ok(calls.filter(c=>c[0]==='glyph').every(c=>c[2]===.2));assert.deepEqual(layout,snapshot);
   for(const path of ['src/features/text/CurvedTextCanvas.tsx','src/features/text/CurvedTextRenderer.tsx'])assert.match(readFileSync(new URL(`../${path}`,import.meta.url),'utf8'),/paintCurvedText/);
 });
-test('all text effects honor delay, progressive visibility, completion/reduced motion without moving glyphs',()=>{
+test('all text effects ignore legacy delay, preserve progressive visibility and completion/reduced motion without moving glyphs',()=>{
   const layout=make(),snapshot=structuredClone(layout);
   for(const type of ['typewriter','handwriting','letter-by-letter','word-by-word','draw-underline']) {
     const animation={type,duration:2,delay:1};
-    assert.ok(layout.glyphs.every(g=>curvedTextAnimationFrame(layout,animation,.5).glyphOpacity(g)===0));
+    assert.ok(layout.glyphs.every(g=>curvedTextAnimationFrame(layout,animation,0).glyphOpacity(g)===0));
     assert.ok(layout.glyphs.every(g=>curvedTextAnimationFrame(layout,animation,3).glyphOpacity(g)===1));
     assert.ok(layout.glyphs.every(g=>curvedTextAnimationFrame(layout,animation,0,true).glyphOpacity(g)===1));
-    const halfway=curvedTextAnimationFrame(layout,animation,2);
+    const halfway=curvedTextAnimationFrame(layout,animation,1);
     if(type!=='draw-underline'){assert.ok(layout.glyphs.some(g=>halfway.glyphOpacity(g)>0));assert.ok(layout.glyphs.some(g=>halfway.glyphOpacity(g)===0));}
     assert.deepEqual(layout,snapshot);
   }

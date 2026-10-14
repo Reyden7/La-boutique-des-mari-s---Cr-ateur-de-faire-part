@@ -77,18 +77,18 @@ test("uniform door size defaults to 100%, clamps invalid values and isolates dev
   assert.doesNotMatch(source,/\{couple\}|\{project.name\}|\{config.name\}/);
   assert.match(source,/transition=\{\{ duration: \.2 \}\}/);
 });
-test("Unicode text reveal preserves UTF-16 ranges, emoji, accents, whitespace and full duration/delay", () => {
+test("Unicode text reveal preserves UTF-16 ranges, emoji, accents, whitespace and total duration", () => {
   const text="Éléonore e\u0301 👩‍❤️‍👨\n& Lucas";
   const letters=textRevealSegments(text);assert.ok(letters.some(item=>item.text==="e\u0301"));assert.ok(letters.some(item=>item.text==="👩‍❤️‍👨"));
   for(const part of letters) assert.equal(text.slice(part.start,part.end),part.text);
   assert.deepEqual(textRevealSegments("Emma  &\nLucas",true).map(item=>item.text),["Emma","&","Lucas"]);
   assert.equal(isTextAnimation("fade"),false);assert.equal(isTextAnimation("handwriting"),true);
-  for(const stepped of [true,false]) { const timing=textRevealTiming(9,10,2,.5,stepped);assert.equal(timing.delay+timing.duration,2.5); }
+  for(const stepped of [true,false]) { const timing=textRevealTiming(9,10,2,stepped);assert.equal(timing.delay+timing.duration,2); }
 });
 test("text rendering keeps one original text node, separate opacity, shared viewport and reduced motion", () => {
   const source=read("src/components/renderer/TextEntrance.tsx").toString();
   assert.match(source,/\{text\}<\/motion.div>/);assert.doesNotMatch(source,/units.map.*span/);
-  assert.match(source,/useAnimationViewport/);assert.match(source,/!reducedMotion/);assert.match(source,/document.fonts.ready/);
+  assert.match(source,/useElementEntrance/);assert.match(source,/!reducedMotion/);assert.match(source,/document.fonts.ready/);
   const doors=read("src/features/openings/animations/DoorsOpening.tsx").toString();
   assert.doesNotMatch(doors,/rotateY|perspective/);assert.match(doors,/inert=\{phase !== "complete"\}/);
   assert.match(doors,/started.current \|\| !settled/);assert.match(doors,/completed.current/);

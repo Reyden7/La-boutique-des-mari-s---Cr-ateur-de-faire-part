@@ -11,7 +11,7 @@ export function textRevealSegments(text: string, words = false) {
 }
 
 /** Duration is total reveal time, never multiplied by character count. */
-export function textRevealTiming(index: number, count: number, duration: number, delay: number, stepped = false) {
+export function textRevealTiming(index: number, count: number, duration: number, stepped = false) {
   const step = duration / Math.max(1, count);
-  return { delay: delay + (stepped ? index + 1 : index) * step, duration: stepped ? 0 : step };
+  return { delay: (stepped ? index + 1 : index) * step, duration: stepped ? 0 : step };
 }

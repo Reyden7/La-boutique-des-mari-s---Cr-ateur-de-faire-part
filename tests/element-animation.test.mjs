@@ -9,7 +9,7 @@ test("French decimal seconds and legacy string values resolve without NaN", () =
   assert.equal(parseAnimationSeconds(0.8, 1), 0.8);
   assert.equal(parseAnimationSeconds("0,5", 1), 0.5);
   assert.equal(parseAnimationSeconds("invalid", 1), 1);
-  assert.deepEqual(resolveElementAnimation({ type: "fade", duration: "0,8", delay: "1" }), { type: "fade", duration: 0.8, delay: 1 });
+  assert.deepEqual(resolveElementAnimation({ type: "fade", duration: "0,8", delay: "1" }), { type: "fade", duration: 0.8 });
   assert.equal(resolveElementAnimation({ type: "none", duration: 1, delay: 2 }), null);
 });
 

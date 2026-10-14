@@ -25,6 +25,7 @@ const hooks=registerHooks({
     if(context.parentURL?.endsWith("/src/services/projectRepository.ts") && specifier==="../lib/supabase")return{url:"guest-data:client",shortCircuit:true};
     if(context.parentURL?.endsWith("/src/services/projectRepository.ts") && specifier==="./previewVideoRepository")return{url:"guest-data:video-cleanup",shortCircuit:true};
     if(context.parentURL?.endsWith("/src/utils/templateSnapshot.ts") && specifier==="./storage")return{url:"guest-data:normalizer",shortCircuit:true};
+    if(specifier==="./animationData" && context.parentURL?.endsWith("/src/utils/templateSnapshot.ts"))return nextResolve("./animationData.ts",context);
     return nextResolve(specifier,context);
   },
   load(url,context,nextLoad){

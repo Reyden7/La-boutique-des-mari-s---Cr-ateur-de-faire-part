@@ -1,6 +1,7 @@
 import type { WeddingProject } from "../types/editor";
 import type { TemplateRecord } from "../types/templates";
 import { normalizeProject } from "./storage";
+import { withoutProjectAnimationDelays } from "./animationData";
 
 const runtimeKeys = [
   "previewVideoPath", "previewVideoUrl", "preview_video_path", "preview_video_url",
@@ -16,7 +17,7 @@ export const sanitizeProjectForTemplate = (project: WeddingProject): Partial<Wed
   const snapshot = structuredClone(project) as Partial<WeddingProject> & Record<string, unknown>;
   for (const key of runtimeKeys) delete snapshot[key];
   if (snapshot.rsvp) snapshot.rsvp = { ...snapshot.rsvp, purchased: false };
-  return snapshot;
+  return withoutProjectAnimationDelays(snapshot);
 };
 
 export const instantiateProjectFromTemplate = (
