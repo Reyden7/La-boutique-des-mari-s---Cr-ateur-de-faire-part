@@ -4,6 +4,7 @@ import type { ButtonElement, CarouselElement, EditorElement, LocationElement, Sc
 import { useEditorStore } from "../../stores/editorStore";
 import { isSupabaseConfigured } from "../../lib/supabase";
 import { deleteProjectAsset, deleteProjectAssetIfUnused, uploadProjectAsset } from "../../services/assetRepository";
+import { isDiscoveryProject } from "../discovery/discoverySession";
 import { FontPicker } from "../fonts/FontPicker";
 import { getScratchTextStyle, resolveScratchIndicator } from "./scratchDefaults";
 import { ColorAlphaInput } from "../../components/ui/ColorAlphaInput";
@@ -45,7 +46,7 @@ export function RichElementProperties({ element, appearance }: { element: RichEl
       if (file.size <= 0 || file.size > 10 * 1024 * 1024) {
         setScratchUploadError("Le modèle doit peser moins de 10 Mo."); return;
       }
-      if (!isSupabaseConfigured) { setScratchUploadError("Le stockage du projet n’est pas disponible."); return; }
+      if (!isSupabaseConfigured && !isDiscoveryProject(project)) { setScratchUploadError("Le stockage du projet n’est pas disponible."); return; }
       const localUrl = URL.createObjectURL(file);
       let uploadedAssetId: string | undefined;
       setScratchUploadBusy(true);
@@ -125,7 +126,7 @@ export function RichElementProperties({ element, appearance }: { element: RichEl
       for (const file of Array.from(files)) {
         if (!file.type.startsWith("image/") || file.size > 10 * 1024 * 1024) continue;
         try {
-          const asset = isSupabaseConfigured ? await uploadProjectAsset(project, file, "image") : undefined;
+          const asset = isSupabaseConfigured || isDiscoveryProject(project) ? await uploadProjectAsset(project, file, "image") : undefined;
           additions.push({ id: crypto.randomUUID(), url: asset?.url ?? await asDataUrl(file), alt: file.name, assetId: asset?.id });
         } catch { window.alert(`Impossible d’ajouter ${file.name}.`); }
       }
@@ -216,7 +217,7 @@ export function RichElementProperties({ element, appearance }: { element: RichEl
   const uploadSectionBackground = async (file?: File) => {
     if (!file || !project) return;
     try {
-      const asset = isSupabaseConfigured ? await uploadProjectAsset(project, file, "image") : undefined;
+      const asset = isSupabaseConfigured || isDiscoveryProject(project) ? await uploadProjectAsset(project, file, "image") : undefined;
       update({ background: { type: "image", imageUrl: asset?.url ?? await asDataUrl(file) } });
     } catch { window.alert("Impossible d’ajouter cette image de section."); }
   };

@@ -6,6 +6,7 @@ import { musicLibrary } from "./musicRegistry";
 import { stopAudioPreview, toggleAudioPreview } from "./audioEngine";
 import { isSupabaseConfigured } from "../../lib/supabase";
 import { deleteProjectAsset, uploadProjectAsset } from "../../services/assetRepository";
+import { isDiscoveryProject } from "../discovery/discoverySession";
 import { useGlobalAssets } from "../../hooks/useGlobalAssets";
 import { PublishGlobalAssetButton } from "../../components/admin/PublishGlobalAssetButton";
 
@@ -45,7 +46,7 @@ export function MusicPanel() {
       else await deleteAudioBlob(audio.uploadedAudioId);
     }
     const uploadedAudioId = crypto.randomUUID();
-    if (isSupabaseConfigured) {
+    if (isSupabaseConfigured || isDiscoveryProject(project)) {
       try {
         const asset = await uploadProjectAsset(project, file, "audio");
         updateAudio({ ...audio, enabled: true, source: "upload", trackId: undefined, uploadedAudioId: asset.id, uploadedAudioName: file.name, uploadedAudioUrl: asset.url });

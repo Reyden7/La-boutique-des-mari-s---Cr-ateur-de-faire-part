@@ -19,7 +19,7 @@ export function PreviewDeviceSwitcher() {
   const setPreviewDevice = useEditorStore((state) => state.setPreviewDevice);
 
   return (
-    <div className="preview-device-switcher" role="group" aria-label="Support de prévisualisation">
+    <div className="preview-device-switcher" data-tour="device-selector" role="group" aria-label="Support de prévisualisation">
       <ResponsiveTransferButton />
       {PREVIEW_DEVICE_ORDER.map((device) => {
         const Icon = deviceIcons[device];

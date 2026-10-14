@@ -8,7 +8,7 @@ const styles = read("src/styles.css");
 
 test("device toolbar is editor chrome, outside the scrolling canvas host", () => {
   assert.match(workspace, /<main className="editor-workspace">/);
-  assert.match(workspace, /<\/div>\s*<div className="editor-main">\{children\}<\/div>/);
+  assert.match(workspace, /<\/div>\s*<div className="editor-main" data-tour="canvas">\{children\}<\/div>/);
   assert.match(read("src/pages/EditorPage.tsx"), /<EditorWorkspace[\s\S]*?<EditorCanvas \/>/);
 });
 

@@ -9,6 +9,7 @@ import { getWelcomeTransforms, resolveWelcomePage } from "./welcomeDefaults";
 import { DECORATIVE_HEARTS, makeDecorativeHeartElement } from "../hearts/heartRegistry";
 import { isSupabaseConfigured } from "../../lib/supabase";
 import { deleteProjectAssetIfUnused, uploadProjectAsset } from "../../services/assetRepository";
+import { isDiscoveryProject } from "../discovery/discoverySession";
 import { makeButtonElement } from "../elements/elementFactories";
 import { useGlobalAssets } from "../../hooks/useGlobalAssets";
 import { PublishGlobalAssetButton } from "../../components/admin/PublishGlobalAssetButton";
@@ -121,7 +122,7 @@ export function WelcomePageEditor({ embedded = false }: { embedded?: boolean }) 
     catch { window.alert("Les dimensions de cette image n’ont pas pu être lues."); return; }
     const size = getImageInitialSize(dimensions.width, dimensions.height, Math.min(250, PREVIEW_DEVICES.mobile.width * .65), PREVIEW_DEVICES.mobile.height * .45);
     let src = "";
-    if (isSupabaseConfigured) {
+    if (isSupabaseConfigured || isDiscoveryProject(project)) {
       try { src = (await uploadProjectAsset(project, file, "image")).url; }
       catch { window.alert("L’image n’a pas pu être envoyée."); return; }
     } else {

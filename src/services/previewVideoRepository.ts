@@ -11,8 +11,12 @@ const signed = new Map<string, { url: string; until: number }>();
 
 /** No video request on card mount. Short-lived URLs exist only in memory. */
 export async function resolvePreviewVideoUrl(path: string) {
-  const user = await requireSupabaseSession(), db = client();
-  const key = `${user.id}:${path}`, cached = signed.get(key);
+  const user = await requireSupabaseSession().catch((error) => {
+    if (!path.startsWith("templates/")) throw error;
+    return null;
+  }), db = client();
+  // Storage RLS remains authoritative for published templates, also with the anon role.
+  const key = `${user?.id ?? "visitor"}:${path}`, cached = signed.get(key);
   if (cached && cached.until > Date.now()) return cached.url;
   const { data, error } = await db.storage.from(PREVIEW_VIDEO_BUCKET).createSignedUrl(path, 300);
   if (error || !data) throw error ?? new Error("Vidéo indisponible.");

@@ -9,7 +9,7 @@ export function EditorWorkspace({ pageName, children }: { pageName?: string; chi
       {pageName && <div className="workspace-label" title={pageName}>{pageName}</div>}
       <PreviewDeviceSwitcher />
     </div>
-    <div className="editor-main">{children}</div>
+    <div className="editor-main" data-tour="canvas">{children}</div>
     <ZoomControls />
   </main>;
 }

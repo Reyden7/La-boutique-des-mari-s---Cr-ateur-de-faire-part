@@ -11,6 +11,7 @@ import { normalizeRetiredOpening } from "../features/openings/legacyOpening";
 import { withoutProjectAnimationDelays } from "./animationData";
 
 const STORAGE_KEY = "lbm-studio-projects-v1";
+import { hasTemporaryReferences, isDiscoveryProject } from "../features/discovery/discoverySession";
 
 const defaultAudio = (): ProjectAudioConfig => ({ enabled: false, source: null, volume: 0.7, loop: true, startMode: "opening-interaction", fadeInDuration: 2 });
 const defaultParticles = (): ParticleConfig => ({ enabled: false, shape: "heart", direction: "down", speed: 30, quantity: 25, colors: ["#FFFFFF", "#F0CACA"], minSize: 8, maxSize: 18, opacity: 0.8, layer: "front" });
@@ -76,10 +77,12 @@ export const loadProjects = (): WeddingProject[] => {
 };
 
 export const saveProjects = (projects: WeddingProject[]) => {
+  if (projects.some((project) => isDiscoveryProject(project) || hasTemporaryReferences(project))) throw new Error("Le brouillon découverte doit rester en mémoire.");
   localStorage.setItem(STORAGE_KEY, JSON.stringify(projects.map(withoutProjectAnimationDelays)));
 };
 
 export const upsertProject = (project: WeddingProject) => {
+  if (isDiscoveryProject(project)) return;
   const projects = loadProjects();
   const index = projects.findIndex((item) => item.id === project.id);
   if (index >= 0) projects[index] = project;
@@ -88,6 +91,7 @@ export const upsertProject = (project: WeddingProject) => {
 };
 
 export const syncProject = async (project: WeddingProject) => {
+  if (isDiscoveryProject(project)) throw new Error("Créez un compte pour sauvegarder.");
   const normalized = withoutProjectAnimationDelays(project);
   if (!isSupabaseConfigured) return normalized;
   const remoteProject = await saveRemoteProject(normalized);

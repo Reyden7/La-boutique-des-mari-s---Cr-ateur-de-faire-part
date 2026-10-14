@@ -27,6 +27,7 @@ import { MusicPanel } from "../../features/music/MusicPanel";
 import { ParticlePanel } from "../../features/particles/ParticlePanel";
 import { isSupabaseConfigured } from "../../lib/supabase";
 import { uploadProjectAsset } from "../../services/assetRepository";
+import { isDiscoveryProject } from "../../features/discovery/discoverySession";
 import { DecorativeHeartSvg } from "../../features/hearts/DecorativeHeartSvg";
 import { DECORATIVE_HEARTS, makeDecorativeHeartElement } from "../../features/hearts/heartRegistry";
 import { makeButtonElement, makeCalendarElement, makeCountdownElement, makeCarouselElement, makeLocationElement, makeScheduleElement, makeScratchElement, makeSectionElement } from "../../features/elements/elementFactories";
@@ -86,7 +87,7 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
       locked: false, src, alt: file.name, assetId, fit: "contain",
       animation: { type: "none", duration: .8 },
     });
-    if (isSupabaseConfigured && project) {
+    if (project && (isSupabaseConfigured || isDiscoveryProject(project))) {
       try {
         const asset = await uploadProjectAsset(project, file, "image");
         addElement(makeElement(asset.url, asset.id));
@@ -152,12 +153,12 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
     selectElement(RSVP_EDITOR_ELEMENT_ID);
   };
 
-  return <aside className="left-sidebar"><nav className="studio-sections" aria-label="Sections de création">{navItems.map(({ id, label, icon: Icon }) => <button key={id} className={sidebarView === id ? "active" : ""} onClick={() => setSidebarView(id)}><Icon size={16} /><span>{label}</span></button>)}</nav>
+  return <aside className="left-sidebar"><nav className="studio-sections" data-tour="creation-tabs" aria-label="Sections de création">{navItems.map(({ id, label, icon: Icon }) => <button key={id} data-tour={`${id === "design" ? "background" : id === "elements" ? "content" : id}-tab`} className={sidebarView === id ? "active" : ""} onClick={() => setSidebarView(id)}><Icon size={16} /><span>{label}</span></button>)}</nav>
     {sidebarView === "design" && <div className="sidebar-view"><div className="view-intro"><span>Arrière-plan</span><h2>Fond du document</h2><p>Personnalisez uniquement la couleur, le dégradé ou l’image de fond du faire-part.</p></div>{documentSummary}</div>}
     {sidebarView === "introduction" && <IntroductionPanel onPreview={onPreviewOpening} />}
     {sidebarView === "elements" && (
       <div className="sidebar-view">
-        <section className="add-elements-section">
+        <section className="add-elements-section" data-tour="add-element">
           <div className="panel-title"><Plus size={15} /> Ajouter</div>
           <div className="add-grid">
             <button onClick={() => addElement(makeTextElement())}><Type size={20} /><span>Texte</span></button>
@@ -196,7 +197,7 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
           {decorationMenu && <div className="global-decoration-picker"><strong>Bibliothèque de décorations</strong><div>{globalDecorations.map((asset) => <button key={asset.id} title={asset.name} onClick={() => { void addDecorationImage(asset.name, asset.url, undefined, asset.id); setDecorationMenu(false); }}><img loading="lazy" src={asset.thumbnailUrl ?? asset.url} alt="" /><span>{asset.name}</span></button>)}</div><button className="decoration-upload-button" onClick={() => decorationFileRef.current?.click()}><Upload size={14} /> Importer une décoration</button>{lastDecoration && <PublishGlobalAssetButton input={{ sourceAssetId: lastDecoration.assetId, type: "decoration", name: lastDecoration.name }} />}</div>}
         </section>
         {documentSummary}
-        <section className="layers-section">
+        <section className="layers-section" data-tour="layers">
           <div className="layers-heading"><div className="panel-title"><Layers3 size={15} /> Calques</div><HierarchySectionActions elements={page?.elements ?? []} /></div>
           <HierarchyList elements={page?.elements ?? []} />
         </section>

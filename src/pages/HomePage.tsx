@@ -13,12 +13,15 @@ import { PreviewMode } from "../components/preview/PreviewMode";
 import { HoverVideoThumbnail } from "../features/previewVideos/HoverVideoThumbnail";
 import { PreviewVideoManager } from "../features/previewVideos/PreviewVideoManager";
 import { flushPreviewVideoCleanup } from "../services/previewVideoRepository";
+import { beginDiscoverySession } from "../features/discovery/discoverySession";
+import { useEditorStore } from "../stores/editorStore";
+import { TutorialWelcome } from "../features/tutorial/TutorialWelcome";
 
 const formatDate = (value: string) => new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", year: "numeric" }).format(new Date(value));
 
 export function HomePage() {
   const navigate = useNavigate();
-  const { user, isAdmin, signOut } = useAuth();
+  const { user, loading: authLoading, isAdmin, signOut } = useAuth();
   const [creating, setCreating] = useState(false);
   const [projects, setProjects] = useState<WeddingProject[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
@@ -32,7 +35,7 @@ export function HomePage() {
   const [videoProject, setVideoProject] = useState<WeddingProject | null>(null);
 
   const refreshProjects = useCallback(async () => {
-    if (!user) return;
+    if (!user) { setProjects([]); setLoadingProjects(false); return; }
     void flushPreviewVideoCleanup().catch(() => undefined);
     setLoadingProjects(true);
     try {
@@ -47,23 +50,30 @@ export function HomePage() {
 
   useEffect(() => { void refreshProjects(); }, [refreshProjects]);
   useEffect(() => {
-    if (!user) return;
     void loadPublishedTemplates()
       .then(setRemoteTemplates)
       .catch((error) => setTemplateError(`Galerie distante indisponible : ${remoteErrorSummary(error)}`))
       .finally(() => setTemplatesLoading(false));
   }, [user]);
 
-  if (!user) return null;
-  if (previewTemplate) return <PreviewMode project={instantiateProjectFromTemplate(previewTemplate, user.id)} device="mobile" allowDeviceSwitching onClose={() => setPreviewTemplate(null)} />;
+  if (previewTemplate) return <PreviewMode project={instantiateProjectFromTemplate(previewTemplate, user?.id ?? "")} device="mobile" allowDeviceSwitching onClose={() => setPreviewTemplate(null)} />;
 
   const openNewProject = (project: WeddingProject) => {
+    if (!user) {
+      const draft = instantiateProjectFromTemplate({ name: project.name, templateData: project }, "");
+      delete draft.ownerId;
+      beginDiscoverySession(draft.id);
+      useEditorStore.getState().setProject(draft);
+      navigate("/studio/discovery");
+      return;
+    }
     const ownedProject = { ...project, ownerId: user.id };
     upsertProject(ownedProject);
     navigate(`/studio/${ownedProject.id}`);
   };
 
   const duplicate = (project: WeddingProject) => {
+    if (!user) return;
     const copy = structuredClone(project);
     copy.id = crypto.randomUUID();
     copy.ownerId = user.id;
@@ -85,6 +95,7 @@ export function HomePage() {
   };
 
   const useRemoteTemplate = async (template: TemplateRecord) => {
+    if (!user) { openNewProject(instantiateProjectFromTemplate(template, "")); return; }
     setCreatingTemplateId(template.id);
     setTemplateError("");
     try {
@@ -114,7 +125,7 @@ export function HomePage() {
 
   return (
     <div className="home-page">
-      <header className="home-header"><div className="home-brand"><div className="brand-mark">B</div><div><strong>Le Bureau des Mariés</strong><span>Studio</span></div></div><div className="home-account">{isAdmin && <><button className="help-button" onClick={() => navigate("/admin/templates")}><LayoutTemplate size={15} /> Templates</button><button className="help-button" onClick={() => navigate("/admin/assets")}><GalleryVerticalEnd size={15} /> Bibliothèque</button><button className="help-button" onClick={() => navigate("/admin/promo-codes")}>Gérer les codes promos</button></>}<span>{user.email}</span><button className="help-button" onClick={() => void signOut()}><LogOut size={15} /> Déconnexion</button></div></header>
+      <header className="home-header"><div className="home-brand"><div className="brand-mark">B</div><div><strong>Le Bureau des Mariés</strong><span>Studio</span></div></div><div className="home-account">{isAdmin && <><button className="help-button" onClick={() => navigate("/admin/templates")}><LayoutTemplate size={15} /> Templates</button><button className="help-button" onClick={() => navigate("/admin/assets")}><GalleryVerticalEnd size={15} /> Bibliothèque</button><button className="help-button" onClick={() => navigate("/admin/promo-codes")}>Gérer les codes promos</button></>}{user ? <><span>{user.email}</span><button className="help-button" onClick={() => void signOut()}><LogOut size={15} /> Déconnexion</button></> : <button className="help-button" onClick={() => navigate("/auth")}>Se connecter / Créer un compte</button>}</div></header>
       <main className="home-main">
         <section className="welcome-row"><div><p className="eyebrow"><Sparkles size={14} /> Votre atelier créatif</p><h1>Vos plus belles nouvelles<br /><em>prennent vie ici.</em></h1><p>Imaginez, personnalisez et partagez un faire-part qui vous ressemble.</p></div><div className="welcome-actions"><button className="new-project-button" onClick={() => setCreating(true)}><Plus size={20} /> Nouveau faire-part</button><button className="custom-request-button" onClick={() => navigate("/custom-invitation")}><Sparkles size={18} /> Sur mesure — 50 €</button></div></section>
         {projectError && <div className="project-sync-message">{projectError}</div>}
@@ -128,6 +139,7 @@ export function HomePage() {
         })}</div></section>}
         {!loadingProjects && projects.length === 0 && <section className="empty-projects"><div className="empty-ornament">B</div><h2>Votre premier faire-part vous attend</h2><p>Partez d’un modèle pensé pour le mariage, puis faites-le entièrement vôtre.</p><button onClick={() => setCreating(true)}>Découvrir les modèles <ArrowRight size={16} /></button></section>}
       </main>
+      <TutorialWelcome context="home" eligible={Boolean(user && !authLoading && !loadingProjects && !projectError && projects.filter((project) => project.ownerId === user.id).length === 0)} blocked={Boolean(creating || videoProject)} onStart={() => setCreating(true)} />
 
       {videoProject && <PreviewVideoManager key={videoProject.id} target={{ kind: "project", project: videoProject }} name={videoProject.name} initialPath={videoProject.previewVideoPath} onClose={() => setVideoProject(null)} onSaved={({ path, updatedAt }) => { const updated = { ...videoProject, previewVideoPath: path, updatedAt }; upsertProject(updated); setProjects((values) => values.map((project) => project.id === updated.id ? updated : project)); setVideoProject(updated); }} />}
       {creating && <div className="modal-backdrop" onMouseDown={() => setCreating(false)}><section className="template-modal" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close" onClick={() => setCreating(false)}>×</button><p className="eyebrow">Nouvelle création</p><h2>Choisissez votre point de départ</h2><p className="modal-intro">Chaque détail pourra être modifié ensuite dans le studio.</p>{templateError && <div className="template-admin-message error">{templateError}</div>}<div className="template-grid"><button className="blank-template" onClick={() => openNewProject(createBlankProject())}><span><Plus size={30} /></span><strong>Création vierge</strong><small>Une page claire, prête à imaginer.</small></button>{remoteTemplates.map((template) => <article className="template-choice-card" key={template.id}><HoverVideoThumbnail imageUrl={template.thumbnailUrl} videoPath={template.previewVideoPath} alt={`modèle ${template.name}`}><span className="template-art remote-template-art"><i>{template.name.slice(0, 1)}</i></span></HoverVideoThumbnail><strong>{template.name}</strong><small>{template.category}{template.description ? ` · ${template.description}` : ""}</small><div><button onClick={() => setPreviewTemplate(template)}><Eye size={14} /> Aperçu</button><button className="primary" disabled={creatingTemplateId === template.id} onClick={() => void useRemoteTemplate(template)}>{creatingTemplateId === template.id ? "Création…" : "Utiliser ce modèle"}</button></div></article>)}{!templatesLoading && remoteTemplates.length === 0 && templateFactories.map((template) => <button className="template-choice" key={template.id} onClick={() => openNewProject(template.create())}><span className={`template-art ${template.id}`}><i style={{ background: template.colors[1] }}>E & L</i><b>18 · 06 · 2027</b></span><strong>{template.name}</strong><small>{template.eyebrow} · modèle historique</small></button>)}</div>{templatesLoading && <div className="projects-loading">Chargement des modèles…</div>}</section></div>}

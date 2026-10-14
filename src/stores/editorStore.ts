@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { isDiscoveryProject, requestDiscoveryAccount, useDiscoverySession } from "../features/discovery/discoverySession";
 import { normalizeRetiredOpening } from "../features/openings/legacyOpening";
 
 import type {
@@ -1330,6 +1331,7 @@ export const useEditorStore =
         }),
 
       save: () => {
+        if (get().project && isDiscoveryProject(get().project!)) { requestDiscoveryAccount(); return; }
         const project =
           get().project;
 
@@ -1372,6 +1374,8 @@ export const useEditorStore =
       },
 
       checkoutAndPublish: async (guestCount, promoCode) => {
+        if (get().project && isDiscoveryProject(get().project!)) { requestDiscoveryAccount("publish"); return null; }
+        if (useDiscoverySession.getState().converting) throw new Error("Attendez la sauvegarde complète avant de publier.");
         if (!isValidGuestCount(guestCount)) throw new Error("Nombre d’invités invalide.");
         const state =
           get();

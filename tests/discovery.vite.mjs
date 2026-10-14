@@ -1,0 +1,2 @@
+import {defineConfig} from 'vite';import react from '@vitejs/plugin-react';import tailwindcss from '@tailwindcss/vite';import {fileURLToPath} from 'node:url';
+export default defineConfig({plugins:[react(),tailwindcss(),{name:'isolated-discovery',enforce:'pre',resolveId(source){if(source.endsWith('/lib/supabase')||source.endsWith('/contexts/AuthContext'))return fileURLToPath(new URL('./discovery.mock.tsx',import.meta.url));}}]});

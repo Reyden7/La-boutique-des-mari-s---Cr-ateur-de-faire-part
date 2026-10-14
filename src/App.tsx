@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { createBrowserRouter, Navigate, Outlet, RouterProvider } from "react-router-dom";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { RecoveryRouteGuard } from "./components/auth/RecoveryRouteGuard";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -15,9 +15,25 @@ import { RsvpResponsesPage } from "./pages/RsvpResponsesPage";
 import { AdminTemplatesPage } from "./pages/AdminTemplatesPage";
 import { AdminAssetsPage } from "./pages/AdminAssetsPage";
 import { AdminPromoCodesPage } from "./pages/AdminPromoCodesPage";
+import { TutorialProvider } from "./features/tutorial/TutorialProvider";
 
 const protectedPage = (page: ReactNode) => <ProtectedRoute>{page}</ProtectedRoute>;
 
-export default function App() {
-  return <BrowserRouter><AuthProvider><RecoveryRouteGuard><Routes><Route path="/auth" element={<AuthPage />} /><Route path="/login" element={<AuthPage />} /><Route path="/reset-password" element={<ResetPasswordPage />} /><Route path="/" element={protectedPage(<HomePage />)} /><Route path="/studio/:projectId" element={protectedPage(<EditorPage />)} /><Route path="/studio/:projectId/rsvp/responses" element={protectedPage(<RsvpResponsesPage />)} /><Route path="/admin/templates" element={protectedPage(<AdminTemplatesPage />)} /><Route path="/admin/assets" element={protectedPage(<AdminAssetsPage />)} /><Route path="/admin/promo-codes" element={protectedPage(<AdminPromoCodesPage />)} /><Route path="/custom-invitation" element={protectedPage(<CustomInvitationRequestPage />)} /><Route path="/payment/success" element={protectedPage(<PaymentSuccessPage />)} /><Route path="/payment/cancel" element={protectedPage(<PaymentCancelPage />)} /><Route path="/i/:publicId" element={<PublicInvitePage />} /><Route path="*" element={<Navigate to="/" replace />} /></Routes></RecoveryRouteGuard></AuthProvider></BrowserRouter>;
-}
+const router = createBrowserRouter([{ element: <AuthProvider><TutorialProvider><RecoveryRouteGuard><Outlet /></RecoveryRouteGuard></TutorialProvider></AuthProvider>, children: [
+  { path: "/", element: <HomePage /> },
+  { path: "/auth", element: <AuthPage /> },
+  { path: "/login", element: <AuthPage /> },
+  { path: "/reset-password", element: <ResetPasswordPage /> },
+  { path: "/studio/discovery", element: <EditorPage discovery /> },
+  { path: "/studio/:projectId", element: protectedPage(<EditorPage />) },
+  { path: "/studio/:projectId/rsvp/responses", element: protectedPage(<RsvpResponsesPage />) },
+  { path: "/admin/templates", element: protectedPage(<AdminTemplatesPage />) },
+  { path: "/admin/assets", element: protectedPage(<AdminAssetsPage />) },
+  { path: "/admin/promo-codes", element: protectedPage(<AdminPromoCodesPage />) },
+  { path: "/custom-invitation", element: protectedPage(<CustomInvitationRequestPage />) },
+  { path: "/payment/success", element: protectedPage(<PaymentSuccessPage />) },
+  { path: "/payment/cancel", element: protectedPage(<PaymentCancelPage />) },
+  { path: "/i/:publicId", element: <PublicInvitePage /> },
+  { path: "*", element: <Navigate to="/" replace /> },
+] }]);
+export default function App() { return <RouterProvider router={router} />; }

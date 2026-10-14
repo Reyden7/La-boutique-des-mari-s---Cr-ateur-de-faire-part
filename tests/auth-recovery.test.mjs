@@ -148,15 +148,15 @@ test("no false failure if local sign out fails after successful password update"
 });
 test("public route, autocomplete, safe errors and synchronous double-submit guards remain wired", () => {
   const source=(path)=>readFileSync(new URL(path,import.meta.url),"utf8");
-  assert.match(source("../src/App.tsx"),/path="\/reset-password" element={<ResetPasswordPage \/>}/);
+  assert.match(source("../src/App.tsx"),/path: "\/reset-password", element: <ResetPasswordPage \/>/);
   assert.match(source("../src/pages/AuthPage.tsx"),/current-password/);
   assert.equal((source("../src/pages/ResetPasswordPage.tsx").match(/autoComplete="new-password"/g)??[]).length,2);
   for(const file of ["../src/pages/AuthPage.tsx","../src/pages/ResetPasswordPage.tsx"])assert.match(source(file),/if \(busy.current/);
   assert.match(source("../src/lib/supabase.ts"),/detectSessionInUrl: true/);
   assert.match(source("../src/contexts/AuthContext.tsx"),/getInitializedAuthSession\(client\)/);
   assert.match(source("../src/contexts/AuthContext.tsx"),/if \(initialized\) setLoading\(false\)/);
-  assert.match(source("../src/App.tsx"),/<RecoveryRouteGuard><Routes>/);
-  assert.match(source("../src/App.tsx"),/path="\/login" element={<AuthPage \/>}/);
+  assert.match(source("../src/App.tsx"),/<RecoveryRouteGuard><Outlet/);
+  assert.match(source("../src/App.tsx"),/path: "\/login", element: <AuthPage \/>/);
   assert.match(source("../src/pages/ResetPasswordPage.tsx"),/to="\/login"/);
   for(const file of ["../src/pages/AuthPage.tsx","../src/components/auth/ProtectedRoute.tsx"])
     assert.match(source(file),/getRecoveryRedirect\(location.pathname, recoveryReady\)/);

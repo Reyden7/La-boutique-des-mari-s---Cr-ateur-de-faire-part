@@ -2,6 +2,7 @@ import type { WeddingProject } from "../types/editor";
 import { isSupabaseConfigured, requireSupabaseSession, supabase } from "../lib/supabase";
 import { PRICING, PRICING_CHANGED_MESSAGE } from "../../supabase/functions/_shared/pricing.ts";
 import { flushPreviewVideoCleanup } from "./previewVideoRepository";
+import { hasTemporaryReferences, isDiscoveryProject } from "../features/discovery/discoverySession.ts";
 
 export interface ProjectRow {
   id: string;
@@ -68,7 +69,8 @@ const editableProjectData = (project: WeddingProject): Partial<WeddingProject> =
 
 export { isSupabaseConfigured };
 
-export async function saveRemoteProject(project: WeddingProject) {
+export async function saveRemoteProject(project: WeddingProject, options?: { createOnly?: boolean }) {
+  if (isDiscoveryProject(project) || hasTemporaryReferences(project)) throw new Error("Un brouillon découverte ne peut pas être sauvegardé directement.");
   if (!supabase) throw new Error("Supabase n’est pas configuré.");
   const client = supabase;
   const user = await requireSupabaseSession();
@@ -102,7 +104,10 @@ export async function saveRemoteProject(project: WeddingProject) {
     .eq("id", project.id)
     .maybeSingle<{ id: string }>();
   if (existing.error) throw existing.error;
-  if (existing.data) return updateExistingProject();
+  if (existing.data) {
+    if (options?.createOnly) throw new Error("Cet identifiant existe déjà. Aucun projet n’a été écrasé.");
+    return updateExistingProject();
+  }
 
   const inserted = await client
     .from("projects")
@@ -118,7 +123,7 @@ export async function saveRemoteProject(project: WeddingProject) {
     })
     .select("*")
     .single<ProjectRow>();
-  if (inserted.error?.code === "23505") return updateExistingProject();
+  if (inserted.error?.code === "23505" && !options?.createOnly) return updateExistingProject();
   if (inserted.error) throw inserted.error;
   return projectFromRow(inserted.data);
 }

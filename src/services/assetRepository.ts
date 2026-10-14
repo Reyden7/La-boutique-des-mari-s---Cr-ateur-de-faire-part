@@ -2,6 +2,7 @@ import type { WeddingProject } from "../types/editor";
 import { requireSupabaseSession, supabase } from "../lib/supabase";
 import { saveRemoteProject } from "./projectRepository";
 import { getFontFileInfo } from "../features/fonts/fontFile";
+import { isDiscoveryProject, isTemporaryAsset, registerDiscoveryAsset } from "../features/discovery/discoverySession.ts";
 
 const safeFilename = (name: string) => name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase() || "fichier";
 
@@ -18,11 +19,12 @@ const normalizedMimeType = (file: File, kind: ProjectAssetKind) => {
 };
 
 export async function uploadProjectAsset(project: WeddingProject, file: File, kind: ProjectAssetKind, options?: { folder: "program-icons" | "envelope/bases" | "envelope/flaps" | "envelope/seals" | "doors/left" | "doors/right" }) {
-  if (!supabase) throw new Error("Supabase n’est pas configuré.");
   if (options && (kind !== "image" || !["program-icons", "envelope/bases", "envelope/flaps", "envelope/seals", "doors/left", "doors/right"].includes(options.folder))) throw new Error("Ce dossier est réservé aux images du projet.");
   if (kind === "font") {
     getFontFileInfo(file);
   }
+  if (isDiscoveryProject(project)) return registerDiscoveryAsset(file, kind, options);
+  if (!supabase) throw new Error("Supabase n’est pas configuré.");
   const user = await requireSupabaseSession();
   if (!project.ownerId || project.ownerId !== user.id) throw new Error("Associez d’abord ce projet à votre compte.");
   const persistedProject = await saveRemoteProject(project);
@@ -49,6 +51,7 @@ export async function uploadProjectAsset(project: WeddingProject, file: File, ki
 }
 
 export async function deleteProjectAsset(assetId: string) {
+  if (isTemporaryAsset(assetId)) return; // Kept for Undo; released with the draft.
   if (!supabase) return;
   await requireSupabaseSession();
   const { data, error } = await supabase.from("assets").select("storage_path").eq("id", assetId).maybeSingle<{ storage_path: string }>();
@@ -63,6 +66,7 @@ export async function deleteProjectAsset(assetId: string) {
 /** Persists removed references first, then deletes only an asset no longer used anywhere in the project. */
 export async function deleteProjectAssetIfUnused(project: WeddingProject, assetId: string, publicUrl: string) {
   if (JSON.stringify(project).includes(publicUrl)) return false;
+  if (isDiscoveryProject(project)) return true;
   await saveRemoteProject(project);
   await deleteProjectAsset(assetId);
   return true;

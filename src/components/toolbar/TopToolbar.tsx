@@ -10,6 +10,8 @@ import { TemplatePublishModal } from "../../features/templates/TemplatePublishMo
 import { PromoCodeInput } from "./PromoCodeInput";
 import { calculatePromoDiscount, type AppliedPromo } from "../../config/promo";
 import { validatePromoCode } from "../../services/promoCodeRepository";
+import { isDiscoveryProject, requestDiscoveryAccount, useDiscoverySession } from "../../features/discovery/discoverySession";
+import { TutorialHelpButton } from "../../features/tutorial/TutorialHelp";
 
 const publicationBenefits = [
   "Lien personnalisé et stable",
@@ -30,7 +32,9 @@ export function TopToolbar({ onPreview, promoValidation = validatePromoCode }: {
   const [validatingPromo, setValidatingPromo] = useState(false);
   const { isAdmin } = useAuth();
   const { project, renameProject, past, future, undo, redo, save, checkoutAndPublish, saveStatus } = useEditorStore();
+  useDiscoverySession((state) => state.draftId);
   if (!project) return null;
+  const discovery = isDiscoveryProject(project);
 
   const isPublished = project.paymentStatus === "paid" && project.status === "published" && Boolean(project.publicId);
   const includesForm = Boolean(project.rsvp?.enabled && !project.rsvp.purchased && !isPublished);
@@ -47,6 +51,7 @@ export function TopToolbar({ onPreview, promoValidation = validatePromoCode }: {
     if (project.publicId) setPublishedUrl(`${window.location.origin}/i/${project.publicId}`);
   };
   const openPublicationConfirmation = () => {
+    if (discovery) { requestDiscoveryAccount("publish"); return; }
     setPromo(null); setValidatingPromo(false); setPublishError("");
     setResponsiveFormatsConfirmed(false);
     setGuestCountDraft(String(savedGuestCount));
@@ -84,13 +89,14 @@ export function TopToolbar({ onPreview, promoValidation = validatePromoCode }: {
   return (
     <header className="top-toolbar">
       <div className="brand-block"><Link to="/" className="back-button" aria-label="Retour aux projets"><ChevronLeft size={18} /></Link><div className="brand-mark">B</div><div className="brand-name"><strong>Le Bureau des Mariés</strong><span>Studio</span></div></div>
-      <div className="project-name-wrap"><input aria-label="Nom du projet" value={project.name} onChange={(event) => renameProject(event.target.value)} /><div className="save-state">{saveStatus === "saving" ? "Sauvegarde…" : saveStatus === "saved" ? <><Check size={12} /> Sauvegardé</> : "Modifications locales"}</div></div>
+      <div className="project-name-wrap"><input aria-label="Nom du projet" value={project.name} onChange={(event) => renameProject(event.target.value)} /><div className="save-state">{discovery ? "Mode découverte — Non sauvegardé" : saveStatus === "saving" ? "Sauvegarde…" : saveStatus === "saved" ? <><Check size={12} /> Sauvegardé</> : "Modifications locales"}</div></div>
       <div className="toolbar-actions">
         <div className="undo-group"><button onClick={undo} disabled={!past.length} title="Annuler (Ctrl+Z)"><Undo2 size={18} /></button><button onClick={redo} disabled={!future.length} title="Rétablir (Ctrl+Y)"><Redo2 size={18} /></button></div>
-        <button onClick={onPreview} aria-label="Aperçu"><Eye size={17} /> <span>Aperçu</span></button>
-        <button onClick={save} aria-label="Sauvegarder"><Save size={17} /> <span>Sauvegarder</span></button>
-        {isAdmin && <button className="admin-template-button" onClick={() => setPublishingTemplate(true)} aria-label="Publier comme template"><LayoutTemplate size={17} /> <span>Template</span></button>}
-        <button className="publish-button" disabled={publishing} onClick={isPublished ? showPublishedLink : openPublicationConfirmation} aria-label={isPublished ? "Faire-part publié" : `Publier le faire-part pour ${publicationPriceLabel}`}><Send size={16} /> <span>{publishing ? "Redirection…" : isPublished ? "Faire-part publié ✓" : project.paymentStatus === "pending" ? `Reprendre le paiement — ${publicationPriceLabel}` : `Publier — ${publicationPriceLabel}`}</span></button>
+        <TutorialHelpButton />
+        <button data-tour="preview-button" onClick={onPreview} aria-label="Aperçu"><Eye size={17} /> <span>Aperçu</span></button>
+        <button data-tour="save-button" className={discovery ? "discovery-save" : undefined} onClick={save} aria-label={discovery ? "Créer un compte pour sauvegarder" : "Sauvegarder"}><Save size={17} /> <span>{discovery ? "Créer un compte pour sauvegarder" : "Sauvegarder"}</span></button>
+        {isAdmin && !discovery && <button className="admin-template-button" onClick={() => setPublishingTemplate(true)} aria-label="Publier comme template"><LayoutTemplate size={17} /> <span>Template</span></button>}
+        <button data-tour="publish-button" className="publish-button" disabled={publishing} onClick={isPublished ? showPublishedLink : openPublicationConfirmation} aria-label={isPublished ? "Faire-part publié" : `Publier le faire-part pour ${publicationPriceLabel}`}><Send size={16} /> <span>{publishing ? "Redirection…" : isPublished ? "Faire-part publié ✓" : project.paymentStatus === "pending" ? `Reprendre le paiement — ${publicationPriceLabel}` : `Publier — ${publicationPriceLabel}`}</span></button>
         {isUpgrade && <button disabled={publishing} onClick={openPublicationConfirmation}>Invités · capacité {project.purchasedGuestCapacity}</button>}
       </div>
 

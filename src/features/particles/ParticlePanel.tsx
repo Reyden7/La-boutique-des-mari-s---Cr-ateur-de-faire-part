@@ -8,6 +8,7 @@ import type {
 } from "../../types/editor";
 import { isSupabaseConfigured } from "../../lib/supabase";
 import { uploadProjectAsset } from "../../services/assetRepository";
+import { isDiscoveryProject } from "../discovery/discoverySession";
 import { useGlobalAssets } from "../../hooks/useGlobalAssets";
 import { PublishGlobalAssetButton } from "../../components/admin/PublishGlobalAssetButton";
 
@@ -158,7 +159,7 @@ export function ParticlePanel() {
       return;
     }
 
-    if (isSupabaseConfigured) {
+    if (isSupabaseConfigured || isDiscoveryProject(project)) {
       try {
         const asset = await uploadProjectAsset(project, file, "image");
         update({ shape: "custom", customImageUrl: asset.url, customImageName: file.name, customImageAssetId: asset.id, customImageGlobalAssetId: undefined });

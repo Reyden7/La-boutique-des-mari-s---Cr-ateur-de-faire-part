@@ -8,7 +8,7 @@ export function PropertySection({ sectionKey, title, defaultOpen = false, childr
   const open = savedOpen ?? defaultOpen;
   const contentId = useId();
 
-  return <section className={`property-section${open ? " is-open" : ""}`}>
+  return <section data-tour={`property-${sectionKey}`} className={`property-section${open ? " is-open" : ""}`}>
     <button type="button" className="property-section-trigger" aria-expanded={open} aria-controls={contentId} onClick={() => setOpen(sectionKey, !open)}>
       <span>{title}</span><ChevronDown size={16} aria-hidden="true" />
     </button>
