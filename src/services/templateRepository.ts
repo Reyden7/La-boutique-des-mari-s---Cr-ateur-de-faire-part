@@ -2,6 +2,7 @@ import { requireSupabaseSession, supabase } from "../lib/supabase";
 import { projectFromRow, type ProjectRow } from "./projectRepository";
 import type { TemplateMetadataInput, TemplateRecord } from "../types/templates";
 import type { WeddingProject } from "../types/editor";
+import { flushPreviewVideoCleanup } from "./previewVideoRepository";
 
 interface TemplateRow {
   id: string;
@@ -12,6 +13,7 @@ interface TemplateRow {
   tags: string[] | null;
   theme: string | null;
   thumbnail_url: string | null;
+  preview_video_path?: string | null;
   preview_image_url: string | null;
   template_data: Partial<WeddingProject>;
   is_published: boolean;
@@ -33,6 +35,7 @@ const fromRow = (row: TemplateRow): TemplateRecord => ({
   tags: row.tags ?? [],
   theme: row.theme,
   thumbnailUrl: row.thumbnail_url,
+  previewVideoPath: row.preview_video_path ?? null,
   previewImageUrl: row.preview_image_url,
   templateData: row.template_data,
   isPublished: row.is_published,
@@ -147,4 +150,5 @@ export async function deleteRemoteTemplate(templateId: string) {
   await requireSupabaseSession();
   const { error } = await client.from("templates").delete().eq("id", templateId);
   if (error) throw error;
+  await flushPreviewVideoCleanup().catch(() => undefined);
 }

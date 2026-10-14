@@ -9,6 +9,7 @@ export interface TemplateRecord {
   tags: string[];
   theme?: string | null;
   thumbnailUrl?: string | null;
+  previewVideoPath?: string | null;
   previewImageUrl?: string | null;
   templateData: Partial<WeddingProject>;
   isPublished: boolean;

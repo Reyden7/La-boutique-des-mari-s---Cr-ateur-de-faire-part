@@ -778,6 +778,8 @@ export interface ParticleConfig {
 }
 
 export interface WeddingProject {
+  /** Card-only private Storage path; never serialized into editable project_data. */
+  previewVideoPath?: string | null;
   id: string;
   ownerId?: string;
   name: string;

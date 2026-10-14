@@ -3,6 +3,7 @@ import type { TemplateRecord } from "../types/templates";
 import { normalizeProject } from "./storage";
 
 const runtimeKeys = [
+  "previewVideoPath", "previewVideoUrl", "preview_video_path", "preview_video_url",
   "id", "ownerId", "owner_id", "name", "createdAt", "created_at", "updatedAt", "updated_at",
   "status", "paymentStatus", "payment_status", "publicId", "public_id", "publishedAt", "published_at",
   "expiresAt", "expires_at", "stripe_checkout_session_id", "stripe_payment_intent_id", "responses", "orders",

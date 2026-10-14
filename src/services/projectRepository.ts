@@ -1,12 +1,14 @@
 import type { WeddingProject } from "../types/editor";
 import { isSupabaseConfigured, requireSupabaseSession, supabase } from "../lib/supabase";
 import { PRICING, PRICING_CHANGED_MESSAGE } from "../../supabase/functions/_shared/pricing.ts";
+import { flushPreviewVideoCleanup } from "./previewVideoRepository";
 
 export interface ProjectRow {
   id: string;
   owner_id?: string | null;
   name: string;
   project_data: Partial<WeddingProject>;
+  preview_video_path?: string | null;
   status: WeddingProject["status"];
   payment_status: NonNullable<WeddingProject["paymentStatus"]>;
   public_id: string | null;
@@ -34,6 +36,7 @@ interface PublicProjectRow {
 
 export const projectFromRow = (row: ProjectRow): WeddingProject => ({
   ...row.project_data,
+  previewVideoPath: row.preview_video_path ?? null,
   id: row.id,
   ownerId: row.owner_id ?? undefined,
   name: row.name,
@@ -51,6 +54,7 @@ export const projectFromRow = (row: ProjectRow): WeddingProject => ({
 
 const editableProjectData = (project: WeddingProject): Partial<WeddingProject> => {
   const data = structuredClone(project) as Partial<WeddingProject>;
+  delete data.previewVideoPath;
   delete data.ownerId;
   delete data.status;
   delete data.paymentStatus;
@@ -149,6 +153,7 @@ export async function deleteRemoteProject(projectId: string) {
   await requireSupabaseSession();
   const { error } = await supabase.from("projects").delete().eq("id", projectId);
   if (error) throw error;
+  await flushPreviewVideoCleanup().catch(() => undefined);
 }
 
 export async function startProjectCheckout(projectId: string, guestCount: number, promoCode?: string) {

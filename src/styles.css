@@ -82,9 +82,9 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .template-choice-card > img, .template-choice-card > .template-art { width: 100%; height: 215px; border-radius: 9px; object-fit: cover; }
 .template-choice-card > strong { padding: 2px 4px 0; font: 600 17px "Cormorant Garamond", serif; }
 .template-choice-card > small { min-height: 30px; padding: 0 4px; overflow: hidden; color: var(--muted); font-size: 10px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.template-choice-card > div { display: grid; grid-template-columns: auto 1fr; gap: 6px; }
-.template-choice-card > div button { min-height: 34px; padding: 6px 9px; border: 1px solid #ddd2c9; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 5px; background: #fff; color: #604b3e; font-size: 9px; }
-.template-choice-card > div button.primary { border-color: #473b34; background: #473b34; color: #fff; }
+.template-choice-card > div:not(.hover-video-thumbnail) { display: grid; grid-template-columns: auto 1fr; gap: 6px; }
+.template-choice-card > div:not(.hover-video-thumbnail) button { min-height: 34px; padding: 6px 9px; border: 1px solid #ddd2c9; border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 5px; background: #fff; color: #604b3e; font-size: 9px; }
+.template-choice-card > div:not(.hover-video-thumbnail) button.primary { border-color: #473b34; background: #473b34; color: #fff; }
 .remote-template-art i { width: 82px; height: 82px; border-radius: 50%; display: grid; place-items: center; background: #b98f72; color: #fff; font: 42px "Cormorant Garamond", serif; }
 .template-art.botanical { background: radial-gradient(circle, #f8f5ed, #e1eadc); }
 .template-art.botanical i { background: transparent !important; color: #52634b; font: 42px "Great Vibes", cursive; }

@@ -1,4 +1,4 @@
-import { ArrowLeft, Copy, Edit3, Eye, EyeOff, ExternalLink, RefreshCw, Star, Trash2 } from "lucide-react";
+import { ArrowLeft, Copy, Edit3, Eye, EyeOff, ExternalLink, RefreshCw, Star, Trash2, Video } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -7,6 +7,8 @@ import type { TemplateRecord } from "../types/templates";
 import { TEMPLATE_CATEGORIES } from "../types/templates";
 import { remoteErrorSummary } from "../utils/storage";
 import { slugifyTemplateName } from "../utils/templateSnapshot";
+import { PreviewVideoManager } from "../features/previewVideos/PreviewVideoManager";
+import { flushPreviewVideoCleanup } from "../services/previewVideoRepository";
 
 export function AdminTemplatesPage() {
   const { isAdmin } = useAuth();
@@ -15,9 +17,11 @@ export function AdminTemplatesPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editing, setEditing] = useState<TemplateRecord | null>(null);
   const [error, setError] = useState("");
+  const [videoTemplate, setVideoTemplate] = useState<TemplateRecord | null>(null);
 
   useEffect(() => {
     if (!isAdmin) return;
+    void flushPreviewVideoCleanup().catch(() => undefined);
     void loadAdminTemplates().then(setTemplates).catch((cause) => setError(remoteErrorSummary(cause))).finally(() => setLoading(false));
   }, [isAdmin]);
 
@@ -40,6 +44,7 @@ export function AdminTemplatesPage() {
         <label className="admin-sort-field">Ordre<input type="number" value={template.sortOrder} disabled={busyId === template.id} onChange={(event) => { const sortOrder = Number(event.target.value) || 0; replace({ ...template, sortOrder }); }} onBlur={() => void mutate(template.id, () => updateTemplateMetadata(template.id, { sortOrder: template.sortOrder }))} /></label>
         <div className="admin-template-status">{template.isFeatured && <span className="featured"><Star size={12} /> Mis en avant</span>}<span className={template.isPublished ? "published" : "draft"}>{template.isPublished ? "Publié" : "Brouillon"}</span></div>
         <div className="admin-template-actions">
+          <button title="Vidéo de présentation" onClick={() => setVideoTemplate(template)}><Video size={15} /></button>
           {template.sourceProjectId && <Link title="Ouvrir le projet source" to={`/studio/${template.sourceProjectId}`}><ExternalLink size={15} /></Link>}
           {template.sourceProjectId && <button title="Republier le snapshot depuis le projet source" disabled={busyId === template.id} onClick={() => void mutate(template.id, () => publishProjectAsTemplate(template.sourceProjectId!, { name: template.name, slug: template.slug, description: template.description, category: template.category, tags: template.tags, thumbnailUrl: template.thumbnailUrl, previewImageUrl: template.previewImageUrl, isPublished: template.isPublished, isFeatured: template.isFeatured, sortOrder: template.sortOrder }, template.id))}><RefreshCw size={15} /></button>}
           <button title="Modifier les informations" onClick={() => setEditing(template)}><Edit3 size={15} /></button>
@@ -51,6 +56,7 @@ export function AdminTemplatesPage() {
       {!loading && templates.length === 0 && <div className="empty-projects"><h2>Aucun template</h2><p>Ouvrez un projet administrateur puis utilisez « Template » dans la barre du Studio.</p></div>}
     </main>
     {editing && <TemplateMetadataEditor template={editing} onClose={() => setEditing(null)} onSaved={(template) => { replace(template); setEditing(null); }} />}
+    {videoTemplate && <PreviewVideoManager key={videoTemplate.id} target={{ kind: "template", id: videoTemplate.id }} name={videoTemplate.name} initialPath={videoTemplate.previewVideoPath} onClose={() => setVideoTemplate(null)} onSaved={({ path, updatedAt }) => { const updated = { ...videoTemplate, previewVideoPath: path, updatedAt }; replace(updated); setVideoTemplate(updated); }} />}
   </div>;
 }
 
