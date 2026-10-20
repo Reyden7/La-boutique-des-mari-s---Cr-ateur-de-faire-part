@@ -1,0 +1,23 @@
+.preview-scroll-surface, .preview-scroll-surface * { user-select: none; -webkit-user-select: none; }
+.preview-scroll-surface { scroll-behavior: auto !important; }
+.preview-scroll-surface :is(input, textarea, select, [contenteditable]:not([contenteditable="false"])),
+.preview-scroll-surface [contenteditable]:not([contenteditable="false"]) * { user-select: text; -webkit-user-select: text; }
+.preview-auto-scroll { position: relative; }
+.preview-scroll-toolbar { position: absolute; z-index: 21; top: 62px; left: 50%; transform: translateX(-50%); }
+.preview-scroll-toolbar > .preview-auto-scroll > button { display: block; margin: 0 auto 5px; border: 1px solid #ffffff55; border-radius: 7px; background: #33342f; color: #fff; padding: 6px 10px; font-size: 11px; }
+.preview-scroll-toolbar .preview-auto-actions button { border: 1px solid #ffffff55; border-radius: 5px; background: transparent; color: #fff; padding: 7px; }
+.preview-auto-panel { width: min(340px, calc(100vw - 24px)); padding: 12px; border-radius: 10px; background: #33342f; color: #fffaf4; font-size: 12px; box-shadow: 0 6px 20px #0003; }
+.preview-controls { flex-wrap: wrap; justify-content: center; max-width: calc(100% - 24px); width: max-content; }
+.preview-controls .preview-auto-panel { position: absolute; top: 100%; right: 0; }
+.preview-speed-fields { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+.preview-speed-fields input[type="range"] { flex: 1; min-width: 70px; accent-color: #d1af8e; }
+.preview-speed-fields input[type="number"] { width: 62px; padding: 5px; border: 1px solid #fff6; border-radius: 5px; color: #fff; background: #242522; }
+.preview-auto-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.preview-auto-actions button:disabled { opacity: .45; cursor: default; }
+.preview-auto-panel p { margin: 6px 0; }
+/* Reserve toolbar space: controls never live in the invitation's scroll viewport. */
+.invitation-viewer-preview:has(.immersive-preview-controls) .invitation-viewer-scroll { --preview-device-height: calc(var(--viewer-height) - var(--preview-toolbar-height)); margin-top: var(--preview-toolbar-height); height: calc(100% - var(--preview-toolbar-height)); }
+.invitation-viewer-preview .welcome-page { position: absolute; height: var(--preview-device-height); }
+.immersive-preview-controls .preview-auto-panel { text-align: left; }
+.immersive-preview-controls:has(.preview-auto-panel) { left: 10px; }
+.immersive-preview-menu { align-items: start; }

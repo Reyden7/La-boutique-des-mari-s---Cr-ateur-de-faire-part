@@ -15,7 +15,7 @@ import { resolveWelcomePage } from "../welcome/welcomeDefaults";
 import { normalizeRetiredOpening } from "../openings/legacyOpening";
 import { AnimationHistoryContext } from "../../components/renderer/useEntranceVisibility";
 
-export function InvitationExperience({ project: sourceProject, device, mode = "public" }: { project: WeddingProject; device?: PreviewDevice; mode?: RsvpRenderMode }) {
+export function InvitationExperience({ project: sourceProject, device, mode = "public", onDocumentReady }: { project: WeddingProject; device?: PreviewDevice; mode?: RsvpRenderMode; onDocumentReady?: (ready: boolean) => void }) {
   const project = normalizeRetiredOpening(sourceProject);
   const parentHistory = useContext(AnimationHistoryContext);
   const history = useRef(new Set<string>());
@@ -28,6 +28,7 @@ export function InvitationExperience({ project: sourceProject, device, mode = "p
   const [welcomeVisible, setWelcomeVisible] = useState(introductionMode === "welcome");
   const [documentAnimationReady, setDocumentAnimationReady] = useState(introductionMode === "none" || (introductionMode === "classic" && project.opening.type === "none"));
   const welcomeEnteredRef = useRef(false);
+  useEffect(() => { onDocumentReady?.(documentAnimationReady); }, [documentAnimationReady, onDocumentReady]);
   useEffect(() => () => controllerRef.current?.stop(), []);
 
   const start = async () => {

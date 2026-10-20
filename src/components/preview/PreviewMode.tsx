@@ -6,9 +6,10 @@ import { PREVIEW_DEVICES, type PreviewDevice } from "../../config/previewDevices
 import { AnimationViewportProvider } from "../renderer/AnimatedElement";
 import { InvitationViewer } from "../../features/viewer/InvitationViewer";
 import { useViewerViewport } from "../../features/viewer/useViewerViewport";
+import { PreviewScrollControls, PreviewScrollProvider, usePreviewScrollSurface } from "./PreviewScroll";
 
 const INTERACTIVE_SELECTOR = [
-  "button", "a", "input", "textarea", "select", "label", "iframe", "audio", "video", "img",
+  "button", "a", "input", "textarea", "select", "label", "iframe", "audio", "video",
   "[role='button']", "[contenteditable]", "[draggable='true']", "[data-interactive]",
   ".photo-carousel", ".scratch-card", ".location-card", ".guest-audio-control",
 ].join(", ");
@@ -20,6 +21,7 @@ type DragStart = { pointerId: number; y: number; scrollTop: number; moved: boole
 
 function PreviewDeviceViewport({ project, device, scale }: { project: WeddingProject; device: PreviewDevice; scale: number }) {
   const viewportRef = useRef<HTMLDivElement>(null);
+  const onDocumentReady = usePreviewScrollSurface(viewportRef, device);
   const dragRef = useRef<DragStart | null>(null);
   const suppressClickRef = useRef(false);
   const [canDrag, setCanDrag] = useState(false);
@@ -72,8 +74,9 @@ function PreviewDeviceViewport({ project, device, scale }: { project: WeddingPro
   return (
     <div
       ref={viewportRef}
-      className={`preview-device-viewport${canDrag && device !== "desktop" ? " can-drag" : ""}${isDragging ? " is-dragging-scroll" : ""}`}
+      className={`preview-device-viewport preview-scroll-surface${canDrag && device !== "desktop" ? " can-drag" : ""}${isDragging ? " is-dragging-scroll" : ""}`}
       aria-label={`Aperçu ${PREVIEW_DEVICES[device].label}`}
+      tabIndex={0}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={finishDrag}
@@ -85,15 +88,22 @@ function PreviewDeviceViewport({ project, device, scale }: { project: WeddingPro
         event.stopPropagation();
       }}
     >
-      <AnimationViewportProvider root={viewportRef}><InvitationExperience project={project} device={device} mode="preview" /></AnimationViewportProvider>
+      <AnimationViewportProvider root={viewportRef}><InvitationExperience project={project} device={device} mode="preview" onDocumentReady={onDocumentReady} /></AnimationViewportProvider>
     </div>
   );
 }
 
-export function PreviewMode({ project, device, onClose, allowDeviceSwitching = false, actions }: { project: WeddingProject; device: PreviewDevice; onClose: () => void; allowDeviceSwitching?: boolean; actions?: ReactNode }) {
+type PreviewModeProps = { project: WeddingProject; device: PreviewDevice; onClose: () => void; allowDeviceSwitching?: boolean; actions?: ReactNode };
+
+export function PreviewMode(props: PreviewModeProps) {
+  return <PreviewScrollProvider key={`${props.project.id}-${props.project.updatedAt}`}><PreviewModeContent {...props} /></PreviewScrollProvider>;
+}
+
+function PreviewModeContent({ project, device, onClose, allowDeviceSwitching = false, actions }: PreviewModeProps) {
   const [replayKey, setReplayKey] = useState(0);
   const [activeDevice, setActiveDevice] = useState(device);
   const [controlsOpen, setControlsOpen] = useState(false);
+  const [scrollPanelOpen, setScrollPanelOpen] = useState(false);
   const readerViewport = useViewerViewport();
   const [windowSize, setWindowSize] = useState(() => ({
     width: typeof window === "undefined" ? 0 : window.innerWidth,
@@ -110,7 +120,7 @@ export function PreviewMode({ project, device, onClose, allowDeviceSwitching = f
     };
   }, []);
 
-  if (readerViewport.immersive) return <InvitationViewer key={replayKey} project={project} device={allowDeviceSwitching ? activeDevice : readerViewport.device} mode="preview" controls={
+  if (readerViewport.immersive) return <InvitationViewer key={`${project.id}-${replayKey}-${allowDeviceSwitching ? activeDevice : readerViewport.device}`} project={project} device={allowDeviceSwitching ? activeDevice : readerViewport.device} mode="preview" controls={
     <div className="immersive-preview-controls">
       <button type="button" aria-label="Contrôles de l’aperçu" aria-expanded={controlsOpen} aria-controls="immersive-preview-menu" onClick={() => setControlsOpen((value) => !value)}><MoreHorizontal size={18} /></button>
       {controlsOpen && <div id="immersive-preview-menu" className="immersive-preview-menu">
@@ -118,13 +128,14 @@ export function PreviewMode({ project, device, onClose, allowDeviceSwitching = f
         <button type="button" onClick={() => { setReplayKey((key) => key + 1); setControlsOpen(false); }}><RotateCcw size={16} /> Rejouer</button>
         {allowDeviceSwitching && <div className="template-preview-devices">{(["mobile", "tablet", "desktop"] as const).map((value) => <button type="button" key={value} className={activeDevice === value ? "active" : ""} onClick={() => setActiveDevice(value)}>{PREVIEW_DEVICES[value].label}</button>)}</div>}
         {actions}
+        <PreviewScrollControls />
       </div>}
     </div>
   } />;
 
   const viewport = PREVIEW_DEVICES[activeDevice];
   const scale = windowSize.width && windowSize.height
-    ? Math.min(1, (windowSize.width - 32) / viewport.width, (windowSize.height - 88) / viewport.height)
+    ? Math.min(1, (windowSize.width - 32) / viewport.width, (windowSize.height - (scrollPanelOpen ? 245 : 110)) / viewport.height)
     : 1;
   const visibleScale = Math.max(0.1, scale);
   const frameStyle = {
@@ -133,12 +144,13 @@ export function PreviewMode({ project, device, onClose, allowDeviceSwitching = f
     "--preview-device-scale": visibleScale,
   } as CSSProperties;
   return (
-    <div className={`preview-mode preview-mode-${activeDevice}`}>
+    <div className={`preview-mode preview-mode-${activeDevice}`} style={scrollPanelOpen ? { "--preview-content-top": "225px" } as CSSProperties : undefined}>
       <div className="preview-controls"><button onClick={onClose}><X size={17} /> Retour</button>{allowDeviceSwitching && <div className="template-preview-devices"><button className={activeDevice === "mobile" ? "active" : ""} onClick={() => setActiveDevice("mobile")}><Smartphone size={15} /> Smartphone</button><button className={activeDevice === "tablet" ? "active" : ""} onClick={() => setActiveDevice("tablet")}><Tablet size={15} /> Tablette</button><button className={activeDevice === "desktop" ? "active" : ""} onClick={() => setActiveDevice("desktop")}><Monitor size={15} /> PC</button></div>}<button onClick={() => setReplayKey((key) => key + 1)}><RotateCcw size={17} /> Rejouer</button>{actions}</div>
-      <div className="preview-content">
+      <div className="preview-scroll-toolbar"><PreviewScrollControls onExpanded={setScrollPanelOpen} /></div>
+      <div className="preview-content" style={{ top: "var(--preview-content-top, 94px)" }}>
         <div className="preview-device-shell" style={{ width: viewport.width * visibleScale, height: viewport.height * visibleScale }}>
           <div className="preview-device-frame" style={frameStyle}>
-            <PreviewDeviceViewport key={`${replayKey}-${activeDevice}`} project={project} device={activeDevice} scale={visibleScale} />
+            <PreviewDeviceViewport key={`${project.id}-${replayKey}-${activeDevice}`} project={project} device={activeDevice} scale={visibleScale} />
           </div>
         </div>
       </div>

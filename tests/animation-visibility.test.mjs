@@ -54,7 +54,7 @@ test('content gating, hierarchy, history, replay, reduced motion and UI are wire
   const element=read('src/components/renderer/AnimatedElement.tsx');assert.match(element,/hasEntrance && play && parentReady/);assert.match(element,/ElementEntranceContext.Provider/);assert.match(element,/!reducedMotion/);assert.doesNotMatch(element,/whileInView|resolved.delay/);
   for(const file of ['src/components/renderer/TextEntrance.tsx','src/features/text/CurvedTextRenderer.tsx']){assert.match(read(file),/useElementEntrance/);assert.doesNotMatch(read(file),/useInView|animation\?\.delay/);}
   assert.match(read('src/components/renderer/useEntranceVisibility.ts'),/history\?\.add/);
-  assert.match(read('src/components/preview/PreviewMode.tsx'),/key=\{`\$\{replayKey\}-\$\{activeDevice\}`\}/);
+  assert.match(read('src/components/preview/PreviewMode.tsx'),/key=\{`\$\{project.id\}-\$\{replayKey\}-\$\{activeDevice\}`\}/);
   assert.match(read('src/features/viewer/InvitationViewer.tsx'),/scrollTop = 0/);
   assert.doesNotMatch(read('src/components/properties/AnimationProperties.tsx'),/Délai|\.delay/);
   assert.doesNotMatch(read('src/components/editor/EditorCanvas.tsx'),/whileInView|useEntranceVisibility/);
