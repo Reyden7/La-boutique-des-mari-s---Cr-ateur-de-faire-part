@@ -23,6 +23,8 @@ export interface GuestPaymentReceipt {
   stripe_payment_intent_id?: string | null;
   status: string;
   created_at: string;
+  publication_version_id?: string | null;
+  free_transaction_id?: string | null;
   promo_code_id?: string | null;
   promo_code?: string | null;
   discount_value?: number | null;
@@ -69,6 +71,7 @@ export function guestCheckoutMetadata(receipt: GuestPaymentReceipt) {
   return {
     receipt_id: receipt.id, project_id: receipt.project_id, owner_id: receipt.owner_id,
     purchase_type: receipt.purchase_type, pricing_version: receipt.pricing_version,
+    ...(receipt.publication_version_id ? {publication_version_id:receipt.publication_version_id} : {}),
     guest_count: String(receipt.guest_count), guest_capacity: String(receipt.guest_capacity),
     ...(legacy ? {
       extra_blocks: String(receipt.extra_blocks), previous_extra_blocks: String(receipt.previous_extra_blocks),
@@ -98,7 +101,7 @@ export function matchesGuestCheckout(
 ) {
   try {
     const expected = guestCheckoutMetadata(receipt);
-    return receipt.stripe_checkout_session_id === session.id
+    return !receipt.free_transaction_id && receipt.amount_cents > 0 && receipt.stripe_checkout_session_id === session.id
       && receipt.currency === "eur" && session.currency === "eur"
       && receipt.amount_cents === guestReceiptAmount(receipt) && session.amount_total === receipt.amount_cents
       && Object.entries(expected).every(([key, value]) => session.metadata?.[key] === value);

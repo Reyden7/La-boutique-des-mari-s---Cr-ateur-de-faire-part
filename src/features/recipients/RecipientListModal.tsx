@@ -22,7 +22,7 @@ export function RecipientListModal({ project, onClose }: { project: WeddingProje
     let active = true;
     if (guest) return;
     setLoaded(false);
-    void saveRemoteProject(project).then(() => loadInvitationRecipients(project.id)).then(value => { if (active) { setRecipientList(key,value); setLoaded(true); } }).catch(cause => { if (active) setError(cause.message ?? "Chargement impossible."); });
+    void (project.activeVersionId ? Promise.resolve() : saveRemoteProject(project)).then(() => loadInvitationRecipients(project.id)).then(value => { if (active) { setRecipientList(key,value); setLoaded(true); } }).catch(cause => { if (active) setError(cause.message ?? "Chargement impossible."); });
     return () => { active = false; };
   }, [key, guest]);
   useEffect(() => {

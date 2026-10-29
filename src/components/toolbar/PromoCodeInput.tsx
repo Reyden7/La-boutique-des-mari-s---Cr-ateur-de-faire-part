@@ -26,7 +26,7 @@ export function PromoCodeInput({ value, onChange, disabled, onBusyChange, valida
   };
   return <div className="publication-promo">
     <label className="field"><span>Code partenaire ou code promo</span><div className="promo-input-row"><input aria-label="Code partenaire ou code promo" maxLength={64} value={value?.code ?? draft} disabled={disabled || busy || Boolean(value)} onChange={(event) => { setDraft(event.target.value); setError(""); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void apply(); } }} placeholder="Votre code" />{!value && <button disabled={disabled || busy || !draft.trim()} onClick={() => void apply()}>{busy ? "Vérification…" : "Appliquer"}</button>}</div></label>
-    {value && <div className="promo-applied" role="status"><span>✓ Code {value.code} appliqué · −{value.discountValue} %</span><button disabled={disabled} onClick={() => { onChange(null); setDraft(""); setError(""); }}>Retirer le code</button></div>}
+    {value && <div className="promo-applied" role="status"><span>Code promotionnel appliqué : −{value.discountValue} % ({value.code})</span><button disabled={disabled} onClick={() => { onChange(null); setDraft(""); setError(""); }}>Retirer le code</button></div>}
     {error && <p className="form-error" role="alert">{error}</p>}
   </div>;
 }

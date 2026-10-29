@@ -21,11 +21,15 @@ import { TutorialLayer } from "../features/tutorial/TutorialLayer";
 import { useTutorialStore } from "../features/tutorial/tutorialStore";
 import { RecipientListModal } from "../features/recipients/RecipientListModal";
 import { useRecipientLists } from "../features/recipients/recipientStore";
+import { applyPublicationAuthority, isPublishedDesignLocked } from "../features/publication/publicationState";
+import { WeddingRenderer } from "../components/renderer/WeddingRenderer";
+import { refreshRemoteProject } from "../services/projectRepository";
 
 export function EditorPage({ discovery = false }: { discovery?: boolean }) {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const [missing, setMissing] = useState(false);
+  const [publicationVerified,setPublicationVerified]=useState(discovery),[publicationError,setPublicationError]=useState(false),[publicationRetry,setPublicationRetry]=useState(0);
   const [preview, setPreview] = useState(false);
   const [openingPreview, setOpeningPreview] = useState<OpeningAnimationType | null>(null);
   const [mobilePanel, setMobilePanel] = useState<"tools" | "properties" | null>(null);
@@ -78,15 +82,32 @@ export function EditorPage({ discovery = false }: { discovery?: boolean }) {
     if (!useEditorStore.getState().loadProject(projectId, user.id)) setMissing(true);
   }, [discovery, projectId, user]);
 
+  useEffect(()=>{
+    if(discovery||!projectId||!user)return;
+    let active=true;setPublicationVerified(false);setPublicationError(false);
+    void refreshRemoteProject(projectId).then(remote=>{
+      if(!active)return;
+      if(remote){
+        const local=useEditorStore.getState().project;
+        const resolved=local?.id===remote.id&&local.updatedAt>remote.updatedAt&&!isPublishedDesignLocked(remote)?applyPublicationAuthority(local,remote):remote;
+        useEditorStore.getState().setProject(resolved);upsertProject(resolved);
+      }
+      setPublicationVerified(true);
+    }).catch(()=>{if(active)setPublicationError(true);});
+    return()=>{active=false;};
+  },[discovery,projectId,user?.id,publicationRetry]);
+
   useEffect(() => {
     if (!project || isDiscoveryProject(project)) return;
+    if (!publicationVerified) return;
     const timer = window.setTimeout(() => useEditorStore.getState().save(), 800);
     return () => window.clearTimeout(timer);
-  }, [project]);
+  }, [project,publicationVerified]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       const state = useEditorStore.getState();
+      if (isPublishedDesignLocked(state.project)) return;
       if (useDiscoverySession.getState().converting) return;
       if (useRecipientLists.getState().open) return;
       if (useTutorialStore.getState().invitation || useTutorialStore.getState().help) return;
@@ -116,6 +137,7 @@ export function EditorPage({ discovery = false }: { discovery?: boolean }) {
   if (missing) return <Navigate to="/" replace />;
   if (discovery && !guest) return <Navigate to={project?.ownerId && project.ownerId === user?.id ? `/studio/${project.id}` : "/"} replace />;
   if (!project) return <div className="loading-screen">Ouverture de votre studio…</div>;
+  if(!discovery&&!publicationVerified)return <div className="loading-screen">{publicationError?<div><p>Vérification de la version publiée impossible. Vos données locales sont conservées.</p><button onClick={()=>setPublicationRetry(value=>value+1)}>Réessayer</button></div>:"Vérification de la version publiée…"}</div>;
   const dialogs = <>
     {recipientsOpen && <RecipientListModal project={project} onClose={() => useRecipientLists.setState({open:false})} />}
     {guest && <DiscoveryDialogs />}
@@ -124,9 +146,10 @@ export function EditorPage({ discovery = false }: { discovery?: boolean }) {
   </>;
   if (openingPreview) return <><OpeningPreview project={project} type={openingPreview} device={previewDevice} onUse={(opening) => useEditorStore.getState().updateOpening(opening)} onClose={() => setOpeningPreview(null)} />{dialogs}</>;
   if (preview) return <><PreviewMode project={project} device={previewDevice} onClose={() => setPreview(false)} />{dialogs}</>;
+  if (isPublishedDesignLocked(project)) return <div className="published-design-view"><TopToolbar onPreview={()=>setPreview(true)}/><main className="published-design-info"><h1>Version publiée — Modification payante</h1><p>Cette version est définitive. Créez une nouvelle version pour modifier son contenu ; elle restera privée jusqu’au nouveau paiement.</p><button onClick={()=>useRecipientLists.setState({open:true})}>Liste des invités et liens</button><button onClick={()=>navigate(`/studio/${project.id}/rsvp/responses`)}>Réponses au formulaire</button><button onClick={()=>setPreview(true)}>Aperçu de la version publiée</button><div className="published-design-paper"><WeddingRenderer project={project} device="mobile" mode="preview"/></div></main>{dialogs}</div>;
 
   return (
-    <><div className="studio-layout" inert={recipientsOpen || tutorialModal || session.converting || (guest && (!session.warningShown || Boolean(session.prompt) || Boolean(session.error) || blocker.state === "blocked")) || undefined}>
+    <><div className={`studio-layout${project.activeVersionId?" publication-has-version":""}`} inert={recipientsOpen || tutorialModal || session.converting || (guest && (!session.warningShown || Boolean(session.prompt) || Boolean(session.error) || blocker.state === "blocked")) || undefined}>
       <TopToolbar onPreview={() => setPreview(true)} />
       <div className={`editor-panel-host tools-panel-host ${mobilePanel === "tools" ? "mobile-open" : ""}`}>
         <button className="mobile-panel-close" onClick={() => setMobilePanel(null)} aria-label="Fermer les outils"><X size={18} /></button>

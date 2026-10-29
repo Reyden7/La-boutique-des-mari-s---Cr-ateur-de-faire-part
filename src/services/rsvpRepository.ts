@@ -9,6 +9,8 @@ export interface RsvpResponseRow {
   recipient_id?: string | null;
   attendance?: "confirmed" | "declined" | null;
   present_count?: number | null;
+  publication_version_id?: string | null;
+  questionnaire_snapshot?: { fields?: { id: string; label: string; type: string }[] } | null;
 }
 
 export async function submitRsvpResponse(publicId: string, answers: Record<string, unknown>, startedAt: number, website = "", recipient?: { token: string; attendance: string; presentCount: number }) {
@@ -27,7 +29,7 @@ export async function loadRsvpResponses(projectId: string) {
   const pageSize = 500;
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await supabase.from("rsvp_responses")
-      .select("id, project_id, answers, created_at, updated_at, recipient_id, attendance, present_count")
+      .select("id, project_id, answers, created_at, updated_at, recipient_id, attendance, present_count, publication_version_id, questionnaire_snapshot")
       .eq("project_id", projectId)
       .order("created_at", { ascending: false }).order("id", { ascending: false })
       .range(offset, offset + pageSize - 1).returns<RsvpResponseRow[]>();
@@ -35,4 +37,13 @@ export async function loadRsvpResponses(projectId: string) {
     responses.push(...(data ?? []));
     if (!data || data.length < pageSize) return responses;
   }
+}
+
+export async function loadRsvpResponseHistory(projectId: string, responseId: string) {
+  await requireSupabaseSession();
+  if (!supabase) return [];
+  const {data,error}=await supabase.from("rsvp_response_history").select("id,answers,questionnaire_snapshot,publication_version_id,answered_at")
+    .eq("project_id",projectId).eq("response_id",responseId).order("archived_at",{ascending:false});
+  if(error)throw error;
+  return data as {id:string;answers:Record<string,unknown>;questionnaire_snapshot:RsvpResponseRow["questionnaire_snapshot"];publication_version_id:string|null;answered_at:string}[];
 }

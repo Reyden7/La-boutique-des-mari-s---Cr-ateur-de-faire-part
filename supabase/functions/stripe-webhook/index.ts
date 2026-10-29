@@ -2,11 +2,12 @@ import Stripe from "npm:stripe@22.6.0";
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 import { jsonResponse } from "../_shared/http.ts";
 import { matchesGuestCheckout } from "../_shared/guestPayment.ts";
+import { matchesVersionPayment } from "../_shared/publicationVersions.ts";
 
 // Only historical sessions use the previous fixed tariff.
 const LEGACY_PRICE_CENTS = 2490;
 const CURRENCY = "eur";
-type PurchaseType = "publication" | "initial_publication" | "guest_capacity_upgrade" | "custom_invitation" | "rsvp_addon";
+type PurchaseType = "publication" | "initial_publication" | "guest_capacity_upgrade" | "paid_version" | "custom_invitation" | "rsvp_addon";
 
 const requireEnvironment = (name: string) => {
   const value = Deno.env.get(name)?.trim();
@@ -19,7 +20,7 @@ const stripeId = (value: string | { id: string } | null) =>
 
 const purchaseTypeFromSession = (session: Stripe.Checkout.Session): PurchaseType | null => {
   const explicit = session.metadata?.purchase_type;
-  if (explicit === "publication" || explicit === "initial_publication" || explicit === "guest_capacity_upgrade" || explicit === "custom_invitation" || explicit === "rsvp_addon") {
+  if (explicit === "paid_version" || explicit === "publication" || explicit === "initial_publication" || explicit === "guest_capacity_upgrade" || explicit === "custom_invitation" || explicit === "rsvp_addon") {
     return explicit;
   }
   if (explicit) return null;
@@ -84,6 +85,18 @@ Deno.serve(async (request) => {
   }
 
   console.info("stripe_event_received", { eventType: event.type });
+  const processVersionPayment = async (session: Stripe.Checkout.Session, refund = false) => {
+    const receiptId=session.metadata?.receipt_id,ownerId=session.metadata?.owner_id,paymentIntentId=stripeId(session.payment_intent);
+    if (!receiptId||!ownerId||!paymentIntentId) return jsonResponse({error:"Missing version metadata"},400);
+    const lookup=await admin.from("publication_version_payments").select("*").eq("id",receiptId).maybeSingle();
+    if (lookup.error) throw lookup.error;
+    if (!lookup.data?.stripe_checkout_session_id) throw new Error("Version receipt attachment pending");
+    if (!matchesVersionPayment(session,lookup.data)||(lookup.data.stripe_payment_intent_id&&lookup.data.stripe_payment_intent_id!==paymentIntentId)) return jsonResponse({error:"Version payment mismatch"},409);
+    const result=await admin.rpc(refund?"refund_version_publication":"finalize_version_publication",{
+      p_receipt_id:receiptId,p_owner_id:ownerId,p_session_id:session.id,p_payment_intent_id:paymentIntentId,p_amount_cents:session.amount_total});
+    if(result.error)throw result.error;
+    return jsonResponse({received:true});
+  };
   // Shared receipt validation dispatches guest-v2 per-guest and historical
   // guest-v1 snapshots separately; never reprice an old Stripe payment.
   const processGuestPayment = async (session: Stripe.Checkout.Session, refund = false) => {
@@ -124,6 +137,7 @@ Deno.serve(async (request) => {
       }
 
       const purchaseType = purchaseTypeFromSession(session);
+      if (purchaseType === "paid_version") return await processVersionPayment(session);
       if (!purchaseType) {
         return jsonResponse({ error: "Unknown purchase type" }, 400);
       }
@@ -226,6 +240,12 @@ Deno.serve(async (request) => {
     } else if (event.type === "checkout.session.async_payment_failed") {
       const session = event.data.object as Stripe.Checkout.Session;
       const purchaseType = purchaseTypeFromSession(session);
+      if (purchaseType === "paid_version") {
+        if(!session.metadata?.receipt_id)return jsonResponse({error:"Missing version receipt"},400);
+        const result=await admin.rpc("fail_version_publication",{p_receipt_id:session.metadata.receipt_id,p_session_id:session.id});
+        if(result.error)throw result.error;
+        return jsonResponse({received:true});
+      }
       if (!purchaseType) return jsonResponse({ error: "Unknown purchase type" }, 400);
       if (purchaseType === "initial_publication" || purchaseType === "guest_capacity_upgrade") {
         const receiptId = session.metadata?.receipt_id;
@@ -278,6 +298,10 @@ Deno.serve(async (request) => {
       const purchaseType = session ? purchaseTypeFromSession(session) : null;
       if (!session || !purchaseType) {
         return jsonResponse({ error: "Refund purchase type is missing" }, 400);
+      }
+      if (purchaseType === "paid_version") {
+        if(charge.currency!==CURRENCY||charge.amount_refunded!==session.amount_total)return jsonResponse({error:"Version refund mismatch"},400);
+        return await processVersionPayment(session,true);
       }
       if (purchaseType === "initial_publication" || purchaseType === "guest_capacity_upgrade") {
         if (charge.currency !== CURRENCY || charge.amount_refunded !== session.amount_total) {

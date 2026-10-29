@@ -30,7 +30,7 @@ export async function setupGuestPricingDb(db) {
       stripe_checkout_session_id text unique,stripe_payment_intent_id text unique,paid_at timestamptz,created_at timestamptz default now(),updated_at timestamptz default now(),
       constraint project_payments_amount_cents_check check(amount_cents=2490));
     create table public.rsvp_addon_purchases(id uuid primary key default extensions.gen_random_uuid(),project_id uuid not null unique references public.projects(id),
-      owner_id uuid not null,status text not null default 'unpaid',amount_cents integer not null default 990,currency text not null default 'eur',
+      owner_id uuid not null,status text not null default 'unpaid',amount_cents integer not null default 990 check(amount_cents>0),currency text not null default 'eur',
       stripe_checkout_session_id text unique,stripe_payment_intent_id text unique,paid_at timestamptz,created_at timestamptz default now(),updated_at timestamptz default now());
     alter table public.projects enable row level security;
     alter table public.project_payments enable row level security;

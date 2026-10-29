@@ -778,6 +778,10 @@ export interface ParticleConfig {
 }
 
 export interface WeddingProject {
+  publicationPolicy?: "legacy" | "paid_versions";
+  activeVersionId?: string;
+  activeVersionNumber?: number;
+  hasVersionDraft?: boolean;
   /** Card-only private Storage path; never serialized into editable project_data. */
   previewVideoPath?: string | null;
   id: string;

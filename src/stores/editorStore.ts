@@ -20,8 +20,9 @@ import type { PreviewDevice } from "../config/previewDevices";
 import { PREVIEW_DEVICES } from "../config/previewDevices";
 import { isValidGuestCount } from "../config/pricing";
 
-import { startProjectCheckout } from "../services/projectRepository";
+import { refreshRemoteProject, startProjectCheckout } from "../services/projectRepository";
 import { getProject, remoteErrorSummary, syncProject, upsertProject } from "../utils/storage";
+import { applySavedPublicationAuthority, isPublishedDesignLocked, type PublicationCheckoutOptions } from "../features/publication/publicationState";
 import {
   getElementLayout,
   getElementSectionId,
@@ -186,7 +187,7 @@ interface EditorState {
 
   save: () => void;
 
-  checkoutAndPublish: (guestCount: number, promoCode?: string) => Promise<string | null>;
+  checkoutAndPublish: (guestCount: number, promoCode?: string, options?: PublicationCheckoutOptions) => Promise<string | null>;
 
   setSaveStatus: (
     status: SaveStatus
@@ -305,7 +306,7 @@ const mutateProject = (
     ? state.selectedElementIds
     : selectedElementId ? [selectedElementId] : [],
 ) => {
-  if (!state.project) {
+  if (!state.project || isPublishedDesignLocked(state.project)) {
     return {};
   }
 
@@ -1352,11 +1353,7 @@ export const useEditorStore =
           project
         )
           .then(
-            () =>
-              set({
-                saveStatus:
-                  "saved",
-              })
+            (saved) => set(state=>({saveStatus:state.project?.updatedAt===project.updatedAt?"saved":"idle",project:state.project?.id===saved.id?applySavedPublicationAuthority(state.project,saved,project):state.project}))
           )
           .catch(
             (error) => {
@@ -1367,13 +1364,13 @@ export const useEditorStore =
 
               set({
                 saveStatus:
-                  "saved",
+                  "idle",
               });
             }
           );
       },
 
-      checkoutAndPublish: async (guestCount, promoCode) => {
+      checkoutAndPublish: async (guestCount, promoCode, options) => {
         if (get().project && isDiscoveryProject(get().project!)) { requestDiscoveryAccount("publish"); return null; }
         if (useDiscoverySession.getState().converting) throw new Error("Attendez la sauvegarde complète avant de publier.");
         if (!isValidGuestCount(guestCount)) throw new Error("Nombre d’invités invalide.");
@@ -1419,12 +1416,21 @@ export const useEditorStore =
           normalized.paymentStatus === "paid" &&
           normalized.status === "published" &&
           normalized.publicId &&
+          options?.kind !== "paid_version" &&
           (normalized.purchasedGuestCapacity == null || guestCount <= normalized.purchasedGuestCapacity)
         ) {
           return null;
         }
 
-        return startProjectCheckout(normalized.id, guestCount, promoCode);
+        const url = await startProjectCheckout(normalized.id, guestCount, promoCode, options);
+        if (url === null) {
+          const confirmed = await refreshRemoteProject(normalized.id);
+          if (!confirmed || confirmed.paymentStatus !== "paid" || !confirmed.publicId) throw new Error("La publication n’est pas encore confirmée.");
+          const current = normalizeProject(confirmed);
+          upsertProject(current);
+          set({ project: current, saveStatus: "saved" });
+        }
+        return url;
       },
 
       setSaveStatus: (

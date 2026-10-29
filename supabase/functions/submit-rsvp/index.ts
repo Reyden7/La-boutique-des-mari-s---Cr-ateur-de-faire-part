@@ -103,7 +103,7 @@ Deno.serve(async (request) => {
     );
     const { data: project, error: projectError } = await admin
       .from("projects")
-      .select("id, owner_id, name, project_data, status, payment_status, expires_at, recipient_links_required")
+      .select("id, owner_id, name, project_data, status, payment_status, expires_at, recipient_links_required, publication_policy")
       .eq("public_id", body.publicId)
       .maybeSingle();
     if (projectError) throw projectError;
@@ -116,7 +116,13 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: "Invitation unavailable" }, 404, true);
     }
 
-    const rsvp = project.project_data?.rsvp;
+    let rsvp = project.project_data?.rsvp;
+    if (project.publication_policy === "paid_versions") {
+      const live=await admin.rpc(body.recipientToken?"get_recipient_invitation":"get_public_project",body.recipientToken?{p_public_id:body.publicId,p_token:body.recipientToken}:{p_public_id:body.publicId});
+      if(live.error)throw live.error;
+      rsvp=(body.recipientToken?live.data?.project:live.data)?.project_data?.rsvp;
+      if(!rsvp)return jsonResponse({error:"Published form unavailable"},404,true);
+    }
     let recipient: {displayName:string;guestCount:number} | null = null;
     if(body.recipientToken) {
       if(typeof body.recipientToken!=="string"||!/^[a-f0-9]{64}$/.test(body.recipientToken)) return jsonResponse({error:"Invitation unavailable"},404,true);

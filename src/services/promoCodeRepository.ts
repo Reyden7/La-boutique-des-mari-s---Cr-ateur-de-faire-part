@@ -25,7 +25,7 @@ export async function listPromoCodes(): Promise<PromoCodeRecord[]> {
 export async function savePromoCode(id: string | null, code: string, rate: number): Promise<PromoCodeRecord> {
   const normalized = normalizePromoCode(code);
   if (!normalized || normalized.length > 64) throw new Error("Indiquez un code de 1 à 64 caractères.");
-  if (!isValidDiscountValue(rate)) throw new Error("La réduction doit être comprise entre 1 et 90 %, avec deux décimales maximum.");
+  if (!isValidDiscountValue(rate)) throw new Error("La réduction doit être comprise entre 1 et 100 %, avec deux décimales maximum.");
   const api = await client();
   const values = { code: normalized, discount_value: rate };
   const query = id ? api.from("promo_codes").update(values).eq("id", id).eq("is_active", true) : api.from("promo_codes").insert(values);

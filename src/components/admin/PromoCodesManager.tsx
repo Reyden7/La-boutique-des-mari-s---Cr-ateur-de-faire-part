@@ -25,7 +25,7 @@ export function PromoCodesManager({ api = productionApi }: { api?: typeof produc
     if (lock.current) return;
     setError(""); setMessage("");
     if (!normalizePromoCode(code) || code.trim().length > 64) { setError("Indiquez un code de 1 à 64 caractères."); return; }
-    if (!rate.trim() || !isValidDiscountValue(Number(rate))) { setError("La réduction doit être comprise entre 1 et 90 %, avec deux décimales maximum."); return; }
+    if (!rate.trim() || !isValidDiscountValue(Number(rate))) { setError("La réduction doit être comprise entre 1 et 100 %, avec deux décimales maximum."); return; }
     lock.current = true; setBusy(true);
     try {
       const saved = await api.save(editing?.id ?? null, code, Number(rate));
@@ -50,7 +50,7 @@ export function PromoCodesManager({ api = productionApi }: { api?: typeof produc
     <form className="promo-admin-form" onSubmit={(event) => { event.preventDefault(); void save(); }}>
       <h2>{editing ? `Modification du code : ${editing.code}` : "Nouveau code promo"}</h2>
       <label className="field"><span>Code promo</span><input maxLength={64} value={code} disabled={busy || loading} onChange={(event) => setCode(event.target.value)} placeholder="INFLUENCEUR10" /></label>
-      <label className="field"><span>Réduction (%)</span><input type="number" step="0.01" value={rate} disabled={busy || loading} onChange={(event) => setRate(event.target.value)} placeholder="10" /></label>
+      <label className="field"><span>Réduction (%)</span><input type="number" min="1" max="100" step="0.01" value={rate} disabled={busy || loading} onChange={(event) => setRate(event.target.value)} placeholder="10" /></label>
       <div className="promo-actions"><button className="primary" disabled={busy || loading} type="submit">{busy ? "Enregistrement…" : editing ? "Modifier le code" : "Ajouter le code"}</button>{editing && <button disabled={busy} type="button" onClick={() => { clear(); setError(""); setMessage(""); }}>Annuler</button>}</div>
     </form>
     {message && <p className="template-admin-message" role="status">{message}</p>}

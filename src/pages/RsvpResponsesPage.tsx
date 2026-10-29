@@ -1,12 +1,21 @@
 import { ArrowLeft, Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { loadRsvpResponses, type RsvpResponseRow } from "../services/rsvpRepository";
+import { loadRsvpResponses, loadRsvpResponseHistory, type RsvpResponseRow } from "../services/rsvpRepository";
 import { loadRemoteProjects } from "../services/projectRepository";
 import { loadInvitationRecipients } from "../services/recipientRepository";
 import type { WeddingProject } from "../types/editor";
 import { csvCell, recipientTotals, type InvitationRecipient } from "../features/recipients/recipientData";
 import "../features/recipients/recipients.css";
+
+function ResponseHistory({projectId,response}:{projectId:string;response:RsvpResponseRow}) {
+  const [history,setHistory]=useState<Awaited<ReturnType<typeof loadRsvpResponseHistory>>|null>(null),[error,setError]=useState("");
+  return <div><small>{response.questionnaire_snapshot?"Questionnaire conservé avec cette réponse.":"Réponse historique : libellés d’origine conservés ; questionnaire complet non enregistré à l’époque."}</small>
+    <button onClick={()=>void loadRsvpResponseHistory(projectId,response.id).then(setHistory).catch(()=>setError("Historique indisponible."))}>Historique des réponses</button>
+    {error&&<p role="alert">{error}</p>}{history?.length===0&&<p>Aucune modification archivée.</p>}
+    {history?.map(item=><article key={item.id}><time>{new Date(item.answered_at).toLocaleString("fr-FR")}</time>{Object.entries(item.answers).map(([key,value])=><p key={key}><strong>{key} : </strong>{Array.isArray(value)?value.join(", "):String(value??"—")}</p>)}</article>)}
+  </div>;
+}
 
 export function RsvpResponsesPage() {
   const {projectId}=useParams();const [selected,setSelected]=useState(projectId??"");
@@ -28,7 +37,7 @@ export function RsvpResponsesPage() {
     }),...responses.filter(row=>!row.recipient_id).map(row=>["Réponse historique","","Historique","",row.created_at,row.updated_at??"",...keys.map(key=>row.answers[key]??"")])];
     const url=URL.createObjectURL(new Blob(["\uFEFF",rows.map(row=>row.map(csvCell).join(";")).join("\r\n")],{type:"text/csv;charset=utf-8"}));const anchor=document.createElement("a");anchor.href=url;anchor.download="reponses-formulaire.csv";anchor.click();URL.revokeObjectURL(url);
   };
-  const responseDetail=(response:RsvpResponseRow)=> <article className="response-detail"><time>Réponse du {new Date(response.created_at).toLocaleString("fr-FR")} · Dernière modification : {new Date(response.updated_at??response.created_at).toLocaleString("fr-FR")}</time>{Object.entries(response.answers).map(([key,value])=><p key={key}><strong>{key} : </strong>{Array.isArray(value)?value.join(", "):String(value??"—")}</p>)}</article>;
+  const responseDetail=(response:RsvpResponseRow)=> <article className="response-detail"><time>Réponse du {new Date(response.created_at).toLocaleString("fr-FR")} · Dernière modification : {new Date(response.updated_at??response.created_at).toLocaleString("fr-FR")}</time>{Object.entries(response.answers).map(([key,value])=><p key={key}><strong>{key} : </strong>{Array.isArray(value)?value.join(", "):String(value??"—")}</p>)}<ResponseHistory projectId={selected} response={response}/></article>;
   return <main className="responses-page"><header><Link to={projectId?`/studio/${projectId}`:"/"}><ArrowLeft size={16}/> Retour</Link><h1>Réponses au formulaire</h1><button disabled={loading||(!responses.length&&!recipients.length)} onClick={exportCsv}><Download size={15}/> Exporter CSV</button></header>
     <label>Faire-part<select value={selected} onChange={event=>setSelected(event.target.value)}><option value="">Choisir un faire-part</option>{projects.map(project=><option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
     {error&&<p className="form-error" role="alert">{error}</p>}{loading?<p>Chargement des réponses…</p>:error?null:<>

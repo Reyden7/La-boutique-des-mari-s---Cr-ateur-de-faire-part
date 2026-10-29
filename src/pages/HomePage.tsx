@@ -16,6 +16,7 @@ import { flushPreviewVideoCleanup } from "../services/previewVideoRepository";
 import { beginDiscoverySession } from "../features/discovery/discoverySession";
 import { useEditorStore } from "../stores/editorStore";
 import { TutorialWelcome } from "../features/tutorial/TutorialWelcome";
+import { publicationVersionLabel } from "../features/publication/publicationState";
 
 const formatDate = (value: string) => new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", year: "numeric" }).format(new Date(value));
 
@@ -90,6 +91,10 @@ export function HomePage() {
     delete copy.purchasedExtraBlocks;
     delete copy.publicationLicenseId;
     delete copy.previewVideoPath; // a private path is not shared with a new project ID
+    delete copy.publicationPolicy;
+    delete copy.activeVersionId;
+    delete copy.activeVersionNumber;
+    delete copy.hasVersionDraft;
     upsertProject(copy);
     setProjects((values) => [copy, ...values]);
   };
@@ -136,7 +141,7 @@ export function HomePage() {
           const cover = project.pages[0];
           const background = cover?.background;
           const coverStyle = background?.type === "gradient" && background.gradient ? { background: `linear-gradient(${background.gradient.angle ?? 135}deg, ${background.gradient.color1}, ${background.gradient.color2})` } : { background: background?.color ?? "#f5efe8" };
-          return <article className={`project-card ${isLegacyLocal ? "legacy-local-project" : ""}`} key={project.id}><HoverVideoThumbnail videoPath={project.previewVideoPath} alt={project.name}><button className="project-preview" style={coverStyle} disabled={isLegacyLocal} onClick={() => navigate(`/studio/${project.id}`)}>{isLegacyLocal && <span className="legacy-project-badge">Projet local à associer</span>}{cover?.elements.filter((element) => element.type === "text").slice(0, 2).map((element) => element.type === "text" && <span key={element.id} style={{ fontFamily: element.fontFamily, color: element.color }}>{element.text}</span>)}</button></HoverVideoThumbnail><div className="project-card-body"><div><strong>{project.name}</strong><span>Modifié le {formatDate(project.updatedAt)}</span></div>{isLegacyLocal ? <button className="claim-project-button" disabled={claimingId === project.id} onClick={() => void claimProject(project)}><UserRoundCheck size={15} /> {claimingId === project.id ? "Association…" : "Associer"}</button> : <div className="project-menu"><button title="Vidéo de présentation" onClick={() => setVideoProject(project)}><Video size={15} /></button><button title="Dupliquer" onClick={() => duplicate(project)}><Copy size={15} /></button><button title="Supprimer" onClick={() => { if (window.confirm("Supprimer ce projet ?")) { deleteProject(project.id); setProjects((values) => values.filter((item) => item.id !== project.id)); } }}><Trash2 size={15} /></button><MoreHorizontal size={17} /></div>}</div></article>;
+          return <article className={`project-card ${isLegacyLocal ? "legacy-local-project" : ""}`} key={project.id}><HoverVideoThumbnail videoPath={project.previewVideoPath} alt={project.name}><button className="project-preview" style={coverStyle} disabled={isLegacyLocal} onClick={() => navigate(`/studio/${project.id}`)}>{isLegacyLocal && <span className="legacy-project-badge">Projet local à associer</span>}{cover?.elements.filter((element) => element.type === "text").slice(0, 2).map((element) => element.type === "text" && <span key={element.id} style={{ fontFamily: element.fontFamily, color: element.color }}>{element.text}</span>)}</button></HoverVideoThumbnail><div className="project-card-body"><div><strong>{project.name}</strong>{project.activeVersionId&&<span>{publicationVersionLabel(project)}</span>}<span>Modifié le {formatDate(project.updatedAt)}</span></div>{isLegacyLocal ? <button className="claim-project-button" disabled={claimingId === project.id} onClick={() => void claimProject(project)}><UserRoundCheck size={15} /> {claimingId === project.id ? "Association…" : "Associer"}</button> : <div className="project-menu"><button title="Vidéo de présentation" onClick={() => setVideoProject(project)}><Video size={15} /></button><button title="Dupliquer" onClick={() => duplicate(project)}><Copy size={15} /></button><button title="Supprimer" onClick={() => { if (window.confirm("Supprimer ce projet ?")) { deleteProject(project.id); setProjects((values) => values.filter((item) => item.id !== project.id)); } }}><Trash2 size={15} /></button><MoreHorizontal size={17} /></div>}</div></article>;
         })}</div></section>}
         {!loadingProjects && projects.length === 0 && <section className="empty-projects"><div className="empty-ornament">B</div><h2>Votre premier faire-part vous attend</h2><p>Partez d’un modèle pensé pour le mariage, puis faites-le entièrement vôtre.</p><button onClick={() => setCreating(true)}>Découvrir les modèles <ArrowRight size={16} /></button></section>}
       </main>

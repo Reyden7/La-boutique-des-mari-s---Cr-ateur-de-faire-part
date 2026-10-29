@@ -1,8 +1,9 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {registerHooks} from 'node:module';
 let submitted,fail=false;const token='a'.repeat(64),publicId='synthetic-public-event',owner='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const project={id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',owner_id:owner,name:'Fête test',status:'published',payment_status:'paid',expires_at:null,recipient_links_required:true,project_data:{rsvp:{enabled:true,fields:[{id:'presence',label:'Présence',type:'single_choice',required:true,options:['Présent','Pas présent']},{id:'people',label:'Nombre de personnes',type:'number',required:true},{id:'custom',label:'Question personnelle',type:'long_text',required:false}]}}};
+const publishedRsvp=structuredClone(project.project_data.rsvp);
 globalThis.__recipientEdgeClient={auth:{admin:{getUserById:async()=>({data:{user:null},error:null})}},from(table){const chain={select:()=>chain,eq:()=>chain,maybeSingle:async()=>({data:table==='projects'?project:{id:'paid-addon'},error:null})};return chain;},rpc:async(name,args)=>{
- if(name==='get_recipient_invitation')return{data:args.p_token===token?{recipient:{displayName:'Famille Martin',guestCount:4}}:null,error:null};
+ if(name==='get_recipient_invitation')return{data:args.p_token===token?{project:{project_data:{rsvp:publishedRsvp}},recipient:{displayName:'Famille Martin',guestCount:4}}:null,error:null};
  if(name==='submit_recipient_rsvp'){submitted=args;return{data:null,error:fail?{message:'RESPONSE_LOCKED'}:null};}throw new Error('Unexpected RPC');
 }};
 const env={SUPABASE_URL:'https://local.invalid',SUPABASE_SERVICE_ROLE_KEY:'mock_only'};let handler;
@@ -17,4 +18,9 @@ test('personal RSVP rejects overflow, missing/wrong token, mismatched decline an
  for(const body of [{presentCount:5},{presentCount:-1},{presentCount:1.5},{attendance:'declined',presentCount:1},{attendance:'confirmed',presentCount:0},{answers:{other:'forged'}},{recipientToken:'b'.repeat(64)},{recipientToken:'not-a-token'},{recipientToken:undefined}])assert.ok((await send(body)).status>=400);
 });
 test('locked/database failures never report a successful response',async()=>{fail=true;assert.equal((await send({})).status,500);fail=false;});
+test('unpaid draft schema never changes the public RSVP fields or visibility',async()=>{
+ project.publication_policy='paid_versions';const original=project.project_data.rsvp;project.project_data.rsvp={enabled:false,fields:[]};
+ assert.equal((await send({})).status,200);assert.equal(submitted.p_answers['Question personnelle'],'Sans gluten');
+ project.project_data.rsvp=original;delete project.publication_policy;
+});
 test.after(()=>{hooks.deregister();delete globalThis.Deno;delete globalThis.__recipientEdgeClient;});

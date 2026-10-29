@@ -1,0 +1,18 @@
+.publication-history { background:#fffaf4; color:#4b4038; border-radius:18px; padding:26px; width:min(850px,94vw); max-height:90dvh; overflow:auto; }
+.publication-history article { padding:16px 0; border-bottom:1px solid #d8cbbc; }
+.publication-history button,.published-design-view button { margin:6px; padding:10px 14px; border:1px solid #d8cbbc; border-radius:8px; background:#fffdf9; color:#5a4737; }
+.publication-warning { padding:16px; background:#f3eadf; border:1px solid #d8cbbc; border-radius:9px; margin:14px 0; }
+.published-design-view { min-height:100dvh; background:#f4eee6; }
+.published-design-view .top-toolbar { position:relative; flex-wrap:wrap; }
+.published-design-info { max-width:950px; margin:auto; padding:30px 18px; }
+.published-design-paper { width:min(480px,100%); margin:20px auto; pointer-events:none; }
+.publication-badge { font-size:12px; color:#745b44; display:block; padding-top:4px; }
+.publication-mobile-actions { display:none; }
+@media(max-width:1050px) {
+ .top-toolbar .toolbar-actions > .publication-secondary-action { display:none; }
+ .studio-layout.publication-has-version { grid-template-rows:auto minmax(0,1fr); }
+ .top-toolbar.publication-has-version { grid-template-rows:58px auto; }
+ .publication-mobile-actions { display:flex; flex-wrap:wrap; gap:6px; padding:6px 10px; grid-column:1 / -1; }
+ .publication-mobile-actions button { min-height:34px; padding:6px 9px; border:1px solid #d8cbbc; border-radius:8px; background:#fffaf4; color:#5a4737; font-size:11px; }
+}
+@media(max-width:600px) { .publication-history { padding:16px; }.publication-history button { display:block; width:100%; margin:8px 0; } }

@@ -4,6 +4,7 @@ import { normalizeProject } from "./storage";
 import { withoutProjectAnimationDelays } from "./animationData";
 
 const runtimeKeys = [
+  "publicationPolicy", "activeVersionId", "activeVersionNumber", "hasVersionDraft",
   "guestList", "recipients", "invitationRecipients", "recipientTokens",
   "previewVideoPath", "previewVideoUrl", "preview_video_path", "preview_video_url",
   "id", "ownerId", "owner_id", "name", "createdAt", "created_at", "updatedAt", "updated_at",

@@ -3,6 +3,8 @@ import { isSupabaseConfigured, requireSupabaseSession, supabase } from "../lib/s
 import { PRICING, PRICING_CHANGED_MESSAGE } from "../../supabase/functions/_shared/pricing.ts";
 import { flushPreviewVideoCleanup } from "./previewVideoRepository";
 import { hasTemporaryReferences, isDiscoveryProject } from "../features/discovery/discoverySession.ts";
+import type { PublicationCheckoutOptions } from "../features/publication/publicationState";
+import { PUBLICATION_TERMS } from "../../supabase/functions/_shared/publicationVersions.ts";
 
 export interface ProjectRow {
   id: string;
@@ -20,11 +22,20 @@ export interface ProjectRow {
   purchased_guest_capacity?: number | null;
   purchased_extra_blocks?: number | null;
   publication_license_id?: string | null;
+  publication_policy?: WeddingProject["publicationPolicy"];
+  active_version_id?: string | null;
+  active_version_number?: number;
+  has_version_draft?: boolean;
 }
 
 interface CheckoutResponse {
   pricingVersion?: string;
-  url: string;
+  url?: string;
+  kind?: "free_publication";
+  completed?: boolean;
+  transactionId?: string;
+  projectId?: string;
+  publicationVersionId?: string | null;
 }
 
 interface PublicProjectRow {
@@ -51,6 +62,10 @@ export const projectFromRow = (row: ProjectRow): WeddingProject => ({
   purchasedGuestCapacity: row.purchased_guest_capacity ?? undefined,
   purchasedExtraBlocks: row.purchased_extra_blocks ?? undefined,
   publicationLicenseId: row.publication_license_id ?? undefined,
+  publicationPolicy: row.publication_policy,
+  activeVersionId: row.active_version_id ?? undefined,
+  activeVersionNumber: row.active_version_number,
+  hasVersionDraft: row.has_version_draft ?? false,
 } as WeddingProject);
 
 const editableProjectData = (project: WeddingProject): Partial<WeddingProject> => {
@@ -64,6 +79,10 @@ const editableProjectData = (project: WeddingProject): Partial<WeddingProject> =
   delete data.purchasedGuestCapacity;
   delete data.purchasedExtraBlocks;
   delete data.publicationLicenseId;
+  delete data.publicationPolicy;
+  delete data.activeVersionId;
+  delete data.activeVersionNumber;
+  delete data.hasVersionDraft;
   return data;
 };
 
@@ -161,11 +180,12 @@ export async function deleteRemoteProject(projectId: string) {
   await flushPreviewVideoCleanup().catch(() => undefined);
 }
 
-export async function startProjectCheckout(projectId: string, guestCount: number, promoCode?: string) {
+export async function startProjectCheckout(projectId: string, guestCount: number, promoCode?: string, options?: PublicationCheckoutOptions) {
   if (!supabase) throw new Error("Supabase n’est pas configuré.");
   await requireSupabaseSession();
   const { data, error } = await supabase.functions.invoke<CheckoutResponse>("create-checkout-session", {
-    body: { projectId, guestCount, pricingVersion: PRICING.version, ...(promoCode ? { promoCode } : {}) },
+    body: { projectId, guestCount, pricingVersion: PRICING.version, ...(promoCode ? { promoCode } : {}),
+      ...(options?{purchaseKind:options.kind,publicationTerms:options.termsAccepted?PUBLICATION_TERMS:undefined,expectedAmount:options.expectedAmount}:{}) },
   });
   if (error) {
     if (error.context instanceof Response) {
@@ -175,15 +195,22 @@ export async function startProjectCheckout(projectId: string, guestCount: number
     }
     throw error;
   }
+  if (data?.pricingVersion !== PRICING.version) throw new Error(PRICING_CHANGED_MESSAGE);
+  if (data.kind === "free_publication") {
+    if (!data.completed || !data.transactionId || data.projectId !== projectId || options?.kind !== "initial_publication" || options.expectedAmount !== 0) throw new Error("Confirmation de publication gratuite invalide.");
+    const project = await refreshRemoteProject(projectId);
+    if (!project || project.paymentStatus !== "paid" || project.status !== "published" || !project.publicId
+      || (project.activeVersionId ?? null) !== (data.publicationVersionId ?? null)) throw new Error("La confirmation de publication est en cours. Actualisez le projet.");
+    return null;
+  }
   if (!data?.url) throw new Error("Stripe n’a retourné aucune URL de paiement.");
-  if (data.pricingVersion !== PRICING.version) throw new Error(PRICING_CHANGED_MESSAGE);
   return data.url;
 }
 
-export async function guestCheckoutIsPaid(projectId: string, sessionId: string) {
+export async function guestCheckoutIsPaid(projectId: string, sessionId: string, versionPublication = false) {
   if (!supabase) return false;
   await requireSupabaseSession();
-  const { data, error } = await supabase.from("guest_license_payments").select("status")
+  const { data, error } = await supabase.from(versionPublication ? "publication_version_payments" : "guest_license_payments").select("status")
     .eq("project_id", projectId).eq("stripe_checkout_session_id", sessionId).maybeSingle<{ status: string }>();
   if (error) throw error;
   return data?.status === "paid";
