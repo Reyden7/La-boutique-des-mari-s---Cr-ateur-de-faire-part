@@ -5,6 +5,8 @@ import { normalizeProject } from "../../utils/storage";
 import { instantiateProjectFromTemplate } from "../../utils/templateSnapshot";
 import type { WeddingProject } from "../../types/editor";
 import { hasTemporaryReferences, isDiscoveryProject, mapDiscoveryReferences, temporaryDiscoveryAssets, useDiscoverySession } from "./discoverySession";
+import { useRecipientLists, setRecipientList } from "../recipients/recipientStore";
+import { loadInvitationRecipients, saveInvitationRecipients } from "../../services/recipientRepository";
 
 let target: { draftId: string; ownerId: string; project: WeddingProject; created: boolean; references: Map<string, string> } | null = null;
 let inFlight: Promise<{ project: WeddingProject; references: Map<string, string> }> | null = null;
@@ -43,6 +45,12 @@ export function persistGuestDraftAfterAuth(draft: WeddingProject, userId: string
     const complete = mapDiscoveryReferences(candidate, current.references);
     if (hasTemporaryReferences(complete)) throw new Error("Un fichier temporaire n’a pas pu être transféré. Réessayez sans quitter l’éditeur.");
     const saved = await saveRemoteProject(complete);
+    const recipients = useRecipientLists.getState().lists[`guest:${draft.id}`];
+    if (recipients?.recipients.length) {
+      const currentList = await loadInvitationRecipients(saved.id);
+      const transferred = await saveInvitationRecipients(saved.id, currentList.revision, recipients.recipients);
+      setRecipientList(`${userId}:${saved.id}`, transferred);
+    }
     await verify();
     return { project: saved, references: current.references };
   };

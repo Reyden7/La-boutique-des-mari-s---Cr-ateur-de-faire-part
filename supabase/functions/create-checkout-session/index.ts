@@ -35,7 +35,6 @@ Deno.serve(async (request) => {
       || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.projectId)) {
       return jsonResponse({ error: "A valid projectId is required" }, 400, true);
     }
-    if (!isValidGuestCount(body.guestCount)) return jsonResponse({ error: "Invalid guestCount: use an integer between 1 and 100000" }, 400, true);
     // A version handshake prevents a cached old UI showing a different tariff.
     // It never trusts any price/total supplied by the browser.
     if (body.pricingVersion !== PRICING.version) return jsonResponse({ error: PRICING_CHANGED_MESSAGE, code: "pricing_changed" }, 409, true);
@@ -46,6 +45,10 @@ Deno.serve(async (request) => {
     if (projectError) throw projectError;
     if (!project) return jsonResponse({ error: "Project not found" }, 404, true);
     if (project.owner_id !== auth.user.id) return jsonResponse({ error: "Forbidden" }, 403, true);
+    const total = await admin.rpc("recipient_checkout_total", { p_project_id: projectId, p_owner_id: auth.user.id });
+    if (total.error) throw total.error;
+    const guestCount = total.data;
+    if (!isValidGuestCount(guestCount)) return jsonResponse({ error: "Ajoutez au moins un destinataire à votre liste avant de publier votre faire-part." }, 400, true);
     if (project.payment_status === "refunded") return jsonResponse({ error: "Refunded projects require support" }, 409, true);
     const isUpgrade = project.payment_status === "paid";
     if (body.promoCode != null && typeof body.promoCode !== "string") return jsonResponse({ error: "Code invalide ou indisponible." }, 400, true);
@@ -63,7 +66,7 @@ Deno.serve(async (request) => {
       if (project.status !== "published" || project.purchased_guest_capacity == null) {
         return jsonResponse({ error: "Historical or inactive licence: no automatic guest charge", code: "already_paid" }, 409, true);
       }
-      const upgrade = calculateGuestUpgrade(project.purchased_guest_capacity, body.guestCount);
+      const upgrade = calculateGuestUpgrade(project.purchased_guest_capacity, guestCount);
       if (!upgrade.additionalGuests) return jsonResponse({ error: "Capacity already covered", code: "capacity_covered" }, 409, true);
     } else if (project.status === "published") return jsonResponse({ error: "Project already published" }, 409, true);
 
@@ -84,7 +87,7 @@ Deno.serve(async (request) => {
       if (existing.status === "complete" || existing.payment_status === "paid") {
         return jsonResponse({ error: "Payment confirmation is in progress", code: "confirmation_pending" }, 409, true);
       }
-      if (pending.pricing_version === PRICING.version && existing.status === "open" && existing.url && pending.guest_count === body.guestCount
+      if (pending.pricing_version === PRICING.version && existing.status === "open" && existing.url && pending.guest_count === guestCount
         && pending.has_form === includesForm && pending.purchase_type === (isUpgrade ? "guest_capacity_upgrade" : "initial_publication")
         && (!isUpgrade || pending.previous_guest_capacity === project.purchased_guest_capacity)
         && (pending.promo_code_id ?? null) === (promo?.id ?? null)
@@ -110,7 +113,7 @@ Deno.serve(async (request) => {
       }
     }
     const { data: receipt, error: reserveError } = await admin.rpc("reserve_guest_checkout_v2", {
-      p_project_id: projectId, p_owner_id: auth.user.id, p_guest_count: body.guestCount,
+      p_project_id: projectId, p_owner_id: auth.user.id, p_guest_count: guestCount,
       p_previous_session_id: pending?.stripe_checkout_session_id ?? null,
       p_promo_code: promoCode || null,
     });

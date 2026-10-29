@@ -10,7 +10,7 @@ const ownerId = "22222222-2222-4222-8222-222222222222";
 let mock;
 const reset = (form = false) => {
   mock = {
-    user: { id: ownerId, is_anonymous: false },
+    user: { id: ownerId, is_anonymous: false }, listTotal: 40,
     project: {id:projectId,owner_id:ownerId,status:"draft",payment_status:"unpaid",project_data:{rsvp:{enabled:form}},purchased_guest_capacity:null,purchased_extra_blocks:null},
     receipts: [], publication: null, form: null, sessions: {}, calls: [], rejectReservation: false,
     promos: [{id:"44444444-4444-4444-8444-444444444444",code:"WP21",discount_value:10,is_active:true}], invalidateOnReserve: false,
@@ -40,6 +40,7 @@ function query(table) {
 const client = {
   auth: {getUser:async () => ({data:{user:mock.user},error:null})}, from: query,
   rpc: async (name,params) => {
+    if (name === "recipient_checkout_total") return {data:mock.listTotal,error:null};
     mock.calls.push({kind:"rpc",name,params});
     if (name !== "reserve_guest_checkout_v2") return {data:null,error:null};
     if (mock.rejectReservation) return {data:null,error:{code:"P0001",message:"CHECKOUT_BUSY"}};
@@ -104,14 +105,14 @@ const hooks = registerHooks({
 current="checkout";await import("../supabase/functions/create-checkout-session/index.ts");
 current="webhook";await import("../supabase/functions/stripe-webhook/index.ts");
 current="validate";await import("../supabase/functions/validate-promo-code/index.ts");
-const checkout = (body,auth=true) => handlers.checkout(new Request("https://edge.invalid",{method:"POST",headers:{"Content-Type":"application/json",...(auth?{Authorization:"Bearer token"}:{})},body:JSON.stringify({pricingVersion:"guest-v2",...body})}));
+const checkout = (body,auth=true) => { const {listGuestCount,...payload}=body;if ("listGuestCount" in body) mock.listTotal=listGuestCount;return handlers.checkout(new Request("https://edge.invalid",{method:"POST",headers:{"Content-Type":"application/json",...(auth?{Authorization:"Bearer token"}:{})},body:JSON.stringify({pricingVersion:"guest-v2",...payload})})); };
 const webhook = (type,object,signature="valid-test-signature") => handlers.webhook(new Request("https://edge.invalid",{method:"POST",headers:{"Stripe-Signature":signature},body:JSON.stringify({type,data:{object}})}));
 const calls = (kind) => mock.calls.filter((call)=>call.kind===kind);
 
 test("real Checkout handler computes per-guest prices, ignores client amount and generates complete server quote metadata", async () => {
   for (const guests of [1,40,41,42,45,47,48,50,53,54,55,60,80,100]) for (const form of [false,true]) {
     reset(form);
-    assert.equal((await checkout({projectId,guestCount:guests,amount:1,extraBlocks:0,hasForm:false})).status,200);
+    assert.equal((await checkout({projectId,listGuestCount:guests,amount:1,extraBlocks:0,hasForm:false})).status,200);
     const {params,options} = calls("stripe-create")[0];
     assert.equal(params.line_items.reduce((sum,item)=>sum+item.quantity*item.price_data.unit_amount,0),calculateTotalPricing(guests,form).totalPriceCents);
     assert.equal(params.metadata.has_form,String(form)); assert.equal(params.metadata.guest_count,String(guests));
@@ -130,27 +131,27 @@ test("real Checkout handler computes per-guest prices, ignores client amount and
     assert.match(options.idempotencyKey,/^guest-license-/);
   }
 });
-test("invalid guest count, absent/anonymous session or another owner's project never create Checkout", async () => {
-  for (const count of [null,0,-1,1.1,"40",100001]) {reset();assert.equal((await checkout({projectId,guestCount:count})).status,400);assert.equal(calls("stripe-create").length,0);}
-  reset();assert.equal((await checkout({projectId,guestCount:40},false)).status,401);
-  reset();mock.user.is_anonymous=true;assert.equal((await checkout({projectId,guestCount:40})).status,401);
-  reset();mock.project.owner_id="other";assert.equal((await checkout({projectId,guestCount:40})).status,403);
+test("invalid persisted guest total, absent/anonymous session or another owner's project never create Checkout", async () => {
+  for (const count of [null,0,-1,1.1,"40",100001]) {reset();assert.equal((await checkout({projectId,listGuestCount:count})).status,400);assert.equal(calls("stripe-create").length,0);}
+  reset();assert.equal((await checkout({projectId,listGuestCount:40},false)).status,401);
+  reset();mock.user.is_anonymous=true;assert.equal((await checkout({projectId,listGuestCount:40})).status,401);
+  reset();mock.project.owner_id="other";assert.equal((await checkout({projectId,listGuestCount:40})).status,403);
   assert.equal(calls("stripe-create").length,0);
 });
 
 test("a stale UI cannot create a differently-priced session", async () => {
   for(const pricingVersion of [undefined,"guest-v1","unknown"]) {
-    reset();const response=await checkout({projectId,guestCount:55,pricingVersion});
+    reset();const response=await checkout({projectId,listGuestCount:55,pricingVersion});
     assert.equal(response.status,409);assert.equal((await response.json()).code,"pricing_changed");
     assert.equal(mock.calls.length,0);
   }
-  reset();const response=await checkout({projectId,guestCount:55});
+  reset();const response=await checkout({projectId,listGuestCount:55});
   assert.equal((await response.json()).pricingVersion,"guest-v2");
 });
 test("paid capacity upgrades charge only additional guests, never base or form", async () => {
   for (const [capacity,count,amount] of [[40,41,100],[40,47,700],[40,54,1400],[47,54,700],[54,60,600],[53,54,100],[54,45,0]]) {
     reset(true);Object.assign(mock.project,{payment_status:"paid",status:"published",purchased_guest_capacity:capacity,purchased_extra_blocks:(capacity-40)/7});
-    const response=await checkout({projectId,guestCount:count});
+    const response=await checkout({projectId,listGuestCount:count});
     if (!amount) {assert.equal(response.status,409);assert.equal(calls("stripe-create").length,0);continue;}
     assert.equal(response.status,200);const {params}=calls("stripe-create")[0];assert.equal(params.line_items.length,1);
     assert.equal(params.line_items[0].quantity*params.line_items[0].price_data.unit_amount,amount);
@@ -165,18 +166,18 @@ test("paid capacity upgrades charge only additional guests, never base or form",
 });
 test("legacy paid orders cannot be accidentally recharged; reservations reject concurrent attempts", async () => {
   reset();Object.assign(mock.project,{payment_status:"paid",status:"published"});
-  assert.equal((await checkout({projectId,guestCount:54})).status,409);assert.equal(calls("stripe-create").length,0);
-  reset();mock.rejectReservation=true;assert.equal((await checkout({projectId,guestCount:54})).status,409);assert.equal(calls("stripe-create").length,0);
+  assert.equal((await checkout({projectId,listGuestCount:54})).status,409);assert.equal(calls("stripe-create").length,0);
+  reset();mock.rejectReservation=true;assert.equal((await checkout({projectId,listGuestCount:54})).status,409);assert.equal(calls("stripe-create").length,0);
 });
 test("same quote reuses Checkout; a changed quote expires the old session; delayed payments are not replaced", async () => {
-  reset();await checkout({projectId,guestCount:53});mock.calls=[];
-  assert.equal((await checkout({projectId,guestCount:53})).status,200);assert.equal(calls("stripe-create").length,0);
-  assert.equal((await checkout({projectId,guestCount:54})).status,200);assert.equal(calls("expire").length,1);
-  reset();await checkout({projectId,guestCount:40});mock.calls=[];mock.sessions.cs_created.status="complete";
-  assert.equal((await checkout({projectId,guestCount:54})).status,409);assert.equal(calls("stripe-create").length,0);
+  reset();await checkout({projectId,listGuestCount:53});mock.calls=[];
+  assert.equal((await checkout({projectId,listGuestCount:53})).status,200);assert.equal(calls("stripe-create").length,0);
+  assert.equal((await checkout({projectId,listGuestCount:54})).status,200);assert.equal(calls("expire").length,1);
+  reset();await checkout({projectId,listGuestCount:40});mock.calls=[];mock.sessions.cs_created.status="complete";
+  assert.equal((await checkout({projectId,listGuestCount:54})).status,409);assert.equal(calls("stripe-create").length,0);
 });
 test("new webhook validates signature, Stripe settlement, persisted receipt, all metadata and amount", async () => {
-  reset(true);await checkout({projectId,guestCount:53});mock.calls=[];
+  reset(true);await checkout({projectId,listGuestCount:53});mock.calls=[];
   const session={...mock.sessions.cs_created,payment_status:"paid"};
   assert.equal((await webhook("checkout.session.completed",session,"bad")).status,400);assert.equal(calls("rpc").length,0);
   assert.equal((await webhook("checkout.session.completed",{...session,payment_status:"unpaid"})).status,200);assert.equal(calls("rpc").length,0);
@@ -189,7 +190,7 @@ test("new webhook validates signature, Stripe settlement, persisted receipt, all
   assert.equal(calls("rpc").at(-1).name,"fail_guest_checkout");
 });
 test("guest full refund routes to atomic refund RPC; partial refunds do not revoke publication", async () => {
-  reset(true);await checkout({projectId,guestCount:53});mock.calls=[];
+  reset(true);await checkout({projectId,listGuestCount:53});mock.calls=[];
   assert.equal((await webhook("charge.refunded",{refunded:false,payment_intent:"pi_created",currency:"eur",amount_refunded:100})).status,200);assert.equal(calls("rpc").length,0);
   assert.equal((await webhook("charge.refunded",{refunded:true,payment_intent:"pi_created",currency:"eur",amount_refunded:4740})).status,200);
   assert.equal(calls("rpc")[0].name,"refund_guest_checkout");
@@ -207,7 +208,7 @@ test("historical guest-v1 payments and refunds remain payable; an open old quote
   assert.equal((await webhook("charge.refunded",{refunded:true,payment_intent:"pi_v1",currency:"eur",amount_refunded:4340})).status,200);
   assert.equal(calls("rpc").at(-1).name,"refund_guest_checkout");
   mock.calls=[];mock.sessions.cs_v1={...session,status:"open",payment_status:"unpaid",url:"https://checkout.stripe.invalid/old"};
-  assert.equal((await checkout({projectId,guestCount:53})).status,200);
+  assert.equal((await checkout({projectId,listGuestCount:53})).status,200);
   assert.equal(calls("expire")[0].id,"cs_v1");assert.equal(calls("stripe-create").length,1);
   assert.equal(mock.sessions.cs_created.amount_total,4740);
 });
@@ -240,7 +241,7 @@ test("promo validation is authenticated, normalized and never lists codes or rec
 test("actual Checkout promo handlers ignore forged amounts and generate exact net charge and both metadata snapshots", async () => {
   for (const [count,form,subtotal,discount,final] of [[40,false,2450,245,2205],[40,true,3440,344,3096],[54,true,4840,484,4356],[55,true,4940,494,4446]]) {
     reset(form);
-    assert.equal((await checkout({projectId,guestCount:count,promoCode:" wp21 ",discountPercentage:90,discountAmount:999999,finalAmount:1})).status,200);
+    assert.equal((await checkout({projectId,listGuestCount:count,promoCode:" wp21 ",discountPercentage:90,discountAmount:999999,finalAmount:1})).status,200);
     const params=calls("stripe-create")[0].params;
     assert.equal(mock.sessions.cs_created.amount_total,final);
     assert.deepEqual(params.metadata,params.payment_intent_data.metadata);
@@ -258,14 +259,17 @@ test("actual Checkout promo handlers ignore forged amounts and generate exact ne
   }
 });
 test("promo absent/removed retains standard tariffs; changed code/rate expires a pending quote; invalid code creates no Stripe call", async () => {
-  reset();await checkout({projectId,guestCount:40,promoCode:"WP21"});mock.calls=[];
-  assert.equal((await checkout({projectId,guestCount:40,promoCode:"wp21"})).status,200);assert.equal(calls("stripe-create").length,0);
+  reset();await checkout({projectId,listGuestCount:40,promoCode:"WP21"});mock.calls=[];
+  assert.equal((await checkout({projectId,listGuestCount:40,promoCode:"wp21"})).status,200);assert.equal(calls("stripe-create").length,0);
   mock.promos[0].discount_value=15;
-  assert.equal((await checkout({projectId,guestCount:40,promoCode:"WP21"})).status,200);assert.equal(calls("expire").length,1);assert.equal(mock.sessions.cs_created.amount_total,2082);
-  mock.calls=[];assert.equal((await checkout({projectId,guestCount:40})).status,200);assert.equal(calls("expire").length,1);assert.equal(mock.sessions.cs_created.amount_total,2450);
-  for (const promoCode of ["INVALID",{},"x".repeat(65)]) {reset();assert.equal((await checkout({projectId,guestCount:40,promoCode})).status,400);assert.equal(mock.calls.length,0);}
-  reset();mock.invalidateOnReserve=true;const response=await checkout({projectId,guestCount:40,promoCode:"WP21"});assert.equal(response.status,400);assert.equal((await response.json()).error,"Ce code promo n’est plus disponible.");assert.equal(calls("stripe-create").length,0);
+  assert.equal((await checkout({projectId,listGuestCount:40,promoCode:"WP21"})).status,200);assert.equal(calls("expire").length,1);assert.equal(mock.sessions.cs_created.amount_total,2082);
+  mock.calls=[];assert.equal((await checkout({projectId,listGuestCount:40})).status,200);assert.equal(calls("expire").length,1);assert.equal(mock.sessions.cs_created.amount_total,2450);
+  for (const promoCode of ["INVALID",{},"x".repeat(65)]) {reset();assert.equal((await checkout({projectId,listGuestCount:40,promoCode})).status,400);assert.equal(mock.calls.length,0);}
+  reset();mock.invalidateOnReserve=true;const response=await checkout({projectId,listGuestCount:40,promoCode:"WP21"});assert.equal(response.status,400);assert.equal((await response.json()).error,"Ce code promo n’est plus disponible.");assert.equal(calls("stripe-create").length,0);
   reset();Object.assign(mock.project,{status:"published",payment_status:"paid",purchased_guest_capacity:40,purchased_extra_blocks:0});
-  assert.equal((await checkout({projectId,guestCount:54,promoCode:"WP21"})).status,400);assert.equal(calls("stripe-create").length,0);
+  assert.equal((await checkout({projectId,listGuestCount:54,promoCode:"WP21"})).status,400);assert.equal(calls("stripe-create").length,0);
 });
+
+test("forged frontend guest count is ignored; the persisted household total determines the price",async()=>{reset();mock.listTotal=48;assert.equal((await checkout({projectId,guestCount:1,amount:1})).status,200);assert.equal(mock.sessions.cs_created.amount_total,3250);assert.equal(mock.sessions.cs_created.metadata.guest_count,"48");reset();mock.listTotal=0;assert.equal((await checkout({projectId,guestCount:1000})).status,400);assert.equal(calls("stripe-create").length,0);});
+
 test.after(() => {hooks.deregister();delete globalThis.__pricingEdgeMock;delete globalThis.Deno;});

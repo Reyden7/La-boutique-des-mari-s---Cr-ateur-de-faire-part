@@ -1,5 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 import { corsHeaders, jsonResponse } from "../_shared/http.ts";
+import { recipientFieldRole, standardAttendanceAnswer } from "../_shared/recipientRsvp.ts";
 
 const ALLOWED_FIELD_TYPES = new Set([
   "short_text",
@@ -60,6 +61,9 @@ Deno.serve(async (request) => {
       answers?: unknown;
       startedAt?: unknown;
       website?: unknown;
+      recipientToken?: unknown;
+      attendance?: unknown;
+      presentCount?: unknown;
     } | null;
     if (!body) return jsonResponse({ error: "Invalid JSON body" }, 400, true);
 
@@ -87,8 +91,8 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: "Invalid form timing" }, 400, true);
     }
 
-    const abuseSalt = requireEnvironment("RSVP_ABUSE_SALT");
-    if (abuseSalt.length < 32) {
+    const abuseSalt = body.recipientToken ? "" : requireEnvironment("RSVP_ABUSE_SALT");
+    if (!body.recipientToken && abuseSalt.length < 32) {
       throw new Error("RSVP_ABUSE_SALT must contain at least 32 characters");
     }
 
@@ -99,7 +103,7 @@ Deno.serve(async (request) => {
     );
     const { data: project, error: projectError } = await admin
       .from("projects")
-      .select("id, owner_id, name, project_data, status, payment_status, expires_at")
+      .select("id, owner_id, name, project_data, status, payment_status, expires_at, recipient_links_required")
       .eq("public_id", body.publicId)
       .maybeSingle();
     if (projectError) throw projectError;
@@ -113,6 +117,16 @@ Deno.serve(async (request) => {
     }
 
     const rsvp = project.project_data?.rsvp;
+    let recipient: {displayName:string;guestCount:number} | null = null;
+    if(body.recipientToken) {
+      if(typeof body.recipientToken!=="string"||!/^[a-f0-9]{64}$/.test(body.recipientToken)) return jsonResponse({error:"Invitation unavailable"},404,true);
+      const lookup=await admin.rpc("get_recipient_invitation",{p_public_id:body.publicId,p_token:body.recipientToken});
+      if(lookup.error)throw lookup.error;
+      recipient=lookup.data?.recipient;
+      if(!recipient)return jsonResponse({error:"Invitation unavailable"},404,true);
+      if(!["confirmed","declined"].includes(String(body.attendance))||typeof body.presentCount!=="number"||!Number.isInteger(body.presentCount)||body.presentCount<0||body.presentCount>recipient.guestCount||
+        (body.attendance==="confirmed"&&body.presentCount<1)||(body.attendance==="declined"&&body.presentCount!==0))return jsonResponse({error:"Invalid attendance or guest capacity"},400,true);
+    } else if(project.recipient_links_required) return jsonResponse({error:"Personal invitation required"},403,true);
     const { data: purchase, error: purchaseError } = await admin
       .from("rsvp_addon_purchases")
       .select("id")
@@ -148,6 +162,10 @@ Deno.serve(async (request) => {
       }
       knownIds.add(field.id);
       knownLabels.add(field.label);
+    }
+    if(recipient)for(const field of rsvp.fields) {
+      if(recipientFieldRole(field)==="count")answers[field.id]=body.presentCount;
+      if(recipientFieldRole(field)==="attendance") { const value=standardAttendanceAnswer(field,String(body.attendance));if(value!==undefined)answers[field.id]=value; }
     }
 
     if (Object.keys(answers).some((key) => !knownIds.has(key))) {
@@ -208,11 +226,13 @@ Deno.serve(async (request) => {
       validated[field.label] = answer;
     }
 
-    const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-    const fingerprint = await hash(
-      `${forwarded}:${request.headers.get("user-agent") ?? ""}:${abuseSalt}`,
+    // Personal invitations are not tied to an IP, browser fingerprint or device.
+    const fingerprint = recipient ? null : await hash(
+      `${request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()??"unknown"}:${request.headers.get("user-agent")??""}:${abuseSalt}`,
     );
-    const inserted = await admin.rpc("submit_rsvp_response", {
+    const inserted = recipient ? await admin.rpc("submit_recipient_rsvp", {
+      p_public_id:body.publicId,p_token:body.recipientToken,p_answers:validated,p_answers_by_id:answers,p_attendance:body.attendance,p_present_count:body.presentCount,
+    }) : await admin.rpc("submit_rsvp_response", {
       p_project_id: project.id,
       p_owner_id: project.owner_id,
       p_answers: validated,
@@ -251,8 +271,8 @@ Deno.serve(async (request) => {
         body: JSON.stringify({
           from,
           to: [destination],
-          subject: `Nouvelle réponse au formulaire · ${project.name}`,
-          html: `<h1>Nouvelle réponse au formulaire</h1><table>${rows}</table><p>Réponse reçue le ${
+          subject: `Nouvelle réponse${recipient?` de ${recipient.displayName}`:" au formulaire"} · ${project.name}`,
+          html: `<h1>Nouvelle réponse${recipient?` de ${escapeHtml(recipient.displayName)}`:" au formulaire"}</h1><table>${rows}</table><p>Réponse reçue le ${
             new Date().toLocaleString("fr-FR", { timeZone: "Europe/Paris" })
           }.</p>`,
         }),
@@ -268,7 +288,7 @@ Deno.serve(async (request) => {
     return jsonResponse({ ok: true }, 200, true);
   } catch (error) {
     console.error("rsvp_submission_failed", {
-      result: error instanceof Error ? error.message : "unknown_error",
+      result: error instanceof Error ? error.name : "unknown_error",
     });
     return jsonResponse({ error: "Response could not be saved" }, 500, true);
   }

@@ -608,6 +608,7 @@ export interface RsvpFormTypography {
 }
 
 export interface RsvpFormConfig {
+  allowResponseEditing?: boolean;
   /** Global editor-only hierarchy label, independent of the public form title. */
   editorName?: string;
   enabled: boolean;

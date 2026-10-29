@@ -1,5 +1,5 @@
 import { Check, ChevronLeft, Copy, ExternalLink, Eye, LayoutTemplate, LockKeyhole, Redo2, Save, Send, Undo2, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useEditorStore } from "../../stores/editorStore";
 import { remoteErrorSummary } from "../../utils/storage";
@@ -12,6 +12,10 @@ import { calculatePromoDiscount, type AppliedPromo } from "../../config/promo";
 import { validatePromoCode } from "../../services/promoCodeRepository";
 import { isDiscoveryProject, requestDiscoveryAccount, useDiscoverySession } from "../../features/discovery/discoverySession";
 import { TutorialHelpButton } from "../../features/tutorial/TutorialHelp";
+import { recipientTotals } from "../../features/recipients/recipientData";
+import { recipientListKey } from "../../features/recipients/RecipientListModal";
+import { openRecipientList, setRecipientList, useRecipientLists } from "../../features/recipients/recipientStore";
+import { loadInvitationRecipients } from "../../services/recipientRepository";
 
 const publicationBenefits = [
   "Lien personnalisé et stable",
@@ -27,21 +31,28 @@ export function TopToolbar({ onPreview, promoValidation = validatePromoCode }: {
   const [responsiveFormatsConfirmed, setResponsiveFormatsConfirmed] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [publishingTemplate, setPublishingTemplate] = useState(false);
-  const [guestCountDraft, setGuestCountDraft] = useState(String(PRICING.includedGuests));
   const [promo, setPromo] = useState<AppliedPromo | null>(null);
   const [validatingPromo, setValidatingPromo] = useState(false);
+  const [listVerified,setListVerified] = useState(false);
   const { isAdmin } = useAuth();
   const { project, renameProject, past, future, undo, redo, save, checkoutAndPublish, saveStatus } = useEditorStore();
+  const recipientLists = useRecipientLists(state => state.lists);
+  useEffect(() => {
+    if (!project?.ownerId || isDiscoveryProject(project)) return;
+    let active = true;
+    void loadInvitationRecipients(project.id).then(value=>{if(active)setRecipientList(recipientListKey(project),value);}).catch(()=>undefined);
+    return ()=>{active=false;};
+  }, [project?.id,project?.ownerId]);
   useDiscoverySession((state) => state.draftId);
   if (!project) return null;
   const discovery = isDiscoveryProject(project);
 
   const isPublished = project.paymentStatus === "paid" && project.status === "published" && Boolean(project.publicId);
   const includesForm = Boolean(project.rsvp?.enabled && !project.rsvp.purchased && !isPublished);
-  const savedGuestCount = isValidGuestCount(project.requestedGuestCount) ? project.requestedGuestCount : PRICING.includedGuests;
-  const guestCount = confirming ? Number(guestCountDraft) : savedGuestCount;
-  const validGuestCount = guestCountDraft.trim() !== "" && isValidGuestCount(guestCount);
-  const pricing = calculateTotalPricing(isValidGuestCount(guestCount) ? guestCount : savedGuestCount, includesForm);
+  const totals = recipientTotals(recipientLists[recipientListKey(project)]?.recipients??[]);
+  const guestCount = totals.guests;
+  const validGuestCount = isValidGuestCount(guestCount);
+  const pricing = calculateTotalPricing(validGuestCount ? guestCount : PRICING.includedGuests, includesForm);
   const isUpgrade = isPublished && project.purchasedGuestCapacity != null;
   const upgrade = isUpgrade ? calculateGuestUpgrade(project.purchasedGuestCapacity!, pricing.guestCount) : null;
   const publicationPrice = upgrade?.upgradePriceCents ?? pricing.totalPriceCents;
@@ -54,7 +65,8 @@ export function TopToolbar({ onPreview, promoValidation = validatePromoCode }: {
     if (discovery) { requestDiscoveryAccount("publish"); return; }
     setPromo(null); setValidatingPromo(false); setPublishError("");
     setResponsiveFormatsConfirmed(false);
-    setGuestCountDraft(String(savedGuestCount));
+    setListVerified(false);
+    void loadInvitationRecipients(project.id).then(value=>{setRecipientList(recipientListKey(project),value);setListVerified(true);}).catch(()=>setPublishError("Votre liste doit être chargée et enregistrée avant de publier."));
     setConfirming(true);
   };
   const closePublicationConfirmation = () => {
@@ -63,7 +75,7 @@ export function TopToolbar({ onPreview, promoValidation = validatePromoCode }: {
     setConfirming(false);
   };
   const beginCheckout = async () => {
-    if (!responsiveFormatsConfirmed || publishing || validatingPromo || !validGuestCount) return;
+    if (!responsiveFormatsConfirmed || publishing || validatingPromo || !validGuestCount || !listVerified) return;
     setPublishError("");
     setPublishing(true);
     try {
@@ -107,9 +119,9 @@ export function TopToolbar({ onPreview, promoValidation = validatePromoCode }: {
             <div className="publication-lock"><LockKeyhole size={22} /></div>
             <p className="eyebrow">Publication sécurisée</p>
             <h2 id="publication-title">{isUpgrade ? "Ajustez votre capacité" : "Publiez votre faire-part"}</h2>
-            <label className="publication-guests field"><span>Nombre d’invités</span><input type="number" min={1} max={PRICING.maxGuestCount} step={1} value={guestCountDraft} disabled={publishing} onChange={(event) => setGuestCountDraft(event.target.value)} aria-describedby="publication-guest-help" /></label>
+            <div className="publication-guests"><strong>Votre liste d’invités</strong><p>{totals.households} familles/foyers · {guestCount} personnes invitées</p><button disabled={publishing} onClick={()=>{setConfirming(false);openRecipientList();}}>Modifier ma liste</button></div>
             <p className="publication-responsive-help" id="publication-guest-help">{formatPrice(PRICING.basePriceCents)} jusqu’à {PRICING.includedGuests} invités, puis {formatPrice(PRICING.extraGuestPriceCents)} par invité supplémentaire. Formulaire invité en option : +{formatPrice(PRICING.formPriceCents)}.</p>
-            {!validGuestCount && <p className="form-error">Indiquez un nombre entier entre 1 et {PRICING.maxGuestCount.toLocaleString("fr-FR")}.</p>}
+            {!validGuestCount && <p className="form-error">Ajoutez au moins un destinataire à votre liste avant de publier votre faire-part.</p>}
             {!isUpgrade && <PromoCodeInput value={promo} onChange={setPromo} disabled={publishing} onBusyChange={setValidatingPromo} validate={promoValidation} />}
             <dl className="publication-breakdown">
               {upgrade ? <><div><dt>Capacité déjà achetée</dt><dd>{project.purchasedGuestCapacity} invités</dd></div><div><dt>Invités supplémentaires · {upgrade.additionalGuests} × {formatPrice(PRICING.extraGuestPriceCents)}</dt><dd>{formatPrice(upgrade.upgradePriceCents)}</dd></div></> : <><div><dt>Faire-part — jusqu’à 40 invités</dt><dd>{formatPrice(PRICING.basePriceCents)}</dd></div>{pricing.extraGuests > 0 && <div><dt>Invités supplémentaires · {pricing.extraGuests} × {formatPrice(PRICING.extraGuestPriceCents)}</dt><dd>{formatPrice(pricing.extraGuests * PRICING.extraGuestPriceCents)}</dd></div>}{includesForm && <div><dt>Formulaire invité</dt><dd>{formatPrice(pricing.formPriceCents)}</dd></div>}</>}
@@ -130,7 +142,7 @@ export function TopToolbar({ onPreview, promoValidation = validatePromoCode }: {
             <p className="publication-responsive-help" id="publication-responsive-help">Chaque format possède sa propre mise en page. Pensez à vérifier Smartphone, Tablette et PC avant de publier.</p>
             <button
               className="checkout-button publication-checkout-button"
-              disabled={publishing || validatingPromo || !responsiveFormatsConfirmed || !validGuestCount}
+              disabled={publishing || validatingPromo || !responsiveFormatsConfirmed || !validGuestCount || !listVerified}
               aria-describedby="publication-responsive-help"
               onClick={() => void beginCheckout()}
             >
@@ -141,7 +153,7 @@ export function TopToolbar({ onPreview, promoValidation = validatePromoCode }: {
         </div>
       )}
       {publishError && !confirming && <div className="publish-popover error"><button className="publish-close" onClick={() => setPublishError("")} aria-label="Fermer"><X size={14} /></button><span>Publication interrompue</span><strong>{publishError}</strong></div>}
-      {publishedUrl && <div className="publish-popover"><button className="publish-close" onClick={() => setPublishedUrl(null)} aria-label="Fermer"><X size={14} /></button><span>Votre faire-part est en ligne</span><strong>Ce lien restera identique après vos modifications.</strong><button className="copy-public-link" onClick={() => void navigator.clipboard.writeText(publishedUrl)}><Copy size={14} /> Copier le lien</button><a href={publishedUrl} target="_blank" rel="noreferrer">Voir le faire-part <ExternalLink size={14} /></a></div>}
+      {publishedUrl && <div className="publish-popover"><button className="publish-close" onClick={() => setPublishedUrl(null)} aria-label="Fermer"><X size={14} /></button><span>Votre faire-part est en ligne</span><button onClick={()=>{setPublishedUrl(null);openRecipientList();}}>Liens de vos invités</button><strong>Vos liens restent identiques après modification.</strong><button className="copy-public-link" onClick={() => void navigator.clipboard.writeText(publishedUrl)}><Copy size={14} /> Copier le lien commun historique</button><a href={publishedUrl} target="_blank" rel="noreferrer">Voir le faire-part <ExternalLink size={14} /></a></div>}
       {publishingTemplate && <TemplatePublishModal project={project} onClose={() => setPublishingTemplate(false)} />}
     </header>
   );

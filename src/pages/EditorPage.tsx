@@ -19,6 +19,8 @@ import { TutorialWelcome } from "../features/tutorial/TutorialWelcome";
 import { TutorialHelp } from "../features/tutorial/TutorialHelp";
 import { TutorialLayer } from "../features/tutorial/TutorialLayer";
 import { useTutorialStore } from "../features/tutorial/tutorialStore";
+import { RecipientListModal } from "../features/recipients/RecipientListModal";
+import { useRecipientLists } from "../features/recipients/recipientStore";
 
 export function EditorPage({ discovery = false }: { discovery?: boolean }) {
   const { projectId } = useParams();
@@ -32,6 +34,7 @@ export function EditorPage({ discovery = false }: { discovery?: boolean }) {
   const previewDevice = useEditorStore((state) => state.previewDevice);
   const { user, loading, recoveryReady } = useAuth();
   const session = useDiscoverySession();
+  const recipientsOpen = useRecipientLists(state => state.open);
   const tutorialModal = useTutorialStore((state) => state.invitation === "editor" || Boolean(state.help));
   const guest = Boolean(project && isDiscoveryProject(project));
   const tutorialBlocked = session.converting || (guest && (!session.warningShown || Boolean(session.prompt) || Boolean(session.error)));
@@ -85,6 +88,7 @@ export function EditorPage({ discovery = false }: { discovery?: boolean }) {
     const onKeyDown = (event: KeyboardEvent) => {
       const state = useEditorStore.getState();
       if (useDiscoverySession.getState().converting) return;
+      if (useRecipientLists.getState().open) return;
       if (useTutorialStore.getState().invitation || useTutorialStore.getState().help) return;
       const typing = event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement;
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") { event.preventDefault(); state.save(); }
@@ -113,6 +117,7 @@ export function EditorPage({ discovery = false }: { discovery?: boolean }) {
   if (discovery && !guest) return <Navigate to={project?.ownerId && project.ownerId === user?.id ? `/studio/${project.id}` : "/"} replace />;
   if (!project) return <div className="loading-screen">Ouverture de votre studio…</div>;
   const dialogs = <>
+    {recipientsOpen && <RecipientListModal project={project} onClose={() => useRecipientLists.setState({open:false})} />}
     {guest && <DiscoveryDialogs />}
     {blocker.state === "blocked" && <div className="modal-backdrop discovery-backdrop"><section className="discovery-dialog" role="dialog" aria-modal="true" aria-label="Quitter sans sauvegarder ?"><h2>Quitter sans sauvegarder ?</h2><p>Votre faire-part n’est pas enregistré. Toutes vos modifications seront perdues si vous quittez maintenant.</p><div className="discovery-actions"><button onClick={() => blocker.reset()}>Continuer à créer</button><button onClick={() => blocker.proceed()}>Quitter sans sauvegarder</button><button className="primary" onClick={() => { blocker.reset(); requestDiscoveryAccount(); }}>Créer un compte pour sauvegarder</button></div></section></div>}
     {!guest && session.success && <div className="discovery-success" role="status">{session.success}<button aria-label="Fermer" onClick={() => useDiscoverySession.setState({ success: "" })}>×</button></div>}
@@ -121,7 +126,7 @@ export function EditorPage({ discovery = false }: { discovery?: boolean }) {
   if (preview) return <><PreviewMode project={project} device={previewDevice} onClose={() => setPreview(false)} />{dialogs}</>;
 
   return (
-    <><div className="studio-layout" inert={tutorialModal || session.converting || (guest && (!session.warningShown || Boolean(session.prompt) || Boolean(session.error) || blocker.state === "blocked")) || undefined}>
+    <><div className="studio-layout" inert={recipientsOpen || tutorialModal || session.converting || (guest && (!session.warningShown || Boolean(session.prompt) || Boolean(session.error) || blocker.state === "blocked")) || undefined}>
       <TopToolbar onPreview={() => setPreview(true)} />
       <div className={`editor-panel-host tools-panel-host ${mobilePanel === "tools" ? "mobile-open" : ""}`}>
         <button className="mobile-panel-close" onClick={() => setMobilePanel(null)} aria-label="Fermer les outils"><X size={18} /></button>

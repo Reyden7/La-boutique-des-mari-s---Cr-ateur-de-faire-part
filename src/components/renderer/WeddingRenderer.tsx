@@ -21,6 +21,9 @@ import { curvedTextOptions, hasTextCurve } from "../../features/text/curvedTextL
 import { AnimatedElement } from "./AnimatedElement";
 import { getSectionRenderGroups } from "../../utils/sectionRenderGroups";
 import { resolveElementVisualStyle } from "../../utils/responsiveVisualStyle";
+import { useContext } from "react";
+import { RecipientInvitationContext } from "../../features/recipients/RecipientInvitationContext";
+import { recipientGreeting } from "../../features/recipients/recipientData";
 
 export const backgroundStyle = (background: PageBackground): CSSProperties => {
   if (background.type === "image") return { backgroundImage: `url(${background.imageUrl})`, backgroundSize: "cover", backgroundPosition: "center" };
@@ -74,6 +77,7 @@ function RenderPage({ page, device, documentHeight, renderRsvp, rsvpSectionId, p
 }
 
 export function WeddingRenderer({ project, device: forcedDevice, mode = "public", playAnimations = true }: { project: WeddingProject; device?: PreviewDevice; mode?: RsvpRenderMode; playAnimations?: boolean }) {
+  const recipient = useContext(RecipientInvitationContext);
   const device = useResponsiveDevice(forcedDevice);
   const viewport = PREVIEW_DEVICES[device];
   const page = project.pages[0];
@@ -94,6 +98,7 @@ export function WeddingRenderer({ project, device: forcedDevice, mode = "public"
     <div className={`renderer-wrap renderer-device-${device}`}>
       <ProjectFontLoader project={project} />
       {measurement}
+      {mode==="public" && recipient && <div className="recipient-greeting">{recipientGreeting(recipient.displayName)}</div>}
       <div className="renderer-document" style={rendererStyle}>
         {page && <RenderPage key={`${page.id}-${device}`} page={page} device={device} documentHeight={documentHeight} renderRsvp={renderRsvp} rsvpSectionId={getRsvpSectionId(visibleRsvp, device)} playAnimations={playAnimations} />}
       </div>

@@ -1,4 +1,4 @@
-import { ArrowRight, Copy, Eye, GalleryVerticalEnd, LayoutTemplate, LogOut, MoreHorizontal, Plus, Sparkles, Trash2, UserRoundCheck, Video } from "lucide-react";
+import { ArrowRight, ClipboardCheck, Copy, Eye, GalleryVerticalEnd, LayoutTemplate, LogOut, MoreHorizontal, Plus, Sparkles, Trash2, UserRoundCheck, Video } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -127,6 +127,7 @@ export function HomePage() {
     <div className="home-page">
       <header className="home-header"><div className="home-brand"><div className="brand-mark">B</div><div><strong>Le Bureau des Mariés</strong><span>Studio</span></div></div><div className="home-account">{isAdmin && <><button className="help-button" onClick={() => navigate("/admin/templates")}><LayoutTemplate size={15} /> Templates</button><button className="help-button" onClick={() => navigate("/admin/assets")}><GalleryVerticalEnd size={15} /> Bibliothèque</button><button className="help-button" onClick={() => navigate("/admin/promo-codes")}>Gérer les codes promos</button></>}{user ? <><span>{user.email}</span><button className="help-button" onClick={() => void signOut()}><LogOut size={15} /> Déconnexion</button></> : <button className="help-button" onClick={() => navigate("/auth")}>Se connecter / Créer un compte</button>}</div></header>
       <main className="home-main">
+        {user && <button className="help-button" onClick={()=>navigate("/dashboard/responses")}><ClipboardCheck size={17}/> Réponses au formulaire</button>}
         <section className="welcome-row"><div><p className="eyebrow"><Sparkles size={14} /> Votre atelier créatif</p><h1>Vos plus belles nouvelles<br /><em>prennent vie ici.</em></h1><p>Imaginez, personnalisez et partagez un faire-part qui vous ressemble.</p></div><div className="welcome-actions"><button className="new-project-button" onClick={() => setCreating(true)}><Plus size={20} /> Nouveau faire-part</button><button className="custom-request-button" onClick={() => navigate("/custom-invitation")}><Sparkles size={18} /> Sur mesure — 50 €</button></div></section>
         {projectError && <div className="project-sync-message">{projectError}</div>}
         {loadingProjects && <div className="projects-loading">Chargement de vos projets…</div>}

@@ -1,0 +1,17 @@
+.recipient-backdrop { z-index: 3000; padding: 20px; }
+.recipient-modal { width: min(1100px,100%); max-height: calc(100dvh - 40px); overflow-y: auto; background: #fffaf4; color: #4b4038; border-radius: 18px; padding: 26px; box-shadow: 0 25px 70px #0003; }
+.recipient-modal header,.recipient-modal footer,.recipient-import,.recipient-add { display: flex; gap: 14px; justify-content: space-between; align-items: end; flex-wrap: wrap; }
+.recipient-modal header { align-items: start; }.recipient-modal header p { max-width: 740px; }
+.recipient-modal button,.recipient-modal select,.recipient-modal input,.recipient-import a { border: 1px solid #d8cbbc; border-radius: 7px; padding: 9px; background: #fffdf9; color: #5a4737; font: inherit; }
+.recipient-modal button { cursor: pointer; }.recipient-modal button:disabled { opacity: .5; cursor: default; }
+.recipient-modal label { display: grid; gap: 6px; margin: 10px 0; font-size: 13px; }.recipient-modal input[type=checkbox] { width: auto; }
+.recipient-add { margin: 18px 0; }.recipient-add label:first-child { flex: 1; min-width: 210px; }
+.recipient-table-wrap { overflow: auto; max-height: 45vh; border: 1px solid #e4d8ca; margin: 14px 0; }
+.recipient-modal table,.responses-page table { width: 100%; border-collapse: collapse; text-align: left; }
+.recipient-modal td,.recipient-modal th,.responses-page td,.responses-page th { padding: 10px; border-bottom: 1px solid #e4d8ca; }.recipient-modal td button { margin: 3px; }
+.recipient-modal th { position: sticky; top: 0; background: #f3eadf; }
+.recipient-warning,.recipient-import-preview { padding: 14px; border-radius: 9px; background: #f3eadf; }.recipient-modal footer { margin-top: 15px; font-size: 14px; }
+.recipient-greeting { padding: 16px 24px; text-align: center; font: italic 18px Georgia,serif; color: #745b44; background: #fffaf4; }
+.recipient-attendance { display: grid; gap: 8px; margin-bottom: 20px; }
+.response-stats { display: flex; gap: 18px; flex-wrap: wrap; padding: 18px; background: #f4ece1; }.response-stats span { display: grid; gap: 6px; }
+@media(max-width:600px) { .recipient-backdrop { padding: 6px; }.recipient-modal { padding: 15px; max-height: calc(100dvh - 12px); }.recipient-add { display: grid; }.recipient-add label:first-child { min-width: 0; }.recipient-modal td,.recipient-modal th { padding: 7px; } }

@@ -20,6 +20,7 @@ import {
   Type,
   WandSparkles,
   Upload,
+  Users,
 } from "lucide-react";
 import { makeShapeElement, makeTextElement, useEditorStore, type SidebarView } from "../../stores/editorStore";
 import type { EditorElement, OpeningAnimationType, RsvpFormConfig } from "../../types/editor";
@@ -41,6 +42,7 @@ import { PublishGlobalAssetButton } from "../admin/PublishGlobalAssetButton";
 import { PREVIEW_DEVICES } from "../../config/previewDevices";
 import { getImageInitialSize, loadImageDimensions, readImageFileDimensions, type ImageDimensions } from "../../utils/imageLayout";
 import { HierarchyList, HierarchySectionActions } from "./HierarchyList";
+import { openRecipientList } from "../../features/recipients/recipientStore";
 
 const uid = () => crypto.randomUUID();
 const navItems: { id: SidebarView; label: string; icon: ComponentType<{ size?: number }> }[] = [
@@ -153,7 +155,7 @@ export function LeftSidebar({ onPreviewOpening }: { onPreviewOpening: (type: Ope
     selectElement(RSVP_EDITOR_ELEMENT_ID);
   };
 
-  return <aside className="left-sidebar"><nav className="studio-sections" data-tour="creation-tabs" aria-label="Sections de création">{navItems.map(({ id, label, icon: Icon }) => <button key={id} data-tour={`${id === "design" ? "background" : id === "elements" ? "content" : id}-tab`} className={sidebarView === id ? "active" : ""} onClick={() => setSidebarView(id)}><Icon size={16} /><span>{label}</span></button>)}</nav>
+  return <aside className="left-sidebar"><nav className="studio-sections" data-tour="creation-tabs" aria-label="Sections de création"><button onClick={openRecipientList}><Users size={16}/><span>Liste des invités</span></button>{navItems.map(({ id, label, icon: Icon }) => <button key={id} data-tour={`${id === "design" ? "background" : id === "elements" ? "content" : id}-tab`} className={sidebarView === id ? "active" : ""} onClick={() => setSidebarView(id)}><Icon size={16} /><span>{label}</span></button>)}</nav>
     {sidebarView === "design" && <div className="sidebar-view"><div className="view-intro"><span>Arrière-plan</span><h2>Fond du document</h2><p>Personnalisez uniquement la couleur, le dégradé ou l’image de fond du faire-part.</p></div>{documentSummary}</div>}
     {sidebarView === "introduction" && <IntroductionPanel onPreview={onPreviewOpening} />}
     {sidebarView === "elements" && (

@@ -22,6 +22,7 @@ const tables:Record<string,any[]>={projects:[],assets:[],global_assets:[],previe
   {id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',name:'Modèle privé interdit',slug:'private',template_data:draft,is_published:false},
 ]};
 export const qaCounts={projectWrites:0,uploads:0,checkout:0};
+const recipientLists=new Map<string,{revision:number;recipients:any[]}>();
 export const supabase:any={auth:{updateUser:async({data}:{data:Record<string,unknown>})=>{const user=await requireSupabaseSession();const updated={...user,user_metadata:{...user.user_metadata,...data}};state.setState({user:updated});return{data:{user:updated},error:null};}},from(table:string){let action='select',changes:any={},filters:[string,any][]=[];
   const result=()=>{
     if(table==='projects'&&!state.getState().user)return{data:[],error:new Error('QA denies anonymous projects')};
@@ -34,3 +35,14 @@ export const supabase:any={auth:{updateUser:async({data}:{data:Record<string,unk
     insert:(v:any)=>{action='insert';changes=v;return q;},update:(v:any)=>{action='update';changes=v;return q;},
     single:async()=>{const r=result();return{data:r.data[0],error:r.error};},maybeSingle:async()=>{const r=result();return{data:r.data[0]??null,error:r.error};},returns:async()=>result(),then:(a:any,b:any)=>Promise.resolve(result()).then(a,b)};return q;
 },storage:{from:()=>({upload:async()=>{qaCounts.uploads++;return{error:null};},getPublicUrl:(path:string)=>({data:{publicUrl:'https://qa.invalid/'+path}}),remove:async()=>({error:null})})},functions:{invoke:async()=>{qaCounts.checkout++;throw new Error('No real Stripe in QA');}}};
+supabase.rpc=async(name:string,args:any)=>{
+ const user=await requireSupabaseSession();
+ if(!tables.projects.some(row=>row.id===args.p_project_id&&row.owner_id===user.id))return{data:null,error:new Error('QA owner required')};
+ const current=recipientLists.get(args.p_project_id)??{revision:0,recipients:[]};
+ if(name==='read_invitation_recipients')return{data:current,error:null};
+ if(name==='save_invitation_recipients'){
+  if(args.p_revision!==current.revision)return{data:null,error:new Error('RECIPIENT_LIST_CHANGED')};
+  const next={revision:current.revision+1,recipients:structuredClone(args.p_recipients)};recipientLists.set(args.p_project_id,next);return{data:next,error:null};
+ }
+ return{data:null,error:new Error('QA unexpected RPC')};
+};

@@ -1,9 +1,11 @@
-import { useMemo, useState, type CSSProperties } from "react";
+import { useContext, useMemo, useState, type CSSProperties } from "react";
 import type { RsvpField, RsvpFormConfig } from "../../types/editor";
 import { submitRsvpResponse } from "../../services/rsvpRepository";
 import { resolveRsvpStyle } from "../../config/rsvpStyle";
 import { PREVIEW_DEVICES, type PreviewDevice } from "../../config/previewDevices";
 import { getFormSpacingScale, resolveRsvpTypography } from "../../utils/responsiveVisualStyle";
+import { RecipientInvitationContext } from "../recipients/RecipientInvitationContext";
+import { recipientFieldRole, standardAttendanceAnswer } from "../../../supabase/functions/_shared/recipientRsvp.ts";
 
 export type RsvpRenderMode = "preview" | "public";
 
@@ -26,9 +28,13 @@ function RsvpInput({ field, value, onChange }: { field: RsvpField; value: unknow
 }
 
 export function RsvpFormRenderer({ config, publicId, mode, device }: { config: RsvpFormConfig; publicId?: string; mode: RsvpRenderMode; device: PreviewDevice }) {
+  const recipient = useContext(RecipientInvitationContext);
   config = { ...config, typography: resolveRsvpTypography(config, device) };
   const startedAt = useMemo(() => Date.now(), []);
-  const [answers, setAnswers] = useState<Record<string, unknown>>({});
+  const [answers, setAnswers] = useState<Record<string, unknown>>(recipient?.answers??{});
+  const [attendance,setAttendance] = useState(recipient?.attendance??"");
+  const [presentCount,setPresentCount] = useState<number | "">(recipient?.presentCount??"");
+  const [alreadyAnswered,setAlreadyAnswered] = useState(Boolean(recipient?.answers));
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   if (!shouldRenderRsvp(config, mode)) return null;
   const style = resolveRsvpStyle(config.style);
@@ -60,7 +66,15 @@ export function RsvpFormRenderer({ config, publicId, mode, device }: { config: R
     setStatus("sending");
     try {
       const website = String(new FormData(event.currentTarget as HTMLFormElement).get("website") ?? "");
-      await submitRsvpResponse(publicId, answers, startedAt, website);
+      const complete={...answers};
+      if(recipient) {
+        for(const field of config.fields) {
+          if(recipientFieldRole(field)==="count")complete[field.id]=attendance==="declined"?0:Number(presentCount);
+          if(recipientFieldRole(field)==="attendance") { const value=standardAttendanceAnswer(field,attendance);if(value!==undefined)complete[field.id]=value; }
+        }
+      }
+      await submitRsvpResponse(publicId, complete, startedAt, website, recipient?{token:recipient.token,attendance,presentCount:attendance==="declined"?0:Number(presentCount)}:undefined);
+      setAlreadyAnswered(true);
       setStatus("sent");
     } catch {
       setStatus("error");
@@ -70,9 +84,14 @@ export function RsvpFormRenderer({ config, publicId, mode, device }: { config: R
   return <section className="rsvp-public-section" style={styleVariables}>
     <form className="rsvp-public-form" onSubmit={(event) => void submit(event)}>
       <h2>{config.title}</h2>{config.description && <p>{config.description}</p>}
+      {recipient && <div className="recipient-attendance"><p>Pour {recipient.displayName} · Vous disposez de {recipient.guestCount} place(s) dans cette invitation.</p>
+        <label>Présence<select required disabled={alreadyAnswered&&!recipient.canEdit} value={attendance} onChange={event=>{setAttendance(event.target.value as typeof attendance);setStatus("idle");}}><option value="">Choisir…</option><option value="confirmed">Présent</option><option value="declined">Pas présent</option></select></label>
+        {attendance==="confirmed"&&<label>Nombre de personnes présentes<input required type="number" min={1} max={recipient.guestCount} step={1} disabled={alreadyAnswered&&!recipient.canEdit} value={presentCount} onChange={event=>{setPresentCount(event.target.value===""?"":Number(event.target.value));setStatus("idle");}}/></label>}
+        {alreadyAnswered&&!recipient.canEdit&&<small>Votre réponse a été enregistrée. Les modifications sont désactivées.</small>}
+      </div>}
       <input className="rsvp-honeypot" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" />
-      {config.fields.map((field) => <label className="rsvp-public-field" key={field.id}><span>{field.label}{field.required && <b> *</b>}</span><RsvpInput field={field} value={answers[field.id]} onChange={(value) => setAnswers((current) => ({ ...current, [field.id]: value }))} /></label>)}
-      <button type="submit" disabled={mode === "preview" || !publicId || status === "sending" || status === "sent"}>{status === "sending" ? "Envoi…" : status === "sent" ? "Réponse envoyée ✓" : config.submitLabel}</button>
+      <fieldset disabled={Boolean(recipient&&alreadyAnswered&&!recipient.canEdit)} style={{border:0,padding:0,margin:0,minWidth:0}}>{config.fields.filter(field=>!recipient||!recipientFieldRole(field)||(recipientFieldRole(field)==="attendance"&&standardAttendanceAnswer(field,"confirmed")===undefined)).map((field) => <label className="rsvp-public-field" key={field.id}><span>{field.label}{field.required && <b> *</b>}</span><RsvpInput field={field} value={answers[field.id]} onChange={(value) => {setAnswers((current) => ({ ...current, [field.id]: value }));setStatus("idle");}} /></label>)}</fieldset>
+      <button type="submit" disabled={mode === "preview" || !publicId || status === "sending" || (status === "sent"&&!recipient?.canEdit) || Boolean(recipient&&alreadyAnswered&&!recipient.canEdit)}>{status === "sending" ? "Envoi…" : status === "sent" ? "Réponse envoyée ✓" : alreadyAnswered&&recipient?.canEdit ? "Modifier ma réponse" : config.submitLabel}</button>
       {mode === "preview" && <small>Aperçu de conception — l’envoi est désactivé.</small>}{status === "error" && <small className="form-error">L’envoi a échoué. Merci de réessayer.</small>}
     </form>
   </section>;

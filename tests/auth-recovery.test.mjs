@@ -155,7 +155,7 @@ test("public route, autocomplete, safe errors and synchronous double-submit guar
   assert.match(source("../src/lib/supabase.ts"),/detectSessionInUrl: true/);
   assert.match(source("../src/contexts/AuthContext.tsx"),/getInitializedAuthSession\(client\)/);
   assert.match(source("../src/contexts/AuthContext.tsx"),/if \(initialized\) setLoading\(false\)/);
-  assert.match(source("../src/App.tsx"),/<RecoveryRouteGuard><Outlet/);
+  assert.match(source("../src/App.tsx"),/<RecoveryRouteGuard><RecipientSessionBoundary><Outlet/);
   assert.match(source("../src/App.tsx"),/path: "\/login", element: <AuthPage \/>/);
   assert.match(source("../src/pages/ResetPasswordPage.tsx"),/to="\/login"/);
   for(const file of ["../src/pages/AuthPage.tsx","../src/components/auth/ProtectedRoute.tsx"])

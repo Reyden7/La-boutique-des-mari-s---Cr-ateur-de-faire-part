@@ -16,10 +16,11 @@ import { AdminTemplatesPage } from "./pages/AdminTemplatesPage";
 import { AdminAssetsPage } from "./pages/AdminAssetsPage";
 import { AdminPromoCodesPage } from "./pages/AdminPromoCodesPage";
 import { TutorialProvider } from "./features/tutorial/TutorialProvider";
+import { RecipientSessionBoundary } from "./features/recipients/RecipientSessionBoundary";
 
 const protectedPage = (page: ReactNode) => <ProtectedRoute>{page}</ProtectedRoute>;
 
-const router = createBrowserRouter([{ element: <AuthProvider><TutorialProvider><RecoveryRouteGuard><Outlet /></RecoveryRouteGuard></TutorialProvider></AuthProvider>, children: [
+const router = createBrowserRouter([{ element: <AuthProvider><TutorialProvider><RecoveryRouteGuard><RecipientSessionBoundary><Outlet /></RecipientSessionBoundary></RecoveryRouteGuard></TutorialProvider></AuthProvider>, children: [
   { path: "/", element: <HomePage /> },
   { path: "/auth", element: <AuthPage /> },
   { path: "/login", element: <AuthPage /> },
@@ -27,6 +28,7 @@ const router = createBrowserRouter([{ element: <AuthProvider><TutorialProvider><
   { path: "/studio/discovery", element: <EditorPage discovery /> },
   { path: "/studio/:projectId", element: protectedPage(<EditorPage />) },
   { path: "/studio/:projectId/rsvp/responses", element: protectedPage(<RsvpResponsesPage />) },
+  { path: "/dashboard/responses", element: protectedPage(<RsvpResponsesPage />) },
   { path: "/admin/templates", element: protectedPage(<AdminTemplatesPage />) },
   { path: "/admin/assets", element: protectedPage(<AdminAssetsPage />) },
   { path: "/admin/promo-codes", element: protectedPage(<AdminPromoCodesPage />) },
@@ -34,6 +36,7 @@ const router = createBrowserRouter([{ element: <AuthProvider><TutorialProvider><
   { path: "/payment/success", element: protectedPage(<PaymentSuccessPage />) },
   { path: "/payment/cancel", element: protectedPage(<PaymentCancelPage />) },
   { path: "/i/:publicId", element: <PublicInvitePage /> },
+  { path: "/i/:publicId/:recipientToken", element: <PublicInvitePage /> },
   { path: "*", element: <Navigate to="/" replace /> },
 ] }]);
 export default function App() { return <RouterProvider router={router} />; }

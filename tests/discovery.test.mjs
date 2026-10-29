@@ -41,6 +41,15 @@ const {normalizeProject,upsertProject,saveProjects,syncProject}=await import('..
 const {createBlankProject}=await import('../src/templates/templates.ts');
 const {resolvePreviewVideoUrl}=await import('../src/services/previewVideoRepository.ts');
 const {instantiateProjectFromTemplate}=await import('../src/utils/templateSnapshot.ts');
+const {useRecipientLists,setRecipientList}=await import('../src/features/recipients/recipientStore.ts');
+const recipientCloud=new Map();
+globalThis.discoveryCloud.supabase.rpc=async(name,args)=>{
+ if(!user||user.is_anonymous)throw new Error('Auth required');
+ const current=recipientCloud.get(args.p_project_id)??{revision:0,recipients:[]};
+ if(name==='read_invitation_recipients')return{data:current,error:null};
+ if(name==='save_invitation_recipients'){assert.equal(args.p_revision,current.revision);const next={revision:current.revision+1,recipients:structuredClone(args.p_recipients)};recipientCloud.set(args.p_project_id,next);return{data:next,error:null};}
+ throw new Error('Unexpected RPC');
+};
 globalThis.localStorage={getItem:()=>{throw new Error('Guest must not read storage');},setItem:()=>{throw new Error('Guest must not write storage');}};
 function reset(){runtime.discardDiscoverySession();user=null;recovery=false;rows=new Map();calls=[];failUpload=failSave=false;const draft=normalizeProject(createBlankProject());delete draft.ownerId;runtime.beginDiscoverySession(draft.id);useEditorStore.getState().setProject(draft);return useEditorStore.getState().project;}
 test('guest text edits, undo, save and checkout never persist or call Stripe',async()=>{
@@ -77,6 +86,17 @@ test('conversion transfers files and all current content, strips paid rights, an
   assert.equal(project.status,'draft');assert.equal(project.paymentStatus,'unpaid');assert.equal(project.publicId,undefined);assert.equal(project.purchasedGuestCapacity,undefined);assert.equal(project.rsvp.purchased,false);
   assert.match(project.pages[0].background.imageUrl,/https:\/\/files.local\/owner\//);
   assert.equal(calls.filter(c=>c.action==='insert'&&c.table==='projects').length,1);assert.equal(calls.filter(c=>c.action==='upload').length,1);
+});
+
+test('guest recipient names are memory-only, transfer to the dedicated table, never project_data/templates/cache',async()=>{
+ const draft=reset(),recipient={id:crypto.randomUUID(),display_name:'Famille confidentielle QA',guest_count:4,is_active:true};
+ setRecipientList(`guest:${draft.id}`,{revision:1,recipients:[recipient]});
+ assert.equal(calls.length,0);assert.ok(!JSON.stringify(draft).includes(recipient.display_name));
+ user={id:'owner'};const {project}=await persistGuestDraftAfterAuth(draft,'owner');
+ assert.deepEqual(recipientCloud.get(project.id).recipients,[recipient]);assert.equal(useRecipientLists.getState().lists[`owner:${project.id}`].recipients[0].id,recipient.id);
+ assert.ok(!JSON.stringify([...rows.values()]).includes(recipient.display_name));
+ const template=instantiateProjectFromTemplate({name:'Modèle',templateData:{...project,guestList:[recipient],recipients:[recipient],recipientTokens:['private']}},'another');
+ assert.ok(!JSON.stringify(template).includes(recipient.display_name));assert.ok(!JSON.stringify(template).includes('recipientTokens'));
 });
 test('failed upload/save keeps File and draft; retry uses same new ID and never repeats successful transfers',async()=>{
   const draft=reset(),asset=await uploadProjectAsset(draft,new File(['png'],'flap.png',{type:'image/png'}),'image',{folder:'doors/right'});

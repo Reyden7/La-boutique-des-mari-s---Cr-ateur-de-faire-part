@@ -30,7 +30,7 @@ test('reader body/root locking is reference-counted, idempotent and restores the
 test('Preview/Public share the dedicated portal viewer; desktop preview retains its existing simulator and actions',()=>{
   for(const path of ['src/components/preview/PreviewMode.tsx','src/pages/PublicInvitePage.tsx'])assert.match(read(path),/InvitationViewer/);
   const preview=read('src/components/preview/PreviewMode.tsx');assert.match(preview,/readerViewport.immersive/);assert.match(preview,/Contrôles de l’aperçu/);assert.match(preview,/preview-device-shell/);assert.match(preview,/\{actions\}/);
-  const publicPage=read('src/pages/PublicInvitePage.tsx');assert.match(publicPage,/loadPublicProject\(publicId\)/);assert.match(publicPage,/normalizeProject\(value\)/);assert.match(publicPage,/project.expiresAt/);assert.match(publicPage,/if \(immersive\) return <InvitationViewer/);
+  const publicPage=read('src/pages/PublicInvitePage.tsx');assert.match(publicPage,/loadPublicProject\(publicId\)/);assert.match(publicPage,/normalizeProject\(value\)/);assert.match(publicPage,/project.expiresAt/);assert.match(publicPage,/immersive \? <InvitationViewer/);assert.match(publicPage,/RecipientInvitationContext.Provider/);
   const viewer=read('src/features/viewer/InvitationViewer.tsx');assert.match(viewer,/createPortal\(viewer, document.body\)/);assert.match(viewer,/AnimationViewportProvider root=\{scrollRef\}/);assert.match(viewer,/mode=\{mode\}/);
   assert.ok(!viewer.includes('requestFullscreen')); // no brittle automatic fullscreen request
 });
