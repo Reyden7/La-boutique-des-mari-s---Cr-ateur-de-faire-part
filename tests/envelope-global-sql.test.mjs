@@ -30,7 +30,7 @@ test("real PostgreSQL envelope migration + transaction: RLS, stable URLs, refere
   await db.exec(adminSql.slice(0,adminSql.indexOf('create table public.templates')));
   await db.exec(await read('supabase/migrations/20260930061120_global_admin_assets.sql'));
   await db.exec('grant all on public.global_assets to service_role');
-  await db.exec(await read('supabase/migrations/20261007075714_envelope_global_assets_admin.sql'));
+  await db.exec(await read('supabase/migrations/20261007083948_envelope_global_assets_admin.sql'));
   await db.exec(await read('supabase/migrations/20261012072232_door_global_assets_admin.sql'));
   const results = await db.exec(await read('supabase/tests/envelope_global_assets_rls_audit.sql'));
   const report = results.find((result) => result.rows[0]?.test);

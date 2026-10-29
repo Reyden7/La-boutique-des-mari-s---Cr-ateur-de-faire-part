@@ -63,6 +63,6 @@ export async function setupGuestPricingDb(db) {
     insert into public.projects(id,owner_id,name,project_data,status,payment_status,public_id) values('${legacy}','${owner}','Legacy','{}','published','paid','legacy-public');
     insert into public.project_payments(project_id,owner_id,amount_cents,status,stripe_checkout_session_id) values('${legacy}','${owner}',2490,'paid','legacy-cs');`);
   await db.exec(await file("20261005083522_guest_count_publication_pricing.sql"));
-  await db.exec(await file("20261007140545_promo_partner_codes.sql"));
+  await db.exec(await file("20261007143041_promo_partner_codes.sql"));
   return { file, owner, other, legacy };
 }

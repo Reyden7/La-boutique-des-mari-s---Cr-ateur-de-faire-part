@@ -113,9 +113,29 @@ const hooks = registerHooks({
 current="checkout";await import("../supabase/functions/create-checkout-session/index.ts");
 current="webhook";await import("../supabase/functions/stripe-webhook/index.ts");
 current="validate";await import("../supabase/functions/validate-promo-code/index.ts");
+current="commerce";await import("../supabase/functions/create-commerce-checkout/index.ts");
 const checkout = (body,auth=true) => { const {listGuestCount,...payload}=body;if ("listGuestCount" in body) mock.listTotal=listGuestCount;return handlers.checkout(new Request("https://edge.invalid",{method:"POST",headers:{"Content-Type":"application/json",...(auth?{Authorization:"Bearer token"}:{})},body:JSON.stringify({pricingVersion:"guest-v2",...payload})})); };
 const webhook = (type,object,signature="valid-test-signature") => handlers.webhook(new Request("https://edge.invalid",{method:"POST",headers:{"Stripe-Signature":signature},body:JSON.stringify({type,data:{object}})}));
 const calls = (kind) => mock.calls.filter((call)=>call.kind===kind);
+
+test('server maintenance blocks both checkout handlers before all side effects; body cannot disable it; CORS remains available',async()=>{
+ reset();env.PAYMENTS_MAINTENANCE='true';
+ try {
+  const response=await checkout({projectId,maintenance:false,PAYMENTS_MAINTENANCE:false});
+  assert.equal(response.status,503);assert.equal(response.headers.get('Retry-After'),'120');assert.equal((await response.json()).code,'payments_maintenance');
+  const commerce=await handlers.commerce(new Request('https://edge.invalid',{method:'POST',body:'{"kind":"rsvp_addon","maintenance":false}'}));
+  assert.equal(commerce.status,503);assert.equal(calls('stripe-create').length,0);assert.equal(mock.calls.length,0);assert.equal(mock.project.payment_status,'unpaid');
+  assert.equal((await handlers.checkout(new Request('https://edge.invalid',{method:'OPTIONS'}))).status,200);
+ } finally {delete env.PAYMENTS_MAINTENANCE;}
+});
+test('maintenance is off by default and false; invalid nonempty server values fail closed',async()=>{
+ for(const value of [undefined,'false']){reset();if(value===undefined)delete env.PAYMENTS_MAINTENANCE;else env.PAYMENTS_MAINTENANCE=value;assert.equal((await checkout({projectId})).status,200);assert.equal(calls('stripe-create').length,1);}
+ env.PAYMENTS_MAINTENANCE='unexpected';assert.equal((await checkout({projectId})).status,503);delete env.PAYMENTS_MAINTENANCE;
+});
+test('maintenance never blocks signed Stripe confirmations, delayed success or retries',async()=>{
+ reset();await checkout({projectId});const session={...mock.sessions.cs_created,payment_status:'paid'};mock.calls=[];env.PAYMENTS_MAINTENANCE='true';
+ try {for(const event of ['checkout.session.completed','checkout.session.async_payment_succeeded','checkout.session.completed'])assert.equal((await webhook(event,session)).status,200);assert.equal(calls('rpc').filter(x=>x.name==='finalize_guest_checkout').length,3);}finally{delete env.PAYMENTS_MAINTENANCE;}
+});
 
 test('100% initial publication uses authenticated atomic RPC and never creates Stripe Checkout',async()=>{
  for (const form of [false,true]) {

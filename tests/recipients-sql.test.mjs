@@ -3,12 +3,12 @@ import {setupGuestPricingDb} from './guest-pricing-db.fixture.mjs';
 
 test('recipient PostgreSQL: isolation, server pricing, stable tokens, paid capacity and current RSVP',async t=>{
  const db=new PGlite();t.after(()=>db.close());const {file,owner,other,legacy}=await setupGuestPricingDb(db);
- await db.exec(await file('20261012061830_guest_per_person_pricing.sql'));
+ await db.exec(await file('20261029122005_guest_per_person_pricing.sql'));
  await db.exec(`create table public.rsvp_responses(id uuid primary key default gen_random_uuid(),project_id uuid references public.projects(id) on delete cascade,owner_id uuid references auth.users(id) on delete cascade,answers jsonb not null,client_fingerprint text,created_at timestamptz default now());
  alter table public.rsvp_responses enable row level security;grant select on public.rsvp_responses to authenticated;
  create policy owner_response on public.rsvp_responses to authenticated using(owner_id=auth.uid());
  create function public.get_public_project(p_public_id text) returns jsonb language sql security definer set search_path='' as $$select jsonb_build_object('id',p.id,'name',p.name,'public_id',p.public_id,'project_data',p.project_data) from public.projects p where p.public_id=p_public_id and p.status='published' and p.payment_status='paid' and (p.expires_at is null or p.expires_at>now())$$;`);
- await db.exec(await file('20261029092532_invitation_recipients.sql'));
+ await db.exec(await file('20261029122036_invitation_recipients.sql'));
  const project=crypto.randomUUID(),r1=crypto.randomUUID(),r2=crypto.randomUUID();
  await db.query(`insert into public.projects(id,owner_id,name,project_data) values($1,$2,'Test recipients','{"rsvp":{"enabled":true}}')`,[project,owner]);
  const call=async(name,args)=>(await db.query(`select to_jsonb(public.${name}(${args.map((_,i)=>'$'+(i+1)).join(',')})) as result`,args)).rows[0].result;

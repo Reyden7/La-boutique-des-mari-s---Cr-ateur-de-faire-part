@@ -1,6 +1,7 @@
 import Stripe from "npm:stripe@22.6.0";
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 import { corsHeaders, jsonResponse } from "../_shared/http.ts";
+import { paymentMaintenanceResponse } from "../_shared/paymentMaintenance.ts";
 
 type PurchaseType = "custom_invitation" | "rsvp_addon";
 
@@ -54,6 +55,8 @@ Deno.serve(async (request) => {
   if (request.method !== "POST") {
     return jsonResponse({ error: "Method not allowed" }, 405, true);
   }
+  const maintenance = paymentMaintenanceResponse();
+  if (maintenance) return maintenance;
 
   try {
     const authorization = request.headers.get("Authorization");

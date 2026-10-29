@@ -73,7 +73,7 @@ Le contrôle `pricingVersion` dans la requête et la réponse empêche les redir
 
 ## Migration et rétrocompatibilité
 
-Migration préparée par la CLI officielle : `20261012061830_guest_per_person_pricing.sql`.
+Migration préparée par la CLI officielle, nom aligné sur la version distante : `20261029122005_guest_per_person_pricing.sql`.
 
 - Étend les contraintes aux reçus v2, sans modifier montants, statuts ou capacités déjà achetées.
 - Garde l'ancien sous-total calculé pour les lignes v1 ; le nouveau utilise le nombre d'invités supplémentaires.
@@ -91,7 +91,7 @@ Migration préparée par la CLI officielle : `20261012061830_guest_per_person_pr
 - `supabase/functions/_shared/legacyGuestPayment.ts` (nouveau, lecture historique uniquement)
 - `supabase/functions/create-checkout-session/index.ts`
 - `supabase/functions/stripe-webhook/index.ts`
-- `supabase/migrations/20261012061830_guest_per_person_pricing.sql` (nouveau)
+- `supabase/migrations/20261029122005_guest_per_person_pricing.sql` (nouveau)
 - `src/config/pricing.ts`
 - `src/services/projectRepository.ts`
 - `src/components/toolbar/TopToolbar.tsx`

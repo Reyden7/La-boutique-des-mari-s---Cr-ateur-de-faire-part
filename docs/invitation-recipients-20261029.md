@@ -24,8 +24,8 @@ Les identifiants distants ont été générés par le connecteur Supabase. Ne pa
 
 | SQL local | Version enregistrée à distance | Nom distant |
 |---|---|---|
-| `supabase/migrations/20261012061830_guest_per_person_pricing.sql` | `20261029122005` | `guest_per_person_pricing` |
-| `supabase/migrations/20261029092532_invitation_recipients.sql` | `20261029122036` | `invitation_recipients` |
+| `supabase/migrations/20261029122005_guest_per_person_pricing.sql` | `20261029122005` | `guest_per_person_pricing` |
+| `supabase/migrations/20261029122036_invitation_recipients.sql` | `20261029122036` | `invitation_recipients` |
 
 Le prérequis tarifaire existait localement mais n’était pas encore appliqué en production. Il conserve les reçus guest-v1 et les droits acquis, tout en introduisant guest-v2. Aucun historique de paiement n’a été recalculé par un UPDATE de données.
 
@@ -90,7 +90,7 @@ Frontend modifié : `src/App.tsx`, `src/components/renderer/WeddingRenderer.tsx`
 
 Nouveaux modules : `src/features/recipients/recipientData.ts`, `recipientStore.ts`, `RecipientListModal.tsx`, `RecipientInvitationContext.tsx`, `RecipientSessionBoundary.tsx`, `recipients.css`, ainsi que `src/services/recipientRepository.ts` et `public/models/liste-invites.xlsx`.
 
-Serveur modifié : `supabase/functions/create-checkout-session/index.ts`, `supabase/functions/submit-rsvp/index.ts`. Nouveau helper `supabase/functions/_shared/recipientRsvp.ts` et nouvelle migration `20261029092532_invitation_recipients.sql`. La migration tarifaire préexistante et le webhook local ont été déployés sans nouvelle modification de leurs sources.
+Serveur modifié : `supabase/functions/create-checkout-session/index.ts`, `supabase/functions/submit-rsvp/index.ts`. Nouveau helper `supabase/functions/_shared/recipientRsvp.ts` et nouvelle migration `20261029122036_invitation_recipients.sql` (nom aligné sur la version distante). La migration tarifaire préexistante et le webhook local ont été déployés sans nouvelle modification de leurs sources.
 
 Dépendances : `package.json`, `package-lock.json` (`read-excel-file` et outil de tests PostgreSQL PGlite).
 

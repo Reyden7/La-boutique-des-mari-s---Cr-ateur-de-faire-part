@@ -37,7 +37,7 @@ test("guest-v2 PostgreSQL: exact capacity, promos, historical rights, refunds, R
     union all select 'receipt',to_jsonb(p)-'extra_guests'-'previous_guest_capacity'-'additional_guests' from public.guest_license_payments p
     order by source,data`)).rows;
   const before=await snapshot();
-  await db.exec(await file("20261012061830_guest_per_person_pricing.sql"));
+  await db.exec(await file("20261029122005_guest_per_person_pricing.sql"));
   assert.deepEqual(await snapshot(),before,"Migration must not alter historical amounts or rights");
   assert.equal((await state(historical)).purchased_guest_capacity,54);
   assert.equal((await state(legacy)).purchased_guest_capacity,null,"No retroactive quota on legacy publication");

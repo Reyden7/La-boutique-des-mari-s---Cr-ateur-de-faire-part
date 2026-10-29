@@ -1,6 +1,7 @@
 import Stripe from "npm:stripe@22.6.0";
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 import { corsHeaders, jsonResponse } from "../_shared/http.ts";
+import { paymentMaintenanceResponse } from "../_shared/paymentMaintenance.ts";
 import { calculateGuestUpgrade, calculateTotalPricing, isValidGuestCount, PRICING, PRICING_CHANGED_MESSAGE } from "../_shared/pricing.ts";
 import { guestCheckoutMetadata, guestReceiptAmount, matchesGuestCheckout, type GuestPaymentReceipt } from "../_shared/guestPayment.ts";
 import { calculatePromoDiscount, normalizePromoCode } from "../_shared/promo.ts";
@@ -18,6 +19,8 @@ const requireEnvironment = (name: string) => {
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (request.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405, true);
+  const maintenance = paymentMaintenanceResponse();
+  if (maintenance) return maintenance;
   try {
     const siteUrl = new URL(requireEnvironment("SITE_URL")).origin;
     if (siteUrl !== PRODUCTION_ORIGIN) throw new Error("Invalid SITE_URL");

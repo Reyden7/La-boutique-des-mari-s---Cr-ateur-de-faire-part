@@ -10,7 +10,7 @@ Le frontend est prêt localement : **aucun déploiement Netlify n'a été effect
 
 ## Migration et déploiements
 
-Migration locale créée avec la CLI : `supabase/migrations/20261007140545_promo_partner_codes.sql`.
+Migration locale créée avec la CLI, nom aligné sur la version distante : `supabase/migrations/20261007143041_promo_partner_codes.sql`.
 
 Le connecteur Supabase a enregistré son application sous la version **`20261007143041`**, nom `promo_partner_codes`. Il s'agit de la même migration, pas de deux migrations à appliquer. Ne pas réappliquer la migration locale sur ce projet ; réconcilier ces versions dans l'historique CLI avant un prochain `db push`.
 
@@ -157,7 +157,7 @@ Backend :
 - `supabase/functions/validate-promo-code/index.ts`
 - `supabase/functions/create-checkout-session/index.ts`
 - `supabase/functions/stripe-webhook/index.ts`
-- `supabase/migrations/20261007140545_promo_partner_codes.sql`
+- `supabase/migrations/20261007143041_promo_partner_codes.sql`
 
 Tests et preuve :
 

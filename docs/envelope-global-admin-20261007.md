@@ -111,10 +111,10 @@ Preuves locales : `docs/qa/20261007-envelope-global-admin/admin-final.png`,
 ## Déploiement Supabase effectué le 7 octobre 2026
 
 - Projet : `saaqgyjqecqbzizacvrp`.
-- SQL exact de `20261007075714_envelope_global_assets_admin.sql` appliqué via MCP.
+- SQL exact de `20261007083948_envelope_global_assets_admin.sql` appliqué via MCP (nom local aligné sur la version distante).
   Supabase a enregistré la migration sous la version **20261007083948**, nom
   `envelope_global_assets_admin`. Ne pas réappliquer le fichier local : son
-  timestamp diffère de celui attribué par MCP, mais son contenu est déjà installé.
+  nom a été aligné sur cette version distante et son contenu est déjà installé.
 - `publish-global-asset` : **v2 ACTIVE**, `verify_jwt = true` ; les cinq fichiers
   déployés ont été comparés au code local et sont identiques.
 - Audit transactionnel exécuté sur Supabase jusqu’au **ROLLBACK**, tous les
@@ -131,7 +131,7 @@ Preuves locales : `docs/qa/20261007-envelope-global-admin/admin-final.png`,
 
 ## Plan initial de déploiement (historique)
 
-1. Appliquer `20261007075714_envelope_global_assets_admin.sql` après les migrations
+1. Appliquer `20261007083948_envelope_global_assets_admin.sql` après les migrations
    existantes templates/global-assets. Ne pas appliquer les anciennes migrations
    une deuxième fois.
 2. Déployer `publish-global-asset` avec ses dépendances `_shared/envelopeFormats.ts`
@@ -156,4 +156,4 @@ un test de charge multi-connexions sur la production.
 - `src/styles.css` (styles admin seulement pour cette tâche)
 - `supabase/functions/publish-global-asset/index.ts`
 - `supabase/functions/_shared/envelopeFormats.ts`
-- `supabase/migrations/20261007075714_envelope_global_assets_admin.sql`
+- `supabase/migrations/20261007083948_envelope_global_assets_admin.sql`
