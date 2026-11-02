@@ -1,3 +1,4 @@
+import { resolveInvitationCategory } from "../../supabase/functions/_shared/invitationCategory.ts";
 import type { IntroductionMode, OpeningAnimationType, ParticleConfig, ProjectAudioConfig, WeddingProject } from "../types/editor";
 import { deleteRemoteProject, isSupabaseConfigured, loadRemoteProjects, saveRemoteProject } from "../services/projectRepository";
 import { migratePagesToScrollableDocument } from "./documentLayout";
@@ -49,6 +50,7 @@ export const normalizeProject = (value: unknown): WeddingProject | null => {
     ?? (resolvedWelcomePage.enabled ? "welcome" : (legacy.opening?.type ?? legacyType) !== "none" ? "classic" : "none");
   return withoutProjectAnimationDelays({
     ...legacy,
+    ...(legacy.invitationCategory !== undefined ? {invitationCategory: resolveInvitationCategory(legacy.invitationCategory)} : {}),
     id: legacy.id,
     name: legacy.name,
     pages,

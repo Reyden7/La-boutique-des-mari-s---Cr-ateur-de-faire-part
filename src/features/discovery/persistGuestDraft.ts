@@ -24,7 +24,7 @@ export function persistGuestDraftAfterAuth(draft: WeddingProject, userId: string
     await verify();
     if (!normalizeProject(draft) || !draft.pages.length) throw new Error("Le brouillon est invalide.");
     if (!target || target.draftId !== draft.id || target.ownerId !== userId) {
-      target = { draftId: draft.id, ownerId: userId, project: instantiateProjectFromTemplate({ name: draft.name, templateData: draft }, userId), created: false, references: new Map() };
+      target = { draftId: draft.id, ownerId: userId, project: instantiateProjectFromTemplate({ name: draft.name, templateData: draft, invitationCategory: draft.invitationCategory }, userId), created: false, references: new Map() };
     }
     const current = target;
     // A parent row is needed by assets RLS. Never write Blob URLs, even into this pending draft.
@@ -33,7 +33,7 @@ export function persistGuestDraftAfterAuth(draft: WeddingProject, userId: string
       await saveRemoteProject(skeleton, { createOnly: true });
       current.created = true;
     }
-    const candidate = { ...instantiateProjectFromTemplate({ name: draft.name, templateData: draft }, userId), id: current.project.id, createdAt: current.project.createdAt };
+    const candidate = { ...instantiateProjectFromTemplate({ name: draft.name, templateData: draft, invitationCategory: draft.invitationCategory }, userId), id: current.project.id, createdAt: current.project.createdAt };
     for (const asset of temporaryDiscoveryAssets()) {
       if (current.references.has(asset.url)) continue;
       await verify();

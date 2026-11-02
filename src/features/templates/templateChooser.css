@@ -1,0 +1,6 @@
+.invitation-category-tabs { display: inline-flex; gap: 4px; padding: 4px; margin: 18px 0 2px; background: #eee7df; border: 1px solid #ded3c8; border-radius: 999px; }
+.invitation-category-tabs > button { min-width: 112px; min-height: 40px; border: 1px solid transparent; border-radius: 999px; padding: 9px 22px; background: transparent; color: #75675d; font: inherit; cursor: pointer; }
+.invitation-category-tabs > button[aria-selected="true"] { background: #fffdf9; color: #584234; border-color: #d9c7b6; box-shadow: 0 2px 7px #59453212; }
+.invitation-category-tabs > button:focus-visible { outline: 2px solid #9b755d; outline-offset: 2px; }
+.template-category-empty { margin: 20px 0 0; padding: 18px; border: 1px dashed #d9c7b6; border-radius: 12px; color: #75675d; line-height: 1.6; }
+@media (max-width: 600px) { .invitation-category-tabs { display: flex; }.invitation-category-tabs > button { flex: 1; min-width: 0; padding-inline: 14px; } }

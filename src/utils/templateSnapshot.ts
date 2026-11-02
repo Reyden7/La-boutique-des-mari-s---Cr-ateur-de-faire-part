@@ -1,3 +1,4 @@
+import { resolveInvitationCategory } from "../../supabase/functions/_shared/invitationCategory.ts";
 import type { WeddingProject } from "../types/editor";
 import type { TemplateRecord } from "../types/templates";
 import { normalizeProject } from "./storage";
@@ -23,12 +24,13 @@ export const sanitizeProjectForTemplate = (project: WeddingProject): Partial<Wed
 };
 
 export const instantiateProjectFromTemplate = (
-  template: Pick<TemplateRecord, "name" | "templateData">,
+  template: Pick<TemplateRecord, "name" | "templateData" | "invitationCategory">,
   ownerId: string,
 ): WeddingProject => {
   const timestamp = new Date().toISOString();
   const candidate = {
     ...sanitizeProjectForTemplate(template.templateData as WeddingProject),
+    invitationCategory: resolveInvitationCategory(template.invitationCategory),
     id: crypto.randomUUID(),
     ownerId,
     name: template.name,

@@ -139,3 +139,9 @@ test('public discovery route does not expose private editors; warning is once an
   assert.match(read('src/features/discovery/DiscoveryDialogs.tsx'),/warningShown && !prompt && !error/);
   assert.match(read('src/components/toolbar/TopToolbar.tsx'),/Mode découverte — Non sauvegardé/);
 });
+
+test('birth category survives guest conversion, signup and persisted reload without paid rights',async()=>{
+ const draft=reset();draft.invitationCategory='birth';user={id:'owner'};
+ const {project}=await persistGuestDraftAfterAuth(draft,'owner');assert.equal(project.invitationCategory,'birth');assert.equal(project.paymentStatus,'unpaid');assert.equal(project.rsvp.purchased,false);
+ const stored=rows.get(project.id);assert.equal(stored.project_data.invitationCategory,'birth');assert.equal(normalizeProject({...stored.project_data,id:stored.id,name:stored.name}).invitationCategory,'birth');
+});

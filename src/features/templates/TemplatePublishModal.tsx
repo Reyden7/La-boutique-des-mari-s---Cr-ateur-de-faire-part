@@ -1,3 +1,4 @@
+import { INVITATION_CATEGORIES, resolveInvitationCategory, type InvitationCategory } from "./invitationCategory";
 import { ModalLayer } from "../../components/ui/ModalLayer";
 import { Check, ImagePlus, LayoutTemplate, X } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -12,6 +13,7 @@ export function TemplatePublishModal({ project, onClose }: { project: WeddingPro
   const [slug, setSlug] = useState(slugifyTemplateName(project.name));
   const [slugEdited, setSlugEdited] = useState(false);
   const [description, setDescription] = useState("");
+  const [invitationCategory, setInvitationCategory] = useState<InvitationCategory>(resolveInvitationCategory(project.invitationCategory));
   const [category, setCategory] = useState<string>(TEMPLATE_CATEGORIES[0]);
   const [tags, setTags] = useState("");
   const [isFeatured, setFeatured] = useState(false);
@@ -35,6 +37,7 @@ export function TemplatePublishModal({ project, onClose }: { project: WeddingPro
         slug: slugifyTemplateName(slug),
         description: description.trim(),
         category: category.trim(),
+        invitationCategory,
         tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
         thumbnailUrl,
         previewImageUrl: thumbnailUrl,
@@ -57,10 +60,11 @@ export function TemplatePublishModal({ project, onClose }: { project: WeddingPro
       <h2 id="template-publish-title">Publier comme template</h2>
       <p className="modal-intro">Le modèle sera un snapshot indépendant du projet actuel. Aucun paiement ni lien public ne sera copié.</p>
       <div className="template-admin-form">
+        <label className="field"><span>Catégorie du template</span><select value={invitationCategory} onChange={event=>setInvitationCategory(resolveInvitationCategory(event.target.value))}>{INVITATION_CATEGORIES.map(item=><option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
         <label className="field"><span>Nom du template</span><input value={name} onChange={(event) => { const value = event.target.value; setName(value); if (!slugEdited) setSlug(slugifyTemplateName(value)); }} /></label>
         <label className="field"><span>Slug unique</span><input value={slug} onChange={(event) => { setSlugEdited(true); setSlug(slugifyTemplateName(event.target.value)); }} /></label>
         <label className="field template-admin-wide"><span>Description</span><textarea rows={3} value={description} onChange={(event) => setDescription(event.target.value)} /></label>
-        <label className="field"><span>Catégorie</span><input list="template-categories" value={category} onChange={(event) => setCategory(event.target.value)} /><datalist id="template-categories">{TEMPLATE_CATEGORIES.map((item) => <option key={item} value={item} />)}</datalist></label>
+        <label className="field"><span>Style</span><input list="template-categories" value={category} onChange={(event) => setCategory(event.target.value)} /><datalist id="template-categories">{TEMPLATE_CATEGORIES.map((item) => <option key={item} value={item} />)}</datalist></label>
         <label className="field"><span>Tags, séparés par des virgules</span><input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="rose, floral, élégant" /></label>
         <label className="field"><span>Ordre d’affichage</span><input type="number" value={sortOrder} onChange={(event) => setSortOrder(Number(event.target.value) || 0)} /></label>
         <label className="template-thumbnail-upload">

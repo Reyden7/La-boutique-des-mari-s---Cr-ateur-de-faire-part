@@ -1,14 +1,16 @@
+import {instantiateProjectFromTemplate} from "../src/utils/templateSnapshot";
 import { create } from 'zustand';
 import type { ReactNode } from 'react';
 import { createBlankProject } from '../src/templates/templates';
 import { normalizeProject } from '../src/utils/storage';
 const account={id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',email:'discovery@local.invalid',is_anonymous:false,user_metadata:{} as Record<string,unknown>};
 const state=create<{user:typeof account|null}>(()=>({user:null}));
+export const confirmQaAdmin=()=>state.setState({user:{...account,user_metadata:{qaAdmin:true}}});
 export const confirmQaEmail=()=>state.setState({user:account});
 export const signInQaEmptyAccount=()=>state.setState({user:{...account,id:'edededed-eded-4ded-8ded-edededededed',user_metadata:{}}});
 export const signOutQaAccount=()=>state.setState({user:null});
 export const AuthProvider=({children}:{children:ReactNode})=>children;
-export const useAuth=()=>({user:state(s=>s.user),loading:false,recoveryReady:false,configured:true,isAdmin:false,
+export const useAuth=()=>({user:state(s=>s.user),loading:false,recoveryReady:false,configured:true,isAdmin:Boolean(state.getState().user?.user_metadata?.qaAdmin),
   signUp:async()=>({confirmationRequired:true}),signIn:async()=>confirmQaEmail(),signOut:async()=>state.setState({user:null}),requestPasswordReset:async()=>{},resetPassword:async()=>{}});
 export const requireSupabaseSession=async()=>{const user=state.getState().user;if(!user)throw new Error('QA: no session');return user;};
 export const isSupabaseConfigured=true;
@@ -20,6 +22,8 @@ const now=new Date().toISOString();
 const tables:Record<string,any[]>={projects:[],assets:[],global_assets:[],preview_video_cleanup:[],templates:[
   {id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',name:'Jardin découverte',slug:'jardin',description:'Modèle publié de test',category:'Romantique',tags:[],template_data:draft,is_published:true,is_featured:false,sort_order:0,version:1,created_at:now,updated_at:now},
   {id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',name:'Modèle privé interdit',slug:'private',template_data:draft,is_published:false},
+  {id:'12121212-1212-4212-8212-121212121212',name:'Bienvenue bébé',slug:'naissance-qa',description:'Modèle naissance publié',category:'Minimaliste',invitation_category:'birth',tags:[],template_data:normalizeProject(createBlankProject('birth'))!,is_published:true,is_featured:false,sort_order:1,version:1,created_at:now,updated_at:now},
+  {id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd',name:'Naissance privée QA',slug:'naissance-privee',description:'Brouillon admin',category:'Floral',invitation_category:'birth',tags:[],template_data:draft,is_published:false,is_featured:false,sort_order:2,version:1,created_at:now,updated_at:now},
 ]};
 export const qaCounts={projectWrites:0,uploads:0,checkout:0};
 const recipientLists=new Map<string,{revision:number;recipients:any[]}>();
@@ -35,8 +39,15 @@ export const supabase:any={auth:{updateUser:async({data}:{data:Record<string,unk
     insert:(v:any)=>{action='insert';changes=v;return q;},update:(v:any)=>{action='update';changes=v;return q;},
     single:async()=>{const r=result();return{data:r.data[0],error:r.error};},maybeSingle:async()=>{const r=result();return{data:r.data[0]??null,error:r.error};},returns:async()=>result(),then:(a:any,b:any)=>Promise.resolve(result()).then(a,b)};return q;
 },storage:{from:()=>({upload:async()=>{qaCounts.uploads++;return{error:null};},getPublicUrl:(path:string)=>({data:{publicUrl:'https://qa.invalid/'+path}}),remove:async()=>({error:null})})},functions:{invoke:async()=>{qaCounts.checkout++;throw new Error('No real Stripe in QA');}}};
-supabase.rpc=async(name:string,args:any)=>{
+const runRpc=async(name:string,args:any)=>{
  const user=await requireSupabaseSession();
+ if(name==='get_owner_rsvp_status')return{data:[],error:null};
+ if(name==='instantiate_project_from_template'){
+  const template=tables.templates.find(row=>row.id===args.p_template_id&&row.is_published);
+  if(!template)return{data:null,error:new Error('TEMPLATE_NOT_AVAILABLE')};
+  const project=instantiateProjectFromTemplate({name:template.name,templateData:template.template_data,invitationCategory:template.invitation_category??'wedding'},user.id);
+  const row={id:project.id,owner_id:user.id,name:project.name,project_data:project,status:'draft',payment_status:'unpaid',created_at:project.createdAt,updated_at:project.updatedAt,public_id:null};tables.projects.push(row);return{data:row,error:null};
+ }
  if(!tables.projects.some(row=>row.id===args.p_project_id&&row.owner_id===user.id))return{data:null,error:new Error('QA owner required')};
  const current=recipientLists.get(args.p_project_id)??{revision:0,recipients:[]};
  if(name==='read_invitation_recipients')return{data:current,error:null};
@@ -46,3 +57,5 @@ supabase.rpc=async(name:string,args:any)=>{
  }
  return{data:null,error:new Error('QA unexpected RPC')};
 };
+
+supabase.rpc=(name:string,args:any)=>{const promise:any=runRpc(name,args);promise.single=()=>promise;return promise;};

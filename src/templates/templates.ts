@@ -1,3 +1,4 @@
+import { resolveInvitationCategory, type InvitationCategory } from "../../supabase/functions/_shared/invitationCategory.ts";
 import type { EditorElement, WeddingProject } from "../types/editor";
 
 const id = () => crypto.randomUUID();
@@ -188,8 +189,8 @@ const create = (
   ],
 });
 
-export const createBlankProject = (): WeddingProject =>
-  create(
+export const createBlankProject = (category: InvitationCategory = "wedding"): WeddingProject => {
+  const project = create(
     "Mon faire-part",
 
     {
@@ -217,6 +218,14 @@ export const createBlankProject = (): WeddingProject =>
       ),
     ]
   );
+
+  project.invitationCategory = resolveInvitationCategory(category);
+  if (project.invitationCategory === "birth") {
+    project.name = "Mon faire-part de naissance";
+    project.pages = project.pages.map(page => ({...page, elements: []}));
+  }
+  return project;
+};
 
 export const templateFactories = [
   {

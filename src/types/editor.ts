@@ -1,3 +1,4 @@
+import type { InvitationCategory } from "../../supabase/functions/_shared/invitationCategory.ts";
 export type ElementType = "text" | "image" | "shape" | "icon" | "scratch" | "carousel" | "location" | "schedule" | "calendar" | "countdown" | "button" | "section";
 export type TextAnimationType = "typewriter" | "handwriting" | "word-by-word" | "letter-by-letter" | "draw-underline";
 export type AnimationType = "none" | "fade" | "slide-left" | "slide-right" | "slide-up" | "slide-down" | "zoom" | "rotate" | TextAnimationType;
@@ -778,6 +779,8 @@ export interface ParticleConfig {
 }
 
 export interface WeddingProject {
+  /** Optional on historical projects: read as wedding without rewriting published data. */
+  invitationCategory?: InvitationCategory;
   publicationPolicy?: "legacy" | "paid_versions";
   activeVersionId?: string;
   activeVersionNumber?: number;

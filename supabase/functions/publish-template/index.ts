@@ -1,3 +1,4 @@
+import { isInvitationCategory, resolveInvitationCategory } from "../_shared/invitationCategory.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 import { corsHeaders, jsonResponse } from "../_shared/http.ts";
 
@@ -8,6 +9,7 @@ type PublishTemplateBody = {
   slug: string;
   description?: string;
   category: string;
+  invitationCategory?: unknown;
   tags?: string[];
   thumbnailUrl?: string | null;
   previewImageUrl?: string | null;
@@ -79,6 +81,8 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: "Missing template metadata" }, 400, true);
     }
 
+    if (body.invitationCategory !== undefined && !isInvitationCategory(body.invitationCategory)) return jsonResponse({error:"Invalid invitation category"},400,true);
+
     const { data: template, error: publishError } = await userClient.rpc("publish_project_as_template", {
       p_project_id: body.projectId,
       p_template_id: body.templateId ?? null,
@@ -96,7 +100,8 @@ Deno.serve(async (request) => {
     });
     if (publishError || !template) throw publishError ?? new Error("Template publication failed");
 
-    const templateRow = template as { id: string; template_data: unknown };
+    const templateRow = template as { id: string; template_data: {invitationCategory?: unknown}; invitation_category?: unknown };
+    const invitationCategory = resolveInvitationCategory(body.invitationCategory ?? (body.templateId ? templateRow.invitation_category : templateRow.template_data?.invitationCategory));
     const replacements = new Map<string, string>();
     for (const sourcePath of collectWeddingAssetPaths(templateRow.template_data)) {
       const filename = sourcePath.split("/").pop() ?? crypto.randomUUID();
@@ -114,6 +119,7 @@ Deno.serve(async (request) => {
     const { data: updated, error: updateError } = await admin.from("templates")
       .update({
         template_data: durableData,
+        invitation_category: invitationCategory,
         is_published: body.isPublished ?? false,
         updated_at: new Date().toISOString(),
       })

@@ -1,3 +1,4 @@
+import { isInvitationCategory, resolveInvitationCategory } from "../../supabase/functions/_shared/invitationCategory.ts";
 import { requireSupabaseSession, supabase } from "../lib/supabase";
 import { projectFromRow, type ProjectRow } from "./projectRepository";
 import type { TemplateMetadataInput, TemplateRecord } from "../types/templates";
@@ -10,6 +11,7 @@ interface TemplateRow {
   slug: string;
   description: string;
   category: string;
+  invitation_category?: string | null;
   tags: string[] | null;
   theme: string | null;
   thumbnail_url: string | null;
@@ -32,6 +34,7 @@ const fromRow = (row: TemplateRow): TemplateRecord => ({
   slug: row.slug,
   description: row.description,
   category: row.category,
+  invitationCategory: resolveInvitationCategory(row.invitation_category),
   tags: row.tags ?? [],
   theme: row.theme,
   thumbnailUrl: row.thumbnail_url,
@@ -126,6 +129,10 @@ export async function updateTemplateMetadata(templateId: string, updates: Partia
   if (updates.slug !== undefined) databaseUpdates.slug = updates.slug;
   if (updates.description !== undefined) databaseUpdates.description = updates.description;
   if (updates.category !== undefined) databaseUpdates.category = updates.category;
+  if (updates.invitationCategory !== undefined) {
+    if (!isInvitationCategory(updates.invitationCategory)) throw new Error("Catégorie du template invalide.");
+    databaseUpdates.invitation_category = updates.invitationCategory;
+  }
   if (updates.tags !== undefined) databaseUpdates.tags = updates.tags;
   if (updates.thumbnailUrl !== undefined) databaseUpdates.thumbnail_url = updates.thumbnailUrl;
   if (updates.previewImageUrl !== undefined) databaseUpdates.preview_image_url = updates.previewImageUrl;

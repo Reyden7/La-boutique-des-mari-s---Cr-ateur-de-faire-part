@@ -1,3 +1,5 @@
+import type { InvitationCategory } from "../../supabase/functions/_shared/invitationCategory.ts";
+export type { InvitationCategory } from "../../supabase/functions/_shared/invitationCategory.ts";
 import type { WeddingProject } from "./editor";
 
 export interface TemplateRecord {
@@ -6,6 +8,7 @@ export interface TemplateRecord {
   slug: string;
   description: string;
   category: string;
+  invitationCategory?: InvitationCategory;
   tags: string[];
   theme?: string | null;
   thumbnailUrl?: string | null;
@@ -27,6 +30,7 @@ export interface TemplateMetadataInput {
   slug: string;
   description: string;
   category: string;
+  invitationCategory?: InvitationCategory;
   tags: string[];
   thumbnailUrl?: string | null;
   previewImageUrl?: string | null;

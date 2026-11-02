@@ -1,0 +1,35 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {setupPublicationVersionsDb} from './publication-versions-db.fixture.mjs';
+
+test('template category metadata preserves legacy data, admin RLS and safe project instantiation',async t=>{
+ const f=await setupPublicationVersionsDb(t),{db,file,owner,other,asOwner,root,call}=f;
+ const sanitizer=(await db.query("select pg_get_functiondef('private.sanitize_template_data(jsonb)'::regprocedure) definition")).rows[0].definition;
+ const templates=await file('20260929070544_administrable_templates.sql');
+ await db.exec(templates.slice(0,templates.indexOf('insert into storage.buckets')));
+ await db.exec(await file('20260929072640_fix_template_trim_calls.sql'));
+ await db.exec(sanitizer);
+ await db.exec('alter table public.templates add column preview_video_path text');
+ const id=crypto.randomUUID();
+ const data={pages:[{name:'Original',elements:[]}],rsvp:{enabled:false,purchased:true},paymentStatus:'paid',publicId:'never-copy',purchasedGuestCapacity:999,publicationPolicy:'legacy'};
+ await db.query("insert into public.templates(id,name,slug,template_data,created_by,is_published,thumbnail_url,preview_video_path) values($1,'Naissance dans le nom seulement','legacy-name',$2,$3,true,'/original.png','original/video.mp4')",[id,JSON.stringify(data),owner]);
+ const before=(await db.query('select template_data,thumbnail_url,preview_video_path,version from public.templates where id=$1',[id])).rows[0];
+ await db.exec(await file('20261102083049_template_invitation_categories.sql'));
+ const legacy=(await db.query('select * from public.templates where id=$1',[id])).rows[0];assert.equal(legacy.invitation_category,'wedding');
+ assert.deepEqual({template_data:legacy.template_data,thumbnail_url:legacy.thumbnail_url,preview_video_path:legacy.preview_video_path,version:legacy.version},before);
+ await assert.rejects(()=>db.query("update public.templates set invitation_category='invalid' where id=$1",[id]),/check constraint/);
+ await asOwner();await db.query("update public.templates set invitation_category='birth' where id=$1",[id]);
+ const moved=(await db.query('select template_data,thumbnail_url,preview_video_path,version from public.templates where id=$1',[id])).rows[0];assert.deepEqual(moved,before);
+ const project=await call('instantiate_project_from_template',[id,null]);
+ assert.equal(project.project_data.invitationCategory,'birth');assert.equal(project.status,'draft');assert.equal(project.payment_status,'unpaid');assert.equal(project.public_id,null);
+ assert.equal(project.project_data.rsvp.purchased,false);assert.equal(project.project_data.purchasedGuestCapacity,undefined);assert.equal(project.project_data.publicationPolicy,undefined);
+ const duplicate=await call('duplicate_template',[id]);assert.equal(duplicate.invitation_category,'birth');assert.equal(duplicate.is_published,false);assert.deepEqual(duplicate.template_data,data);
+ await asOwner(other);
+ assert.equal((await db.query("update public.templates set invitation_category='wedding' where id=$1 returning id",[id])).rows.length,0);
+ await assert.rejects(()=>call('duplicate_template',[id]),/ADMIN_REQUIRED/);
+ const userProject=await call('instantiate_project_from_template',[id,null]);assert.equal(userProject.owner_id,other);assert.equal(userProject.project_data.invitationCategory,'birth');
+ await assert.rejects(()=>call('instantiate_project_from_template',[duplicate.id,null]),/TEMPLATE_NOT_AVAILABLE/);
+ await root();await db.exec("set request.jwt.claim.sub='';set request.jwt.claims='{}';set role anon");
+ const publicRows=(await db.query('select id,invitation_category from public.templates')).rows;assert.deepEqual(publicRows,[{id,invitation_category:'birth'}]);
+ await assert.rejects(()=>call('instantiate_project_from_template',[id,null]),/permission denied/);
+});
