@@ -1,6 +1,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {partnerFixture,partnerMigration} from './partner-commissions-db.fixture.mjs';
+import {setupPublicationVersionsDb} from './publication-versions-db.fixture.mjs';
+
+test('production correction applies usage/partner schema without pricing v3 or changing the deployed v2 tariff',async t=>{
+ const f=await setupPublicationVersionsDb(t);
+ await f.db.exec(await f.file('20261029145330_promo_full_discount_free_publication.sql'));
+ const before=(await f.db.query("select pg_get_functiondef('public.reserve_guest_checkout_before_recipients(uuid,uuid,integer,text,text)'::regprocedure) d")).rows[0].d;
+ await f.db.exec(await f.file('20261102100112_promo_usage_limits_reservations.sql'));
+ await f.db.exec(await f.file(partnerMigration));
+ assert.equal((await f.db.query("select pg_get_functiondef('public.reserve_guest_checkout_before_recipients(uuid,uuid,integer,text,text)'::regprocedure) d")).rows[0].d,before);
+ await f.asOwner();const partner=await f.call('admin_save_partner',[null,'QA production-compatible',null,null,true]);
+ const id=crypto.randomUUID(),recipient=crypto.randomUUID();await f.db.query("insert into public.projects(id,owner_id,name,project_data) values($1,$2,'Synthetic v2 compatibility',$3)",[id,f.owner,JSON.stringify({pages:[],rsvp:{enabled:false,fields:[]}})]);
+ await f.call('save_invitation_recipients',[id,0,JSON.stringify([{id:recipient,display_name:'Famille synthétique',guest_count:40,is_active:true}])]);await f.root();
+ await f.db.query("insert into public.promo_codes(code,discount_value,max_uses,partner_id,partner_commission_rate) values('V2_PARTNER',10,1,$1,15)",[partner.id]);
+ const r=await f.call('reserve_confirmed_initial_publication',[id,f.owner,40,null,'V2_PARTNER','paid-versions-v1',2205]);
+ assert.equal(r.pricing_version,'guest-v2');assert.equal(r.amount_cents,2205);
+ await f.db.query("update public.guest_license_payments set stripe_checkout_session_id='cs_v2_partner' where id=$1",[r.id]);
+ await f.call('finalize_guest_checkout',[r.id,f.owner,'cs_v2_partner','pi_v2_partner',2205]);
+ await f.call('confirm_partner_commission',[r.id,'cs_v2_partner','pi_v2_partner',2205,0]);
+ assert.equal((await f.db.query('select commission_cents from public.partner_commissions')).rows[0].commission_cents,331);
+ await f.asOwner();assert.equal((await f.call('admin_promo_codes',[])).find(c=>c.code==='V2_PARTNER').confirmed_uses,1);
+});
 
 test('partner creation deduplicates normalized names; admin permissions and decimal boundaries',async t=>{
  const f=await partnerFixture(t),p=await f.partner();const again=await f.partner(' vos précieux moments ');assert.equal(again.id,p.id);
