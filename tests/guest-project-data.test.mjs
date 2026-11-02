@@ -17,7 +17,7 @@ globalThis.__guestDataMock={
         single:async()=>({data:{...row,status:operation==="insert"?"draft":"published",payment_status:operation==="insert"?"unpaid":"paid"},error:null}),
       };return chain;
     },
-    functions:{invoke:async(name,options)=>{calls.push({kind:"checkout",name,...options});return{data:{url:"https://checkout.invalid",pricingVersion:"guest-v2"},error:null};}},
+    functions:{invoke:async(name,options)=>{calls.push({kind:"checkout",name,...options});return{data:{url:"https://checkout.invalid",pricingVersion:"guest-v3"},error:null};}},
   },
 };
 const hooks=registerHooks({
@@ -53,7 +53,7 @@ test("loading cannot trust forged rights inside editable JSON; Checkout sends ID
   assert.equal(project.purchasedGuestCapacity,54);
   assert.equal(repository.projectFromRow({...row,purchased_guest_capacity:null}).purchasedGuestCapacity,undefined);
   calls.length=0;await repository.startProjectCheckout("project",53);
-  assert.deepEqual(calls[0].body,{projectId:"project",guestCount:53,pricingVersion:"guest-v2"});
+  assert.deepEqual(calls[0].body,{projectId:"project",guestCount:53,pricingVersion:"guest-v3"});
 });
 
 test("frontend refuses the URL from an old or missing backend pricing version",async()=>{

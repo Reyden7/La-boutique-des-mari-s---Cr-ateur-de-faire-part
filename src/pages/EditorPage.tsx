@@ -1,3 +1,4 @@
+import { PublishedRsvpActions } from "../features/rsvp/PublishedRsvpActions";
 import { Eye, PanelLeft, SlidersHorizontal, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Navigate, useBlocker, useNavigate, useParams } from "react-router-dom";
@@ -146,7 +147,7 @@ export function EditorPage({ discovery = false }: { discovery?: boolean }) {
   </>;
   if (openingPreview) return <><OpeningPreview project={project} type={openingPreview} device={previewDevice} onUse={(opening) => useEditorStore.getState().updateOpening(opening)} onClose={() => setOpeningPreview(null)} />{dialogs}</>;
   if (preview) return <><PreviewMode project={project} device={previewDevice} onClose={() => setPreview(false)} />{dialogs}</>;
-  if (isPublishedDesignLocked(project)) return <div className="published-design-view"><TopToolbar onPreview={()=>setPreview(true)}/><main className="published-design-info"><h1>Version publiée — Modification payante</h1><p>Cette version est définitive. Créez une nouvelle version pour modifier son contenu ; elle restera privée jusqu’au nouveau paiement.</p><button onClick={()=>useRecipientLists.setState({open:true})}>Liste des invités et liens</button><button onClick={()=>navigate(`/studio/${project.id}/rsvp/responses`)}>Réponses au formulaire</button><button onClick={()=>setPreview(true)}>Aperçu de la version publiée</button><div className="published-design-paper"><WeddingRenderer project={project} device="mobile" mode="preview"/></div></main>{dialogs}</div>;
+  if (isPublishedDesignLocked(project)) return <div className="published-design-view"><TopToolbar onPreview={()=>setPreview(true)}/><main className="published-design-info"><h1>Version publiée — Modification payante</h1><p>Cette version est définitive. Créez une nouvelle version pour modifier son contenu ; elle restera privée jusqu’au nouveau paiement.</p><button onClick={()=>useRecipientLists.setState({open:true})}>Liste des invités et liens</button><PublishedRsvpActions project={project}/><button onClick={()=>setPreview(true)}>Aperçu de la version publiée</button><div className="published-design-paper"><WeddingRenderer project={project} device="mobile" mode="preview"/></div></main>{dialogs}</div>;
 
   return (
     <><div className={`studio-layout${project.activeVersionId?" publication-has-version":""}`} inert={recipientsOpen || tutorialModal || session.converting || (guest && (!session.warningShown || Boolean(session.prompt) || Boolean(session.error) || blocker.state === "blocked")) || undefined}>

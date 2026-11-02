@@ -23,4 +23,11 @@ test('unpaid draft schema never changes the public RSVP fields or visibility',as
  assert.equal((await send({})).status,200);assert.equal(submitted.p_answers['Question personnelle'],'Sans gluten');
  project.project_data.rsvp=original;delete project.publication_policy;
 });
+test('published form removed: direct Edge requests cannot use a stale add-on or unpaid draft to submit',async()=>{
+ const saved=structuredClone(publishedRsvp);const count=submitted;
+ publishedRsvp.enabled=false;assert.equal((await send({})).status,404);assert.equal(submitted,count);
+ publishedRsvp.enabled=true;publishedRsvp.fields=[];assert.equal((await send({})).status,404);
+ Object.assign(publishedRsvp,saved);
+});
+
 test.after(()=>{hooks.deregister();delete globalThis.Deno;delete globalThis.__recipientEdgeClient;});

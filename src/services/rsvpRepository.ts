@@ -47,3 +47,12 @@ export async function loadRsvpResponseHistory(projectId: string, responseId: str
   if(error)throw error;
   return data as {id:string;answers:Record<string,unknown>;questionnaire_snapshot:RsvpResponseRow["questionnaire_snapshot"];publication_version_id:string|null;answered_at:string}[];
 }
+
+export interface PublishedRsvpStatus { project_id: string; has_form: boolean; has_history: boolean }
+export async function loadPublishedRsvpStatuses(projectId?: string): Promise<PublishedRsvpStatus[]> {
+  if (!supabase) return [];
+  await requireSupabaseSession();
+  const {data,error} = await supabase.rpc("get_owner_rsvp_status", {p_project_id:projectId ?? null});
+  if(error) throw error;
+  return data ?? [];
+}

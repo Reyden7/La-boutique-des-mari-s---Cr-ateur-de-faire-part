@@ -1,6 +1,4 @@
 import { requireSupabaseSession, supabase } from "../lib/supabase";
-import type { WeddingProject } from "../types/editor";
-import { saveRemoteProject } from "./projectRepository";
 
 export interface CustomInvitationRequestInput {
   coupleNames: string;
@@ -38,7 +36,7 @@ const checkoutError = async (error: unknown, fallback: string) => {
   return new Error(error instanceof Error && error.message ? `${fallback} (${error.message})` : fallback);
 };
 
-const invokeCheckout = async (kind: "custom_invitation" | "rsvp_addon", entityId: string) => {
+const invokeCheckout = async (kind: "custom_invitation", entityId: string) => {
   if (!supabase) throw new Error("Supabase n’est pas configuré.");
   const { data, error } = await supabase.functions.invoke("create-commerce-checkout", { body: { kind, entityId } });
   if (error) throw await checkoutError(error, "Le paiement n’a pas pu être préparé.");
@@ -76,8 +74,3 @@ export async function createCustomInvitationRequest(input: CustomInvitationReque
 }
 
 export const startCustomInvitationCheckout = (requestId: string) => invokeCheckout("custom_invitation", requestId);
-
-export async function startRsvpAddonCheckout(project: WeddingProject) {
-  await saveRemoteProject(project);
-  return invokeCheckout("rsvp_addon", project.id);
-}

@@ -2,7 +2,7 @@ import Stripe from "npm:stripe@22.6.0";
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 import { corsHeaders, jsonResponse } from "../_shared/http.ts";
 import { paymentMaintenanceResponse } from "../_shared/paymentMaintenance.ts";
-import { calculateGuestUpgrade, calculateTotalPricing, isValidGuestCount, PRICING, PRICING_CHANGED_MESSAGE } from "../_shared/pricing.ts";
+import { calculateGuestUpgrade, calculateTotalPricing, isValidGuestCount, PRICING, PRICING_CHANGED_MESSAGE, PAYMENT_MINIMUM_MESSAGE } from "../_shared/pricing.ts";
 import { guestCheckoutMetadata, guestReceiptAmount, matchesGuestCheckout, type GuestPaymentReceipt } from "../_shared/guestPayment.ts";
 import { calculatePromoDiscount, normalizePromoCode } from "../_shared/promo.ts";
 import { PUBLICATION_TERMS, prepareVersionCheckout } from "../_shared/publicationVersions.ts";
@@ -108,13 +108,7 @@ Deno.serve(async (request) => {
     const { data: pending, error: pendingError } = await admin.from("guest_license_payments")
       .select("*").eq("project_id", projectId).eq("status", "pending").maybeSingle();
     if (pendingError) throw pendingError;
-    const { data: form, error: formError } = await admin.from("rsvp_addon_purchases")
-      .select("status").eq("project_id", projectId).maybeSingle();
-    if (formError) throw formError;
-    const includesForm = !isUpgrade && project.project_data?.rsvp?.enabled === true && form?.status !== "paid";
-    if (includesForm && Number(requireEnvironment("RSVP_ADDON_PRICE_CENTS")) !== PRICING.formPriceCents) {
-      throw new Error("Configured form price differs from guest-v2 pricing");
-    }
+    const includesForm = false; // RSVP is included in every v3 licence.
     if (pending?.stripe_checkout_session_id) {
       const existing = await stripe().checkout.sessions.retrieve(pending.stripe_checkout_session_id);
       // A completed delayed-method session is still in progress even if unpaid.
@@ -149,6 +143,10 @@ Deno.serve(async (request) => {
     if (promo && calculatePromoDiscount(calculateTotalPricing(guestCount, includesForm).totalPriceCents, Number(promo.discount_value)).finalAmount === 0) {
       return await completeFree(pending?.stripe_checkout_session_id ?? null);
     }
+    const reviewedTotal = isUpgrade
+      ? calculateGuestUpgrade(project.purchased_guest_capacity!, guestCount).upgradePriceCents
+      : (promo ? calculatePromoDiscount(calculateTotalPricing(guestCount, false).totalPriceCents, Number(promo.discount_value)).finalAmount : calculateTotalPricing(guestCount, false).totalPriceCents);
+    if (reviewedTotal > 0 && reviewedTotal < PRICING.minimumCheckoutCents) return jsonResponse({error:PAYMENT_MINIMUM_MESSAGE,code:"amount_below_minimum"},409,true);
     const { data: receipt, error: reserveError } = await admin.rpc(confirmedInitial ? "reserve_confirmed_initial_publication" : "reserve_guest_checkout_v2", {
       p_project_id: projectId, p_owner_id: auth.user.id, p_guest_count: guestCount,
       p_previous_session_id: pending?.stripe_checkout_session_id ?? null,
@@ -164,6 +162,10 @@ Deno.serve(async (request) => {
     const payment = receipt as GuestPaymentReceipt;
     try {
       if (!payment || payment.pricing_version !== PRICING.version || payment.amount_cents <= 0 || payment.amount_cents !== guestReceiptAmount(payment)) throw new Error("Server quote mismatch");
+      if (payment.amount_cents < PRICING.minimumCheckoutCents) {
+        await admin.rpc("fail_guest_checkout", { p_receipt_id: payment.id, p_session_id: null });
+        return jsonResponse({error:PAYMENT_MINIMUM_MESSAGE,code:"amount_below_minimum"},409,true);
+      }
       const metadata = guestCheckoutMetadata(payment);
       const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
       const addItem = (name: string, unitAmount: number, quantity = 1) => lineItems.push({
@@ -175,7 +177,6 @@ Deno.serve(async (request) => {
       } else {
         if (payment.purchase_type === "initial_publication") addItem("Faire-part — licence pour un événement, jusqu’à 40 invités", PRICING.basePriceCents);
         if (payment.additional_guests) addItem("Invité supplémentaire", PRICING.extraGuestPriceCents, payment.additional_guests);
-        if (payment.has_form) addItem("Formulaire invité et collecte des réponses", PRICING.formPriceCents);
       }
       const session = await stripe().checkout.sessions.create({
         mode: "payment", managed_payments: { enabled: false }, integration_identifier: integrationIdentifier(),

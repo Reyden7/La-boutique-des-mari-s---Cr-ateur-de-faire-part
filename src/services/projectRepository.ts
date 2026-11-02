@@ -1,6 +1,6 @@
 import type { WeddingProject } from "../types/editor";
 import { isSupabaseConfigured, requireSupabaseSession, supabase } from "../lib/supabase";
-import { PRICING, PRICING_CHANGED_MESSAGE } from "../../supabase/functions/_shared/pricing.ts";
+import { PRICING, PRICING_CHANGED_MESSAGE, PAYMENT_MINIMUM_MESSAGE } from "../../supabase/functions/_shared/pricing.ts";
 import { flushPreviewVideoCleanup } from "./previewVideoRepository";
 import { hasTemporaryReferences, isDiscoveryProject } from "../features/discovery/discoverySession.ts";
 import type { PublicationCheckoutOptions } from "../features/publication/publicationState";
@@ -190,6 +190,7 @@ export async function startProjectCheckout(projectId: string, guestCount: number
   if (error) {
     if (error.context instanceof Response) {
       const result = await error.context.clone().json().catch(() => null);
+      if (result?.code === "amount_below_minimum") throw new Error(PAYMENT_MINIMUM_MESSAGE);
       if (result?.code === "pricing_changed") throw new Error(PRICING_CHANGED_MESSAGE);
       if (result?.error === "Ce code promo n’est plus disponible." || result?.error === "Les codes promos sont réservés à la première publication.") throw new Error(result.error);
     }

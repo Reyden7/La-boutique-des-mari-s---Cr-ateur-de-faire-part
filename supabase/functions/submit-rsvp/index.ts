@@ -1,3 +1,4 @@
+import { hasPublishedRsvpForm } from "../_shared/publishedRsvp.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 import { corsHeaders, jsonResponse } from "../_shared/http.ts";
 import { recipientFieldRole, standardAttendanceAnswer } from "../_shared/recipientRsvp.ts";
@@ -116,13 +117,13 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: "Invitation unavailable" }, 404, true);
     }
 
-    let rsvp = project.project_data?.rsvp;
-    if (project.publication_policy === "paid_versions") {
-      const live=await admin.rpc(body.recipientToken?"get_recipient_invitation":"get_public_project",body.recipientToken?{p_public_id:body.publicId,p_token:body.recipientToken}:{p_public_id:body.publicId});
-      if(live.error)throw live.error;
-      rsvp=(body.recipientToken?live.data?.project:live.data)?.project_data?.rsvp;
-      if(!rsvp)return jsonResponse({error:"Published form unavailable"},404,true);
-    }
+    if(body.recipientToken && (typeof body.recipientToken!=="string"||!/^[a-f0-9]{64}$/.test(body.recipientToken))) return jsonResponse({error:"Invitation unavailable"},404,true);
+    const live = await admin.rpc(body.recipientToken ? "get_recipient_invitation" : "get_public_project", body.recipientToken ? {p_public_id:body.publicId,p_token:body.recipientToken} : {p_public_id:body.publicId});
+    if(live.error) throw live.error;
+    const published = body.recipientToken ? live.data?.project : live.data;
+    const rsvp = published?.project_data?.rsvp;
+    if(!hasPublishedRsvpForm(published?.project_data)) return jsonResponse({error:"Published form unavailable"},404,true);
+    if(published?.name) project.name = published.name;
     let recipient: {displayName:string;guestCount:number} | null = null;
     if(body.recipientToken) {
       if(typeof body.recipientToken!=="string"||!/^[a-f0-9]{64}$/.test(body.recipientToken)) return jsonResponse({error:"Invitation unavailable"},404,true);
@@ -133,17 +134,6 @@ Deno.serve(async (request) => {
       if(!["confirmed","declined"].includes(String(body.attendance))||typeof body.presentCount!=="number"||!Number.isInteger(body.presentCount)||body.presentCount<0||body.presentCount>recipient.guestCount||
         (body.attendance==="confirmed"&&body.presentCount<1)||(body.attendance==="declined"&&body.presentCount!==0))return jsonResponse({error:"Invalid attendance or guest capacity"},400,true);
     } else if(project.recipient_links_required) return jsonResponse({error:"Personal invitation required"},403,true);
-    const { data: purchase, error: purchaseError } = await admin
-      .from("rsvp_addon_purchases")
-      .select("id")
-      .eq("project_id", project.id)
-      .eq("owner_id", project.owner_id)
-      .eq("status", "paid")
-      .maybeSingle();
-    if (purchaseError) throw purchaseError;
-    if (!rsvp?.enabled || !purchase || !Array.isArray(rsvp.fields)) {
-      return jsonResponse({ error: "Form unavailable" }, 404, true);
-    }
     if (rsvp.fields.length === 0 || rsvp.fields.length > 30) {
       return jsonResponse({ error: "Invalid form configuration" }, 409, true);
     }

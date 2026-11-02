@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 import { corsHeaders, jsonResponse } from "../_shared/http.ts";
 import { paymentMaintenanceResponse } from "../_shared/paymentMaintenance.ts";
 
-type PurchaseType = "custom_invitation" | "rsvp_addon";
+type PurchaseType = "custom_invitation";
 
 const CUSTOM_INVITATION_PRICE_CENTS = 5000;
 const CURRENCY = "eur";
@@ -30,14 +30,6 @@ const requireStripeKey = () => {
     throw new Error("STRIPE_SECRET_KEY has an unsupported format");
   }
   return key;
-};
-
-const rsvpPrice = () => {
-  const amount = Number(requireEnvironment("RSVP_ADDON_PRICE_CENTS"));
-  if (!Number.isSafeInteger(amount) || amount <= 0) {
-    throw new Error("RSVP_ADDON_PRICE_CENTS must be a positive integer");
-  }
-  return amount;
 };
 
 const integrationIdentifier = (purchaseType: PurchaseType) =>
@@ -88,6 +80,7 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: "Invalid purchase" }, 400, true);
     }
 
+    if (body.kind === "rsvp_addon") return jsonResponse({error:"Le formulaire RSVP est désormais inclus dans la publication, sans supplément.",code:"rsvp_included"},409,true);
     const purchaseType: PurchaseType = body.kind;
     const entityId = body.entityId;
     const ownerId = authData.user.id;
@@ -98,11 +91,10 @@ Deno.serve(async (request) => {
 
     let amount: number;
     let label: string;
-    let projectId: string | undefined;
     let paymentRecordId: string;
     let attemptVersion: string;
 
-    if (purchaseType === "custom_invitation") {
+    { // The only remaining new commerce purchase is a custom invitation.
       const { data: customRequest, error } = await admin
         .from("custom_invitation_requests")
         .select("id, owner_id, status, amount_cents, stripe_checkout_session_id")
@@ -158,106 +150,13 @@ Deno.serve(async (request) => {
       label = "Faire-part numérique sur mesure";
       paymentRecordId = transition.data.id;
       attemptVersion = transition.data.updated_at;
-    } else {
-      projectId = entityId;
-      amount = rsvpPrice();
-      label = "Formulaire invité personnalisable";
-
-      const { data: project, error } = await admin
-        .from("projects")
-        .select("id, owner_id, status, payment_status, project_data")
-        .eq("id", projectId)
-        .maybeSingle();
-      if (error) throw error;
-      if (!project) {
-        return jsonResponse({ error: "Project not found" }, 404, true);
-      }
-      if (project.owner_id !== ownerId) {
-        return jsonResponse({ error: "Forbidden" }, 403, true);
-      }
-      if (project.status !== "published" || project.payment_status !== "paid") {
-        return jsonResponse({
-          error: "Project must be paid and published before purchasing the form separately",
-        }, 409, true);
-      }
-      if (project.project_data?.rsvp?.enabled !== true) {
-        return jsonResponse({ error: "Form must be enabled before checkout" }, 409, true);
-      }
-
-      const { data: purchase, error: purchaseError } = await admin
-        .from("rsvp_addon_purchases")
-        .select("id, status, amount_cents, stripe_checkout_session_id")
-        .eq("project_id", projectId)
-        .maybeSingle();
-      if (purchaseError) throw purchaseError;
-      if (purchase?.status === "paid") {
-        return jsonResponse({ error: "Option already paid" }, 409, true);
-      }
-      if (purchase?.status === "refunded") {
-        return jsonResponse({
-          error: "Refunded form purchases require support before a new payment",
-        }, 409, true);
-      }
-
-      if (purchase?.stripe_checkout_session_id) {
-        const existing = await stripe.checkout.sessions.retrieve(
-          purchase.stripe_checkout_session_id,
-        );
-        if (existing.status === "open" && existing.url) {
-          return jsonResponse({ url: existing.url }, 200, true);
-        }
-        if (existing.payment_status === "paid") {
-          return jsonResponse({
-            error: "Payment confirmation is in progress",
-            code: "confirmation_pending",
-          }, 409, true);
-        }
-      }
-
-      if (purchase) {
-        const transition = await admin
-          .from("rsvp_addon_purchases")
-          .update({
-            status: "pending",
-            amount_cents: amount,
-            stripe_checkout_session_id: null,
-            stripe_payment_intent_id: null,
-            paid_at: null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", purchase.id)
-          .eq("owner_id", ownerId)
-          .in("status", ["unpaid", "pending"])
-          .select("id, updated_at")
-          .single();
-        if (transition.error) throw transition.error;
-        paymentRecordId = transition.data.id;
-        attemptVersion = transition.data.updated_at;
-      } else {
-        const inserted = await admin
-          .from("rsvp_addon_purchases")
-          .insert({
-            project_id: projectId,
-            owner_id: ownerId,
-            status: "pending",
-            amount_cents: amount,
-            currency: CURRENCY,
-          })
-          .select("id, updated_at")
-          .single();
-        if (inserted.error) throw inserted.error;
-        paymentRecordId = inserted.data.id;
-        attemptVersion = inserted.data.updated_at;
-      }
     }
 
     try {
       const metadata = {
         purchase_type: purchaseType,
         owner_id: ownerId,
-        ...(projectId ? { project_id: projectId } : {
-          custom_request_id: entityId,
-        }),
+        custom_request_id: entityId,
       };
       const session = await stripe.checkout.sessions.create({
         mode: "payment",
@@ -274,12 +173,8 @@ Deno.serve(async (request) => {
         }],
         metadata,
         payment_intent_data: { metadata },
-        success_url: `${siteUrl}/payment/success?kind=${purchaseType}&entityId=${entityId}${
-          projectId ? `&projectId=${projectId}` : ""
-        }&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${siteUrl}/payment/cancel?kind=${purchaseType}&entityId=${entityId}${
-          projectId ? `&projectId=${projectId}` : ""
-        }`,
+        success_url: `${siteUrl}/payment/success?kind=${purchaseType}&entityId=${entityId}&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${siteUrl}/payment/cancel?kind=${purchaseType}&entityId=${entityId}`,
       }, {
         idempotencyKey: `${purchaseType}-${paymentRecordId}-${amount}-${
           new Date(attemptVersion).getTime()
@@ -287,9 +182,7 @@ Deno.serve(async (request) => {
       });
       if (!session.url) throw new Error("Stripe Checkout Session has no URL");
 
-      const table = purchaseType === "custom_invitation"
-        ? "custom_invitation_requests"
-        : "rsvp_addon_purchases";
+      const table = "custom_invitation_requests";
       const attached = await admin
         .from(table)
         .update({ stripe_checkout_session_id: session.id })
@@ -313,10 +206,8 @@ Deno.serve(async (request) => {
       });
       return jsonResponse({ url: session.url }, 200, true);
     } catch (stripeError) {
-      const table = purchaseType === "custom_invitation"
-        ? "custom_invitation_requests"
-        : "rsvp_addon_purchases";
-      const status = purchaseType === "custom_invitation" ? "draft" : "unpaid";
+      const table = "custom_invitation_requests";
+      const status = "draft";
       await admin.from(table).update({ status }).eq("id", paymentRecordId)
         .is("stripe_checkout_session_id", null);
       console.error("commerce_checkout_creation_failed", {

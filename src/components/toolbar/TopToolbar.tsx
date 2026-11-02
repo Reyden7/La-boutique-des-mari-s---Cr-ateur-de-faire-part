@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import { useEditorStore } from "../../stores/editorStore";
 import { remoteErrorSummary } from "../../utils/storage";
 import { formatPrice } from "../../config/commerce";
-import { PRICING, PRICING_CHANGED_MESSAGE, calculateTotalPricing, calculateGuestUpgrade, isValidGuestCount } from "../../config/pricing";
+import { PRICING, PRICING_CHANGED_MESSAGE, PAYMENT_MINIMUM_MESSAGE, calculateTotalPricing, calculateGuestUpgrade, isValidGuestCount } from "../../config/pricing";
 import { useAuth } from "../../contexts/AuthContext";
 import { TemplatePublishModal } from "../../features/templates/TemplatePublishModal";
 import { PromoCodeInput } from "./PromoCodeInput";
@@ -56,16 +56,16 @@ export function TopToolbar({ onPreview, promoValidation = validatePromoCode }: {
   const isPublished = project.paymentStatus === "paid" && project.status === "published" && Boolean(project.publicId);
   const republishing = isPublished && project.publicationPolicy === "paid_versions" && Boolean(project.hasVersionDraft) && operation === "design";
   const locked = isPublishedDesignLocked(project);
-  const includesForm = Boolean(project.rsvp?.enabled && !project.rsvp.purchased && (!isPublished || republishing));
   const totals = recipientTotals(recipientLists[recipientListKey(project)]?.recipients??[]);
   const guestCount = totals.guests;
   const validGuestCount = isValidGuestCount(guestCount);
-  const pricing = calculateTotalPricing(republishing ? Math.max(guestCount,project.purchasedGuestCapacity??40,40) : validGuestCount ? guestCount : PRICING.includedGuests, includesForm);
+  const pricing = calculateTotalPricing(republishing ? Math.max(guestCount,project.purchasedGuestCapacity??40,40) : validGuestCount ? guestCount : PRICING.includedGuests, Boolean(project.rsvp?.enabled));
   const isUpgrade = isPublished && !republishing && project.purchasedGuestCapacity != null;
   const requiresFixedTerms = !isUpgrade && project.publicationPolicy !== "legacy";
   const upgrade = isUpgrade ? calculateGuestUpgrade(project.purchasedGuestCapacity!, pricing.guestCount) : null;
   const publicationPrice = upgrade?.upgradePriceCents ?? pricing.totalPriceCents;
   const discount = !isPublished && promo ? calculatePromoDiscount(publicationPrice, promo.discountValue) : null;
+  const belowMinimum = (discount?.finalAmount ?? publicationPrice) > 0 && (discount?.finalAmount ?? publicationPrice) < PRICING.minimumCheckoutCents;
   const publicationPriceLabel = formatPrice(confirming ? discount?.finalAmount ?? publicationPrice : publicationPrice);
   const showPublishedLink = () => {
     if (project.publicId) setPublishedUrl(`${window.location.origin}/i/${project.publicId}`);
@@ -85,7 +85,7 @@ export function TopToolbar({ onPreview, promoValidation = validatePromoCode }: {
     setConfirming(false);
   };
   const beginCheckout = async () => {
-    if (!responsiveFormatsConfirmed || publishing || validatingPromo || !validGuestCount || !listVerified || (requiresFixedTerms && !termsAccepted)) return;
+    if (!responsiveFormatsConfirmed || belowMinimum || publishing || validatingPromo || !validGuestCount || !listVerified || (requiresFixedTerms && !termsAccepted)) return;
     setPublishError("");
     setPublishing(true);
     try {
@@ -104,7 +104,7 @@ export function TopToolbar({ onPreview, promoValidation = validatePromoCode }: {
       }
     } catch (error) {
       console.warn("Création du paiement impossible", remoteErrorSummary(error));
-      setPublishError(error instanceof Error && ["Ce code promo n’est plus disponible.", PRICING_CHANGED_MESSAGE].includes(error.message) ? error.message : discount?.finalAmount === 0 ? "La publication gratuite n’a pas pu être confirmée. Actualisez le projet puis réessayez." : "Le paiement n’a pas pu être préparé. Vérifiez votre connexion puis réessayez.");
+      setPublishError(error instanceof Error && ["Ce code promo n’est plus disponible.", PRICING_CHANGED_MESSAGE, PAYMENT_MINIMUM_MESSAGE].includes(error.message) ? error.message : discount?.finalAmount === 0 ? "La publication gratuite n’a pas pu être confirmée. Actualisez le projet puis réessayez." : "Le paiement n’a pas pu être préparé. Vérifiez votre connexion puis réessayez.");
       setPromo(null);
     } finally {
       setPublishing(false);
@@ -141,18 +141,18 @@ export function TopToolbar({ onPreview, promoValidation = validatePromoCode }: {
             <h2 id="publication-title">{republishing?"Publier cette nouvelle version":isUpgrade ? "Ajustez votre capacité" : "Publiez votre faire-part"}</h2>
             {requiresFixedTerms&&<section className="publication-warning"><h3>Vérifiez votre faire-part avant sa publication</h3><p>Une fois votre faire-part payé et publié, cette version sera définitive. Toute modification de son contenu nécessitera une nouvelle publication payante. Nous vous recommandons de vérifier attentivement les textes, dates, horaires et informations de votre mariage.</p><label><input type="checkbox" checked={termsAccepted} disabled={publishing} onChange={e=>setTermsAccepted(e.target.checked)}/> J'ai vérifié mon faire-part et je comprends que toute nouvelle publication après modification sera payante.</label></section>}
             {project.publicationPolicy==="legacy"&&<p>Vos conditions historiques sont conservées : les modifications de contenu restent illimitées. Seules les places supplémentaires éventuelles sont payantes.</p>}
-            {republishing&&<p>Le tarif normal est recalculé sur {pricing.guestCapacity} places, au moins votre capacité déjà achetée. Ce paiement publie le nouveau design ; un formulaire déjà acheté n’est pas refacturé. Vos liens et réponses restent conservés.</p>}
+            {republishing&&<p>Le tarif normal est recalculé sur {pricing.guestCapacity} places, au moins votre capacité déjà achetée. Ce paiement publie le nouveau design ; le formulaire RSVP est inclus, sans supplément. Vos liens et réponses restent conservés.</p>}
             <div className="publication-guests"><strong>Votre liste d’invités</strong><p>{totals.households} familles/foyers · {guestCount} personnes invitées</p><button disabled={publishing} onClick={()=>{setConfirming(false);openRecipientList();}}>Modifier ma liste</button></div>
-            <p className="publication-responsive-help" id="publication-guest-help">{formatPrice(PRICING.basePriceCents)} jusqu’à {PRICING.includedGuests} invités, puis {formatPrice(PRICING.extraGuestPriceCents)} par invité supplémentaire. Formulaire invité en option : +{formatPrice(PRICING.formPriceCents)}.</p>
+            <p className="publication-responsive-help" id="publication-guest-help">{formatPrice(PRICING.basePriceCents)} jusqu’à {PRICING.includedGuests} invités, puis {formatPrice(PRICING.extraGuestPriceCents)} par invité supplémentaire. Formulaire RSVP inclus, sans supplément.</p>
             {!validGuestCount && <p className="form-error">Ajoutez au moins un destinataire à votre liste avant de publier votre faire-part.</p>}
             {!isPublished && <PromoCodeInput value={promo} onChange={setPromo} disabled={publishing} onBusyChange={setValidatingPromo} validate={promoValidation} />}
             <dl className="publication-breakdown">
-              {upgrade ? <><div><dt>Capacité déjà achetée</dt><dd>{project.purchasedGuestCapacity} invités</dd></div><div><dt>Invités supplémentaires · {upgrade.additionalGuests} × {formatPrice(PRICING.extraGuestPriceCents)}</dt><dd>{formatPrice(upgrade.upgradePriceCents)}</dd></div></> : <><div><dt>Faire-part — jusqu’à 40 invités</dt><dd>{formatPrice(PRICING.basePriceCents)}</dd></div>{pricing.extraGuests > 0 && <div><dt>Invités supplémentaires · {pricing.extraGuests} × {formatPrice(PRICING.extraGuestPriceCents)}</dt><dd>{formatPrice(pricing.extraGuests * PRICING.extraGuestPriceCents)}</dd></div>}{includesForm && <div><dt>Formulaire invité</dt><dd>{formatPrice(pricing.formPriceCents)}</dd></div>}</>}
+              {upgrade ? <><div><dt>Capacité déjà achetée</dt><dd>{project.purchasedGuestCapacity} invités</dd></div><div><dt>Invités supplémentaires · {upgrade.additionalGuests} × {formatPrice(PRICING.extraGuestPriceCents)}</dt><dd>{formatPrice(upgrade.upgradePriceCents)}</dd></div></> : <><div><dt>Faire-part — jusqu’à 40 invités</dt><dd>{formatPrice(PRICING.basePriceCents)}</dd></div>{pricing.extraGuests > 0 && <div><dt>Invités supplémentaires · {pricing.extraGuests} × {formatPrice(PRICING.extraGuestPriceCents)}</dt><dd>{formatPrice(pricing.extraGuests * PRICING.extraGuestPriceCents)}</dd></div>}<div><dt>Formulaire RSVP</dt><dd>Inclus</dd></div></>}
               {discount && <><div><dt>Sous-total</dt><dd>{formatPrice(publicationPrice)}</dd></div><div className="promo-discount"><dt>Code {promo!.code} · −{promo!.discountValue} %</dt><dd>−{formatPrice(discount.discountAmount)}</dd></div></>}
             </dl>
-            {publishError && <p className="form-error" role="alert">{publishError}</p>}
+            {belowMinimum && <p className="form-error" role="alert">{PAYMENT_MINIMUM_MESSAGE}</p>}{publishError && <p className="form-error" role="alert">{publishError}</p>}
             <p className="publication-price"><strong>Total : {validGuestCount ? publicationPriceLabel : "—"} TTC</strong><span>Licence pour un seul événement · capacité {upgrade?.guestCapacity ?? pricing.guestCapacity} invités</span></p>
-            {upgrade ? <p className="publication-responsive-help">Vous ne payez que les invités au-delà de votre capacité déjà achetée. Réduire le nombre déclaré ne réduit pas cette capacité et ne déclenche aucun remboursement.</p> : <ul>{publicationBenefits.map((benefit) => <li key={benefit}><Check size={15} /> {project.publicationPolicy==="legacy"&&benefit===publicationBenefits[1]?"Modifications illimitées — conditions historiques conservées":benefit}</li>)}{includesForm && <li><Check size={15} /> Formulaire invité et collecte des réponses</li>}</ul>}
+            {upgrade ? <p className="publication-responsive-help">Vous ne payez que les invités au-delà de votre capacité déjà achetée. Réduire le nombre déclaré ne réduit pas cette capacité et ne déclenche aucun remboursement.</p> : <ul>{publicationBenefits.map((benefit) => <li key={benefit}><Check size={15} /> {project.publicationPolicy==="legacy"&&benefit===publicationBenefits[1]?"Modifications illimitées — conditions historiques conservées":benefit}</li>)}<li><Check size={15} /> Formulaire RSVP et collecte des réponses inclus</li></ul>}
             <label className="publication-responsive-confirmation">
               <input
                 type="checkbox"
@@ -165,7 +165,7 @@ export function TopToolbar({ onPreview, promoValidation = validatePromoCode }: {
             <p className="publication-responsive-help" id="publication-responsive-help">Chaque format possède sa propre mise en page. Pensez à vérifier Smartphone, Tablette et PC avant de publier.</p>
             <button
               className="checkout-button publication-checkout-button"
-              disabled={publishing || validatingPromo || !responsiveFormatsConfirmed || !validGuestCount || !listVerified || (requiresFixedTerms&&!termsAccepted)}
+              disabled={belowMinimum || publishing || validatingPromo || !responsiveFormatsConfirmed || !validGuestCount || !listVerified || (requiresFixedTerms&&!termsAccepted)}
               aria-describedby="publication-responsive-help"
               onClick={() => void beginCheckout()}
             >

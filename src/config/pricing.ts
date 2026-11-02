@@ -1,1 +1,1 @@
-export { PRICING, PRICING_CHANGED_MESSAGE, isValidGuestCount, calculateGuestPricing, calculateTotalPricing, calculateGuestUpgrade, calculateInvitationPrice, calculateGuestUpgradePrice } from "../../supabase/functions/_shared/pricing";
+export { PRICING, PRICING_CHANGED_MESSAGE, PAYMENT_MINIMUM_MESSAGE, isValidGuestCount, calculateGuestPricing, calculateTotalPricing, calculateGuestUpgrade, calculateInvitationPrice, calculateGuestUpgradePrice } from "../../supabase/functions/_shared/pricing";

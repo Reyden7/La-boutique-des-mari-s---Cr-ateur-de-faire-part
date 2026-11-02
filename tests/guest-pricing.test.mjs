@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { PRICING, calculateGuestPricing, calculateTotalPricing, calculateGuestUpgrade, calculateInvitationPrice, calculateGuestUpgradePrice } from "../supabase/functions/_shared/pricing.ts";
 import { guestReceiptAmount, guestCheckoutMetadata, matchesGuestCheckout } from "../supabase/functions/_shared/guestPayment.ts";
 
-for (const [guests, price, capacity] of [[1,2450,40],[40,2450,40],[41,2550,41],[42,2650,42],[45,2950,45],[47,3150,47],[48,3250,48],[50,3450,50],[53,3750,53],[54,3850,54],[55,3950,55],[60,4450,60],[80,6450,80],[100,8450,100]]) {
-  test(`${guests} guests: ${price} cents, capacity ${capacity}, optional form +990`, () => {
+for (const [guests, price, capacity] of [[1,3299,40],[40,3299,40],[41,3369,41],[42,3439,42],[45,3649,45],[47,3789,47],[48,3859,48],[50,3999,50],[53,4209,53],[54,4279,54],[55,4349,55],[60,4699,60],[80,6099,80],[100,7499,100]]) {
+  test(`${guests} guests: ${price} cents, capacity ${capacity}, RSVP included`, () => {
     const quote = calculateGuestPricing(guests);
     assert.equal(quote.invitationPriceCents, price);
     assert.equal(quote.guestCapacity, capacity);
@@ -12,10 +12,10 @@ for (const [guests, price, capacity] of [[1,2450,40],[40,2450,40],[41,2550,41],[
     assert.equal(calculateInvitationPrice(guests),price);
     assert.equal("extraBlocks" in quote,false);
     assert.equal(calculateTotalPricing(guests, false).totalPriceCents, price);
-    assert.equal(calculateTotalPricing(guests, true).totalPriceCents, price + 990);
+    assert.equal(calculateTotalPricing(guests, true).totalPriceCents, price);
   });
 }
-for (const [current, requested, price, capacity] of [[40,41,100,41],[40,47,700,47],[40,54,1400,54],[47,54,700,54],[54,60,600,60],[54,45,0,54],[54,53,0,54],[68,50,0,68],[53,54,100,54]]) {
+for (const [current, requested, price, capacity] of [[40,41,70,41],[40,47,490,47],[40,54,980,54],[47,54,490,54],[54,60,420,60],[54,45,0,54],[54,53,0,54],[68,50,0,68],[53,54,70,54]]) {
   test(`upgrade ${current} → ${requested}: only ${price} cents, retained capacity ${capacity}`, () => {
     const quote = calculateGuestUpgrade(current, requested);
     assert.equal(quote.upgradePriceCents, price);

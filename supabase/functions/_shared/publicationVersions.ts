@@ -1,20 +1,22 @@
+import { PRICING, pricingForVersion } from "./pricing.ts";
 /** A separate receipt ledger: design republication never masquerades as a capacity upgrade. */
 export const PUBLICATION_TERMS = "paid-versions-v1";
 export interface VersionPayment {
-  id: string; project_id: string; owner_id: string; version_id: string; base_version_id: string;
+  pricing_version?: string; id: string; project_id: string; owner_id: string; version_id: string; base_version_id: string;
   guest_count: number; guest_capacity: number; has_form: boolean; amount_cents: number;
   currency: string; terms_version: string; status: string;
   stripe_checkout_session_id: string | null; stripe_payment_intent_id?: string | null;
 }
 export function versionPaymentMetadata(receipt: VersionPayment) {
+  const grid = pricingForVersion(receipt.pricing_version ?? "guest-v2");
   if (!Number.isSafeInteger(receipt.guest_count) || receipt.guest_count < 1
     || !Number.isSafeInteger(receipt.guest_capacity) || receipt.guest_capacity < Math.max(40, receipt.guest_count)
     || receipt.guest_capacity > 100000 || typeof receipt.has_form !== "boolean"
     || receipt.terms_version !== PUBLICATION_TERMS
-    || receipt.amount_cents !== 2450 + (receipt.guest_capacity - 40) * 100 + (receipt.has_form ? 990 : 0)) {
+    || ((grid.version === "guest-v3" && receipt.has_form) || receipt.amount_cents !== grid.basePriceCents + (receipt.guest_capacity - 40) * grid.extraGuestPriceCents + (receipt.has_form ? grid.formPriceCents : 0))) {
     throw new Error("Invalid version receipt");
   }
-  return { purchase_type: "paid_version", receipt_id: receipt.id, project_id: receipt.project_id,
+  return { ...(grid.version === "guest-v3" ? {pricing_version: grid.version} : {}), purchase_type: "paid_version", receipt_id: receipt.id, project_id: receipt.project_id,
     owner_id: receipt.owner_id, version_id: receipt.version_id, base_version_id: receipt.base_version_id,
     guest_capacity: String(receipt.guest_capacity), amount_cents: String(receipt.amount_cents), terms_version: receipt.terms_version };
 }
@@ -44,7 +46,7 @@ export async function prepareVersionCheckout(admin: any, stripe: any, project: {
   if (reserved.error) return {status:409,body:{error:"Le prix ou le brouillon a changé. Vérifiez le récapitulatif et réessayez."}};
   const receipt = reserved.data as VersionPayment;
   try {
-    if(receipt.amount_cents!==body.expectedAmount)throw new Error("Reviewed amount differs from server quote");
+    if(receipt.pricing_version!==PRICING.version || receipt.amount_cents!==body.expectedAmount)throw new Error("Reviewed amount differs from server quote");
     const metadata = versionPaymentMetadata(receipt);
     const session = await stripe.checkout.sessions.create({ mode:"payment",managed_payments:{enabled:false},integration_identifier:integrationIdentifier,
       client_reference_id:project.id,metadata,payment_intent_data:{metadata},
@@ -56,7 +58,7 @@ export async function prepareVersionCheckout(admin: any, stripe: any, project: {
     const attached = await admin.from("publication_version_payments").update({stripe_checkout_session_id:session.id})
       .eq("id",receipt.id).eq("status","pending").is("stripe_checkout_session_id",null).select("id").single();
     if (attached.error) { await stripe.checkout.sessions.expire(session.id); throw attached.error; }
-    return {status:200,body:{url:session.url,pricingVersion:"guest-v2"}};
+    return {status:200,body:{url:session.url,pricingVersion:PRICING.version}};
   } catch {
     await admin.rpc("fail_version_publication",{p_receipt_id:receipt.id,p_session_id:null});
     return {status:502,body:{error:"La préparation du paiement a échoué. Votre version publiée reste inchangée."}};

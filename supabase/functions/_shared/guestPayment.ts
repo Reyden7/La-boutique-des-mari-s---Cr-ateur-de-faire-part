@@ -1,4 +1,4 @@
-import { calculateGuestPricing, calculateTotalPricing, calculateGuestUpgrade, PRICING } from "./pricing.ts";
+import { calculateGuestPricing, calculateTotalPricing, calculateGuestUpgrade, PRICING, HISTORICAL_PRICING_V2, pricingForVersion } from "./pricing.ts";
 import { calculatePromoDiscount } from "./promo.ts";
 import { legacyGuestReceiptSubtotal } from "./legacyGuestPayment.ts";
 
@@ -35,8 +35,9 @@ export interface GuestPaymentReceipt {
 function guestReceiptSubtotal(receipt: GuestPaymentReceipt) {
   if (typeof receipt.has_form !== "boolean") throw new Error("Invalid form flag");
   if (receipt.pricing_version === "guest-v1") return legacyGuestReceiptSubtotal(receipt);
-  if (receipt.pricing_version !== PRICING.version) throw new Error("Unknown pricing version");
-  const quote = calculateTotalPricing(receipt.guest_count, receipt.has_form);
+  const grid = pricingForVersion(receipt.pricing_version);
+  if (receipt.pricing_version === PRICING.version && receipt.has_form) throw new Error("RSVP is included, never an add-on");
+  const quote = calculateTotalPricing(receipt.guest_count, receipt.has_form, grid);
   if (receipt.guest_capacity !== quote.guestCapacity || receipt.extra_guests !== quote.extraGuests
     || receipt.extra_blocks != null || receipt.previous_extra_blocks != null || receipt.additional_blocks != null) {
     throw new Error("Invalid guest payment quote");
@@ -46,7 +47,7 @@ function guestReceiptSubtotal(receipt: GuestPaymentReceipt) {
     return quote.totalPriceCents;
   }
   if (receipt.purchase_type === "guest_capacity_upgrade" && !receipt.has_form) {
-    const upgrade = calculateGuestUpgrade(receipt.previous_guest_capacity!, receipt.guest_count);
+    const upgrade = calculateGuestUpgrade(receipt.previous_guest_capacity!, receipt.guest_count, grid);
     if (upgrade.additionalGuests <= 0 || receipt.additional_guests !== upgrade.additionalGuests) throw new Error("Invalid upgrade quote");
     return upgrade.upgradePriceCents;
   }
@@ -68,6 +69,7 @@ export function guestReceiptAmount(receipt: GuestPaymentReceipt) {
 
 export function guestCheckoutMetadata(receipt: GuestPaymentReceipt) {
   const legacy = receipt.pricing_version === "guest-v1";
+  const grid = legacy ? HISTORICAL_PRICING_V2 : pricingForVersion(receipt.pricing_version);
   return {
     receipt_id: receipt.id, project_id: receipt.project_id, owner_id: receipt.owner_id,
     purchase_type: receipt.purchase_type, pricing_version: receipt.pricing_version,
@@ -77,15 +79,15 @@ export function guestCheckoutMetadata(receipt: GuestPaymentReceipt) {
       extra_blocks: String(receipt.extra_blocks), previous_extra_blocks: String(receipt.previous_extra_blocks),
       additional_blocks: String(receipt.additional_blocks),
     } : {
-      included_guests: String(PRICING.includedGuests), extra_guests: String(receipt.extra_guests),
-      extra_guest_unit_price: String(PRICING.extraGuestPriceCents),
+      included_guests: String(grid.includedGuests), extra_guests: String(receipt.extra_guests),
+      extra_guest_unit_price: String(grid.extraGuestPriceCents),
       previous_guest_capacity: String(receipt.previous_guest_capacity), additional_guests: String(receipt.additional_guests),
-      invitation_price: String(calculateGuestPricing(receipt.guest_count).invitationPriceCents),
-      form_price: String(receipt.has_form ? PRICING.formPriceCents : 0),
+      invitation_price: String(calculateGuestPricing(receipt.guest_count, grid).invitationPriceCents),
+      form_price: String(receipt.has_form ? grid.formPriceCents : 0),
       subtotal: String(guestReceiptSubtotal(receipt)), subtotal_amount: String(guestReceiptSubtotal(receipt)),
       discount_amount: String(receipt.discount_amount ?? 0), final_amount: String(receipt.amount_cents),
     }), has_form: String(receipt.has_form),
-    includes_form: String(receipt.has_form), form_amount_cents: String(receipt.has_form ? PRICING.formPriceCents : 0),
+    includes_form: String(receipt.has_form), form_amount_cents: String(receipt.has_form ? grid.formPriceCents : 0),
     ...(receipt.promo_code_id ? {
       promo_code_id: receipt.promo_code_id, promo_code: receipt.promo_code!, discount_type: "percentage",
       discount_value: String(receipt.discount_value), subtotal_amount: String(receipt.subtotal_amount),

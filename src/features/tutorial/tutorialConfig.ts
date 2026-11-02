@@ -31,7 +31,7 @@ export const FEATURE_GUIDES = [
   { title: "Calendrier et agenda", description: "Contenu → Calendrier. Configurez la date et le bouton Ajouter à mon agenda dans ses propriétés." },
   { title: "Compte à rebours", description: "Contenu → Compte à rebours. Choisissez la date du mariage et le style d’affichage." },
   { title: "Programme", description: "Contenu → Programme. Renseignez les horaires, lieux et icônes des étapes." },
-  { title: "Formulaire invité", description: "Contenu → Formulaire. Personnalisez les questions ; la collecte suit l’option payante prévue lors de la publication." },
+  { title: "Formulaire invité", description: "Contenu → Formulaire. Personnalisez les questions ; la collecte est incluse dans la publication, sans supplément." },
   { title: "Enveloppe et Porte", description: "Introduction → ouverture classique. Choisissez chaque PNG, importez vos designs et ajustez leur position." },
   { title: "Musique et particules", description: "Onglets Musique et Effets pour composer une ambiance.", tour: "music" },
   { title: "Animations", description: "Sélectionnez un élément, puis Animation : effet et durée. Vérifiez son apparition en Aperçu." },

@@ -1,7 +1,5 @@
-import { ArrowDown, ArrowUp, ClipboardList, Eye, EyeOff, MoveVertical, Plus, RotateCcw, Trash2 } from "lucide-react";
-import { useState } from "react";
-import { Link } from "react-router-dom";
-import { COMMERCE, formatPrice } from "../../config/commerce";
+import { PublishedRsvpActions } from "./PublishedRsvpActions";
+import { ArrowDown, ArrowUp, Eye, EyeOff, MoveVertical, Plus, RotateCcw, Trash2 } from "lucide-react";
 import { PREVIEW_DEVICES } from "../../config/previewDevices";
 import { ColorAlphaInput } from "../../components/ui/ColorAlphaInput";
 import { DimensionInput } from "../../components/ui/DimensionInput";
@@ -9,7 +7,6 @@ import { FontPicker } from "../fonts/FontPicker";
 import { AnimationProperties } from "../../components/properties/AnimationProperties";
 import { PropertySection } from "../../components/properties/PropertySection";
 import { DEFAULT_RSVP_STYLE, resolveRsvpStyle } from "../../config/rsvpStyle";
-import { startRsvpAddonCheckout } from "../../services/commerceRepository";
 import { useEditorStore } from "../../stores/editorStore";
 import type { RsvpField, RsvpFieldType, RsvpFormConfig, RsvpFormStyle, RsvpFormTypography } from "../../types/editor";
 import { getRsvpPositionX, getRsvpPositionY, getRsvpWidth, hasExplicitRsvpPosition, hasRsvpPositionOverride, resetRsvpPositionForDevice, setRsvpLayoutForDevice, setRsvpPositionForDevice } from "../../utils/documentLayout";
@@ -27,8 +24,6 @@ const hasOptions = (type: RsvpFieldType) => ["single_choice", "multiple_choice",
 
 export function RsvpFormEditor({ embedded = false }: { embedded?: boolean }) {
   const { project, currentPageId, previewDevice, updateRsvp, selectElement, setElementVisibility } = useEditorStore();
-  const [paying, setPaying] = useState(false);
-  const [paymentError, setPaymentError] = useState("");
   const formLayout = useRsvpBlockLayout(project?.rsvp, previewDevice);
   if (!project?.rsvp) return null;
   const config = project.rsvp;
@@ -61,29 +56,17 @@ export function RsvpFormEditor({ embedded = false }: { embedded?: boolean }) {
     [fields[index], fields[target]] = [fields[target], fields[index]];
     update({ fields });
   };
-  const checkout = async () => {
-    setPaying(true); setPaymentError("");
-    try { window.location.assign(await startRsvpAddonCheckout(project)); }
-    catch (error) { setPaymentError(error instanceof Error ? error.message : "Le paiement du formulaire n’a pas pu être préparé."); }
-    finally { setPaying(false); }
-  };
-
-  const isPublished = project.paymentStatus === "paid" && project.status === "published";
-  const addonPrice = COMMERCE.rsvpAddonPriceCents ? formatPrice(COMMERCE.rsvpAddonPriceCents) : "Prix à configurer";
-
   const removeFromDocument = () => {
     update({ enabled: false });
     selectElement(null);
   };
 
-  return <div className={`${embedded ? "rsvp-properties-editor" : "sidebar-view"} rsvp-editor`}><div className="view-intro"><span>Option Formulaire</span><h2>Formulaire invité</h2><p>Composez le formulaire que vos invités rempliront directement dans le faire-part.</p></div>
+  return <div className={`${embedded ? "rsvp-properties-editor" : "sidebar-view"} rsvp-editor`}><div className="view-intro"><span>Formulaire inclus</span><h2>Formulaire invité</h2><p>Composez le formulaire que vos invités rempliront directement dans le faire-part.</p></div>
     <PropertySection sectionKey="options-formulaire" key={`${project.id}-form-options`} title="Options du formulaire">
     <label className="rsvp-visibility-toggle"><span>Autoriser la modification des réponses via le lien personnel</span><input type="checkbox" checked={config.allowResponseEditing!==false} onChange={event=>update({allowResponseEditing:event.target.checked})}/></label>
     <label className="rsvp-visibility-toggle"><span><strong>Afficher le formulaire</strong><small>Afficher ou masquer le formulaire dans le faire-part.</small></span><input type="checkbox" checked={config.enabled} onChange={(event) => event.target.checked ? update({ enabled: true }) : removeFromDocument()} /></label>
     {config.enabled && <button className="property-device-visibility" type="button" onClick={() => setElementVisibility(RSVP_EDITOR_ELEMENT_ID, !isRsvpVisibleOnDevice(config, previewDevice))}>{isRsvpVisibleOnDevice(config, previewDevice) ? <Eye size={15} /> : <EyeOff size={15} />}{isRsvpVisibleOnDevice(config, previewDevice) ? `Masquer sur ${PREVIEW_DEVICES[previewDevice].label}` : `Afficher sur ${PREVIEW_DEVICES[previewDevice].label}`}</button>}
-    {!config.purchased && !isPublished && <section className="rsvp-purchase-card"><strong>Option Formulaire +{addonPrice}</strong><p>Activez-la librement : le supplément sera ajouté au paiement unique lors de la publication.</p></section>}
-    {!config.purchased && isPublished && <section className="rsvp-purchase-card"><strong>Ajouter le formulaire — {addonPrice}</strong><p>Ce faire-part est déjà publié. Seul le supplément du formulaire sera facturé.</p>{config.enabled ? <button disabled={paying || !COMMERCE.rsvpAddonPriceCents} onClick={() => void checkout()}>{paying ? "Redirection…" : `Ajouter le formulaire — ${addonPrice}`}</button> : <small>Activez d’abord « Afficher le formulaire » pour continuer.</small>}{paymentError && <p className="form-error">{paymentError}</p>}</section>}
-    {config.purchased && <section className="rsvp-purchase-card"><strong>Formulaire actif</strong><p>La collecte des réponses est disponible sur le faire-part public.</p></section>}
+    <section className="rsvp-purchase-card"><strong>Formulaire RSVP inclus</strong><p>Son utilisation est facultative et ne change pas le prix de publication. Les réponses sont collectées uniquement si le formulaire figure dans la version publiée.</p></section>
     </PropertySection>
     <PropertySection sectionKey="disposition" key={`${project.id}-form-layout`} title="Disposition" defaultOpen>
     <section className="rsvp-position-card">
@@ -123,7 +106,7 @@ export function RsvpFormEditor({ embedded = false }: { embedded?: boolean }) {
     </PropertySection>
     <PropertySection sectionKey="animation" key={`${project.id}-form-animation`} title="Animation"><AnimationProperties animation={config.animation} onChange={(animation) => update({ animation })} /></PropertySection>
     <section className="rsvp-document-actions">
-      {config.purchased && <Link to={`/studio/${project.id}/rsvp/responses`}><ClipboardList size={15} /> Voir les réponses au formulaire</Link>}
+      <PublishedRsvpActions project={project}/>
       <button type="button" className="danger" onClick={removeFromDocument}><Trash2 size={15} /> Supprimer le formulaire du document</button>
       {config.purchased && <small>Le droit Formulaire reste acquis et les réponses existantes sont conservées.</small>}
     </section>
