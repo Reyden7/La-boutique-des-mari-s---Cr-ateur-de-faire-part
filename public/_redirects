@@ -1,1 +1,18 @@
-/* /index.html 200
+# Static assets, sitemap.xml and robots.txt retain normal file shadowing.
+# Preserve auth/recovery, editor and invitation URLs; use a noindex HTML shell.
+/auth /_app.html 200
+/login /_app.html 200
+/reset-password /_app.html 200
+/studio/:projectId/rsvp/responses /_app.html 200
+/studio/:projectId /_app.html 200
+/dashboard/responses /_app.html 200
+/admin/templates /_app.html 200
+/admin/assets /_app.html 200
+/admin/promo-codes /_app.html 200
+/custom-invitation /_app.html 200
+/payment/success /_app.html 200
+/payment/cancel /_app.html 200
+/i/:publicId/:recipientToken /_app.html 200
+/i/:publicId /_app.html 200
+# Unknown URLs must not become 200 home-page duplicates.
+/* /404.html 404

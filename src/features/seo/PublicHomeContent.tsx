@@ -1,0 +1,2 @@
+import {HOME_SEO} from './seo';
+export function PublicHomeContent(){return <section className="public-home-content" aria-label="Faire-part numériques mariage et naissance"><nav aria-label="Découvrir les faire-part"><a href="/#faire-part-mariage">Faire-part de mariage</a><a href="/#faire-part-naissance">Faire-part de naissance</a><a href="/#faire-part-interactif">Invitation interactive</a></nav>{HOME_SEO.sections.map(section=><section id={section.id} key={section.id}><h2>{section.heading}</h2><p>{section.text}</p></section>)}</section>;}

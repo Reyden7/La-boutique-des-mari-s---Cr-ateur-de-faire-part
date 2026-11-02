@@ -1736,6 +1736,10 @@ html:has(.public-invite .png-doors-stage) { scrollbar-gutter: stable; }
 .promo-batch-preview { margin: 20px 0; padding: 24px; border: 1px solid #dfd2c6; border-radius: 16px; background: #fffaf4; overflow-wrap: anywhere; }
 .promo-batch-code-list { max-height: 280px; overflow: auto; padding-left: 30px; margin: 16px 0; }
 .promo-batch-code-list code { white-space: normal; overflow-wrap: anywhere; }
+.public-home-content { margin: 32px 0; padding: 28px; border: 1px solid #dfd2c6; border-radius: 18px; background: #fffaf4; }
+.public-home-content nav { display: flex; flex-wrap: wrap; gap: 12px 24px; margin-bottom: 24px; }
+.public-home-content section { scroll-margin-top: 24px; margin-top: 24px; }
+.public-home-content p { max-width: 75ch; line-height: 1.7; }
 .promo-delete-dialog { background: #fffaf4; padding: 26px; border-radius: 16px; max-width: 480px; margin: 20px; }
 .promo-delete-dialog p { margin: 15px 0 22px; }
 

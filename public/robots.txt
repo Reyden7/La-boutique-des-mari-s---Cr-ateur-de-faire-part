@@ -1,0 +1,6 @@
+# Crawl permission is not access control. Private pages send noindex separately.
+# Allow crawling so search engines can read their noindex directives.
+User-agent: *
+Allow: /
+
+Sitemap: https://laboutiquedesmaries.fr/sitemap.xml

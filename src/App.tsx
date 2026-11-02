@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
-import { createBrowserRouter, Navigate, Outlet, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import { RecoveryRouteGuard } from "./components/auth/RecoveryRouteGuard";
-import { AuthProvider } from "./contexts/AuthContext";
+import { AuthProvider,useAuth } from "./contexts/AuthContext";
 import { AuthPage } from "./pages/AuthPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { EditorPage } from "./pages/EditorPage";
@@ -17,10 +17,13 @@ import { AdminAssetsPage } from "./pages/AdminAssetsPage";
 import { AdminPromoCodesPage } from "./pages/AdminPromoCodesPage";
 import { TutorialProvider } from "./features/tutorial/TutorialProvider";
 import { RecipientSessionBoundary } from "./features/recipients/RecipientSessionBoundary";
+import {RouteSeo} from './features/seo/RouteSeo';
+import {NotFoundPage} from './pages/NotFoundPage';
 
 const protectedPage = (page: ReactNode) => <ProtectedRoute>{page}</ProtectedRoute>;
+function AppSeo(){const {user}=useAuth();return <RouteSeo privateHome={Boolean(user)}/>;}
 
-const router = createBrowserRouter([{ element: <AuthProvider><TutorialProvider><RecoveryRouteGuard><RecipientSessionBoundary><Outlet /></RecipientSessionBoundary></RecoveryRouteGuard></TutorialProvider></AuthProvider>, children: [
+const router = createBrowserRouter([{ element: <AuthProvider><AppSeo/><TutorialProvider><RecoveryRouteGuard><RecipientSessionBoundary><Outlet /></RecipientSessionBoundary></RecoveryRouteGuard></TutorialProvider></AuthProvider>, children: [
   { path: "/", element: <HomePage /> },
   { path: "/auth", element: <AuthPage /> },
   { path: "/login", element: <AuthPage /> },
@@ -37,6 +40,6 @@ const router = createBrowserRouter([{ element: <AuthProvider><TutorialProvider><
   { path: "/payment/cancel", element: protectedPage(<PaymentCancelPage />) },
   { path: "/i/:publicId", element: <PublicInvitePage /> },
   { path: "/i/:publicId/:recipientToken", element: <PublicInvitePage /> },
-  { path: "*", element: <Navigate to="/" replace /> },
+  { path: "*", element: <NotFoundPage /> },
 ] }]);
 export default function App() { return <RouterProvider router={router} />; }
