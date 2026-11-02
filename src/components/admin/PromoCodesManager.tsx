@@ -4,11 +4,15 @@ import { deactivatePromoCode, listPromoCodes, savePromoCode, type PromoCodeRecor
 import { isValidDiscountValue, normalizePromoCode } from "../../config/promo";
 import {listPartners,savePartner} from '../../services/partnerRepository';
 import {validCommissionRate,type Partner} from '../../features/partners/partnerData';
+import {PromoBatchGenerator,productionBatchApi} from './PromoBatchGenerator';
 
 const productionApi = { list: listPromoCodes, save: savePromoCode, deactivate: deactivatePromoCode };
 const productionPartnerApi={list:listPartners,save:savePartner};
-export function PromoCodesManager({ api = productionApi,partnerApi }: { api?: typeof productionApi;partnerApi?:typeof productionPartnerApi }) {
+export function PromoCodesManager({ api = productionApi,partnerApi,batchApi }: { api?: typeof productionApi;partnerApi?:typeof productionPartnerApi;batchApi?:typeof productionBatchApi }) {
   const partnerService=partnerApi??(api===productionApi?productionPartnerApi:undefined);
+  const batchService=batchApi??(api===productionApi?productionBatchApi:undefined);
+  const [creationMode,setCreationMode]=useState('individual');
+  const [filterPartner,setFilterPartner]=useState(''),[filterBatch,setFilterBatch]=useState('');
   const [partners,setPartners]=useState<Partner[]>([]);
   const [partnerId,setPartnerId]=useState('');const [partnerName,setPartnerName]=useState('');const [commissionRate,setCommissionRate]=useState('0');
   const [codes, setCodes] = useState<PromoCodeRecord[]>([]);
@@ -47,6 +51,7 @@ export function PromoCodesManager({ api = productionApi,partnerApi }: { api?: ty
         const created=await partnerService.save(null,partnerName,'','',true);assignedId=created.id;setPartnerId(created.id);setPartners(rows=>[...rows.filter(p=>p.id!==created.id),created]);
       }
       const saved = await api.save(editing?.id ?? null, code, Number(rate),maxUses,{partner_id:assignedId||null,partner_commission_rate:assignedId?Number(commissionRate):0});
+      setFilterPartner('');setFilterBatch('');
       setCodes((rows) => [saved, ...rows.filter((row) => row.id !== saved.id)].sort((a, b) => b.created_at.localeCompare(a.created_at)));
       setMessage(editing ? "Code promo modifié." : "Code promo ajouté."); clear();
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Enregistrement impossible."); }
@@ -63,9 +68,12 @@ export function PromoCodesManager({ api = productionApi,partnerApi }: { api?: ty
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Suppression impossible."); }
     finally { lock.current = false; setBusy(false); }
   };
-  const select = (row: PromoCodeRecord) => { if (busy || deleting || !row.is_active) return; setEditing(row); setCode(row.code); setRate(String(row.discount_value));setUsage(row.max_uses===1?"single":"multiple");setLimit(row.max_uses&&row.max_uses!==1?String(row.max_uses):"");setPartnerId(row.partner_id??'');setCommissionRate(String(row.partner_commission_rate??0)); setError(""); setMessage(""); };
+  const select = (row: PromoCodeRecord) => { if (busy || deleting || !row.is_active) return; setCreationMode('individual');setEditing(row); setCode(row.code); setRate(String(row.discount_value));setUsage(row.max_uses===1?"single":"multiple");setLimit(row.max_uses&&row.max_uses!==1?String(row.max_uses):"");setPartnerId(row.partner_id??'');setCommissionRate(String(row.partner_commission_rate??0)); setError(""); setMessage(""); };
+  const filtered=codes.filter(row=>(!filterPartner||row.partner_id===filterPartner)&&(!filterBatch||row.batch_id===filterBatch));
+  const batches=[...new Map(codes.filter(row=>row.batch_id).map(row=>[row.batch_id!,`${row.batch_prefix??''}${row.department??''} — ${row.batch_id!.slice(0,8)}`])).entries()];
   return <>
-    <form className="promo-admin-form" onSubmit={(event) => { event.preventDefault(); void save(); }}>
+    <nav className="promo-actions" aria-label="Mode de création des codes"><button disabled={busy||loading} aria-pressed={creationMode==='individual'} onClick={()=>{setCreationMode('individual');setError('');setMessage('');}}>Code individuel</button><button disabled={busy||loading||!batchService} aria-pressed={creationMode==='batch'} onClick={()=>{clear();setCreationMode('batch');setError('');setMessage('');}}>Génération en lot</button></nav>
+    {creationMode==='batch'&&batchService?<PromoBatchGenerator partners={partners} api={batchService} onBusyChange={setBusy} onCreated={batch=>{setCodes(rows=>[...batch.codes,...rows.filter(row=>!batch.codes.some(c=>c.id===row.id))]);setFilterPartner('');setFilterBatch('');}}/>:<form className="promo-admin-form" onSubmit={(event) => { event.preventDefault(); void save(); }}>
       <h2>{editing ? `Modification du code : ${editing.code}` : "Nouveau code promo"}</h2>
       <label className="field"><span>Code promo</span><input maxLength={64} value={code} disabled={busy || loading} onChange={(event) => setCode(event.target.value)} placeholder="INFLUENCEUR10" /></label>
       <label className="field"><span>Réduction (%)</span><input type="number" min="1" max="100" step="0.01" value={rate} disabled={busy || loading} onChange={(event) => setRate(event.target.value)} placeholder="10" /></label>
@@ -76,16 +84,17 @@ export function PromoCodesManager({ api = productionApi,partnerApi }: { api?: ty
       <label className="field"><span>Limite d’utilisation</span><select value={usage} disabled={busy||loading} onChange={event=>setUsage(event.target.value)}><option value="single">Usage unique (1 utilisation maximum)</option><option value="multiple">Plusieurs utilisations</option></select></label>
       {usage==="multiple"&&<label className="field"><span>Nombre maximal d’utilisations (facultatif)</span><input type="number" min="1" max="1000000" step="1" placeholder="Illimité" value={limit} disabled={busy||loading} onChange={event=>setLimit(event.target.value)}/></label>}
       <div className="promo-actions"><button className="primary" disabled={busy || loading} type="submit">{busy ? "Enregistrement…" : editing ? "Modifier le code" : "Ajouter le code"}</button>{editing && <button disabled={busy} type="button" onClick={() => { clear(); setError(""); setMessage(""); }}>Annuler</button>}</div>
-    </form>
+    </form>}
     {message && <p className="template-admin-message" role="status">{message}</p>}
     {error && <p className="template-admin-message error" role="alert">{error}</p>}
     <h2>Historique des codes promos</h2>
-    {loading ? <p>Chargement…</p> : <div className="promo-table-scroll"><table className="promo-table"><thead><tr><th>Code</th><th>Réduction</th><th>Partenaire</th><th>Commission partenaire</th><th>Limite</th><th>Utilisations confirmées</th><th>Statut</th><th>Actions</th></tr></thead><tbody>{codes.map((row) => <tr key={row.id} onClick={() => select(row)} className={editing?.id === row.id ? "selected" : ""}>
+    <div className="partner-filters"><label className="field"><span>Filtrer les codes par partenaire</span><select disabled={busy} value={filterPartner} onChange={e=>setFilterPartner(e.target.value)}><option value="">Tous les partenaires</option>{partners.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label><label className="field"><span>Filtrer par lot</span><select disabled={busy} value={filterBatch} onChange={e=>setFilterBatch(e.target.value)}><option value="">Tous les lots</option>{batches.map(([id,label])=><option key={id} value={id}>{label}</option>)}</select></label></div>
+    {loading ? <p>Chargement…</p> : <div className="promo-table-scroll"><table className="promo-table"><thead><tr><th>Code</th><th>Réduction</th><th>Partenaire</th><th>Commission partenaire</th><th>Limite</th><th>Utilisations confirmées</th><th>Statut</th><th>Actions</th></tr></thead><tbody>{filtered.map((row) => <tr key={row.id} onClick={() => select(row)} className={editing?.id === row.id ? "selected" : ""}>
       <td><button disabled={busy || Boolean(deleting)} onClick={() => select(row)}>{row.code}</button></td><td><button disabled={busy || Boolean(deleting)} aria-label={`Modifier ${row.code}`} onClick={() => select(row)}>{row.discount_value} %</button></td>
       <td>{row.partner_id?(partners.find(p=>p.id===row.partner_id)?.name??'Partenaire associé'):'—'}</td><td>{row.partner_commission_rate??0} %</td>
       <td>{row.max_uses??"Illimitée"}</td><td>{row.confirmed_uses??0} / {row.max_uses??"∞"} utilisation{row.max_uses===1?"":"s"}</td><td>{!row.is_active?"Désactivé":row.max_uses!=null&&(row.confirmed_uses??0)>=row.max_uses?"Utilisé":row.max_uses!=null&&(row.confirmed_uses??0)+(row.reserved_uses??0)>=row.max_uses?"Réservé":"Disponible"}</td>
       <td><button disabled={busy||!row.is_active} aria-label={`Supprimer ${row.code}`} onClick={(event) => { event.stopPropagation(); setDeleting(row); }}><Trash2 size={17} /></button></td>
-    </tr>)}</tbody></table>{!codes.length && <p>Aucun code promo actif.</p>}</div>}
+    </tr>)}</tbody></table>{!filtered.length && <p>Aucun code promo pour ces filtres.</p>}</div>}
     {deleting && <div className="modal-backdrop" onMouseDown={() => { if (!busy) setDeleting(null); }}><section className="promo-delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="promo-delete-title" onMouseDown={(event) => event.stopPropagation()}>
       <h2 id="promo-delete-title">Supprimer le code promo « {deleting.code} » ?</h2><p>Le code sera désactivé. L’historique des paiements restera intact.</p>
       <div className="promo-actions"><button autoFocus disabled={busy} onClick={() => setDeleting(null)}>Annuler</button><button className="primary" disabled={busy} onClick={() => void remove()}>{busy ? "Suppression…" : "Supprimer"}</button></div>

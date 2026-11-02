@@ -8,6 +8,7 @@ export interface PromoCodeRecord {
   is_active: boolean; created_at: string; updated_at: string;
   max_uses?: number | null; confirmed_uses?: number; reserved_uses?: number;
   partner_id?:string|null;partner_commission_rate?:number;
+  batch_id?:string|null;batch_prefix?:string|null;department?:string|null;batch_number?:number|null;
 }
 async function client() {
   if (!supabase) throw new Error("Supabase n’est pas configuré.");
