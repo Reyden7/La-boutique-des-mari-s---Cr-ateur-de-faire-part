@@ -1,0 +1,26 @@
+/* The native top layer sits above the document and editor, regardless of z-index.
+   Backdrop, panel and any panel menus remain in the same isolated modal layer. */
+.studio-modal-layer {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  width: 100dvw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  overflow: hidden;
+  isolation: isolate;
+}
+.studio-modal-layer::backdrop { background: transparent; }
+.studio-modal-layer > .modal-backdrop { position: absolute; inset: 0; box-sizing: border-box; }
+.studio-modal-layer > .modal-backdrop > [role="dialog"] { min-width: 0; max-width: 100%; overscroll-behavior: contain; }
+.studio-modal-layer > .recipient-backdrop { place-items: center; padding: 20px; }
+@media (max-width: 600px) {
+  .studio-modal-layer > .recipient-backdrop { padding: 6px; }
+}

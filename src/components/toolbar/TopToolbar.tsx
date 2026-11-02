@@ -1,3 +1,4 @@
+import { ModalLayer } from "../ui/ModalLayer";
 import { Check, ChevronLeft, Copy, ExternalLink, Eye, LayoutTemplate, LockKeyhole, Redo2, Save, Send, Undo2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
@@ -132,7 +133,7 @@ export function TopToolbar({ onPreview, promoValidation = validatePromoCode }: {
         <button onClick={()=>setHistory(true)}>Historique des versions</button>
       </nav>}
       {confirming && (
-        <div className="modal-backdrop publication-backdrop" role="presentation" onMouseDown={closePublicationConfirmation}>
+        <ModalLayer label="Publication" onClose={closePublicationConfirmation} busy={publishing}><div className="modal-backdrop publication-backdrop" role="presentation" onMouseDown={closePublicationConfirmation}>
           <section className="publication-modal" role="dialog" aria-modal="true" aria-labelledby="publication-title" onMouseDown={(event) => event.stopPropagation()}>
             <button className="modal-close" disabled={publishing} onClick={closePublicationConfirmation} aria-label="Fermer"><X size={18} /></button>
             <div className="publication-lock"><LockKeyhole size={22} /></div>
@@ -172,12 +173,12 @@ export function TopToolbar({ onPreview, promoValidation = validatePromoCode }: {
             </button>
             <small><LockKeyhole size={12} /> {discount?.finalAmount === 0 ? "Validation gratuite sécurisée. Aucune coordonnée bancaire demandée." : "Paiement sécurisé par Stripe. Aucune donnée bancaire ne transite par le Studio."}</small>
           </section>
-        </div>
+        </div></ModalLayer>
       )}
       {publishError && !confirming && <div className="publish-popover error"><button className="publish-close" onClick={() => setPublishError("")} aria-label="Fermer"><X size={14} /></button><span>Publication interrompue</span><strong>{publishError}</strong></div>}
       {publishedUrl && <div className="publish-popover"><button className="publish-close" onClick={() => setPublishedUrl(null)} aria-label="Fermer"><X size={14} /></button><span>Votre faire-part est en ligne</span><button onClick={()=>{setPublishedUrl(null);openRecipientList();}}>Liens de vos invités</button><strong>Vos liens restent identiques après modification.</strong><button className="copy-public-link" onClick={() => void navigator.clipboard.writeText(publishedUrl)}><Copy size={14} /> Copier le lien commun historique</button><a href={publishedUrl} target="_blank" rel="noreferrer">Voir le faire-part <ExternalLink size={14} /></a></div>}
       {publishingTemplate && <TemplatePublishModal project={project} onClose={() => setPublishingTemplate(false)} />}
-      {creatingVersion&&<div className="modal-backdrop"><section className="publication-history" role="dialog" aria-modal="true" aria-label="Créer une nouvelle version"><h2>Créer une nouvelle version</h2><p>Votre faire-part actuel a déjà été publié. Vous pouvez créer une nouvelle version à partir de celui-ci, mais sa mise en ligne nécessitera un nouveau paiement. Votre version actuelle restera accessible à vos invités jusqu'à la publication de la nouvelle.</p><button disabled={versionBusy} onClick={()=>setCreatingVersion(false)}>Annuler</button><button disabled={versionBusy} onClick={()=>{setVersionBusy(true);void createPublicationRevision(project.id).then(()=>setCreatingVersion(false)).catch(e=>setPublishError(e.message)).finally(()=>setVersionBusy(false));}}>Créer une nouvelle version</button></section></div>}
+      {creatingVersion&&<ModalLayer label="Créer une nouvelle version" onClose={()=>setCreatingVersion(false)} busy={versionBusy}><div className="modal-backdrop"><section className="publication-history" role="dialog" aria-modal="true" aria-label="Créer une nouvelle version"><h2>Créer une nouvelle version</h2><p>Votre faire-part actuel a déjà été publié. Vous pouvez créer une nouvelle version à partir de celui-ci, mais sa mise en ligne nécessitera un nouveau paiement. Votre version actuelle restera accessible à vos invités jusqu'à la publication de la nouvelle.</p><button disabled={versionBusy} onClick={()=>setCreatingVersion(false)}>Annuler</button><button disabled={versionBusy} onClick={()=>{setVersionBusy(true);void createPublicationRevision(project.id).then(()=>setCreatingVersion(false)).catch(e=>setPublishError(e.message)).finally(()=>setVersionBusy(false));}}>Créer une nouvelle version</button></section></div></ModalLayer>}
       {history&&<PublicationVersions project={project} onClose={()=>setHistory(false)}/>}
     </header>
   );

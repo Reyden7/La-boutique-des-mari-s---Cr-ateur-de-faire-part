@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { ModalLayer } from "../../components/ui/ModalLayer";
 import type { WeddingProject } from "../../types/editor";
 import { isDiscoveryProject, useDiscoverySession } from "../discovery/discoverySession";
 import { saveRemoteProject } from "../../services/projectRepository";
@@ -16,7 +16,7 @@ export function RecipientListModal({ project, onClose }: { project: WeddingProje
   const [name, setName] = useState(""), [count, setCount] = useState("1"), [editing, setEditing] = useState<string | null>(null);
   const [search, setSearch] = useState(""), [preview, setPreview] = useState<ReturnType<typeof validateRecipientRows> | null>(null), [replace, setReplace] = useState(false), [acceptDuplicates, setAcceptDuplicates] = useState(false);
   const [notice, setNotice] = useState("");
-  const panel = useRef<HTMLElement>(null), file = useRef<HTMLInputElement>(null);
+  const file = useRef<HTMLInputElement>(null);
   const rows = entry?.recipients ?? [], totals = recipientTotals(rows);
   useEffect(() => {
     let active = true;
@@ -25,21 +25,6 @@ export function RecipientListModal({ project, onClose }: { project: WeddingProje
     void (project.activeVersionId ? Promise.resolve() : saveRemoteProject(project)).then(() => loadInvitationRecipients(project.id)).then(value => { if (active) { setRecipientList(key,value); setLoaded(true); } }).catch(cause => { if (active) setError(cause.message ?? "Chargement impossible."); });
     return () => { active = false; };
   }, [key, guest]);
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    panel.current?.querySelector<HTMLButtonElement>("button")?.focus();
-    const keys = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !busy) { event.stopPropagation(); onClose(); }
-      if (event.key === "Tab") {
-        const controls = [...(panel.current?.querySelectorAll<HTMLElement>('button:not([disabled]),input:not([disabled]),select:not([disabled]),a[href]') ?? [])].filter(node => node.getClientRects().length);
-        const first=controls[0], last=controls.at(-1);
-        if (event.shiftKey && document.activeElement===first) { event.preventDefault();last?.focus(); }
-        else if (!event.shiftKey && document.activeElement===last) { event.preventDefault();first?.focus(); }
-      }
-    };
-    document.addEventListener("keydown",keys,true);
-    return () => { document.removeEventListener("keydown",keys,true); previous?.focus(); };
-  }, [busy, onClose]);
   const persist = async (next: InvitationRecipient[]) => {
     if (!loaded || busy || useDiscoverySession.getState().converting) return;
     if (recipientTotals(next).guests>100000 || next.length>10000) { setError("Maximum : 10 000 foyers et 100 000 personnes."); return; }
@@ -70,8 +55,8 @@ export function RecipientListModal({ project, onClose }: { project: WeddingProje
     const csv=[["Destinataire","Personnes","Lien"],...rows.filter(row=>row.is_active&&row.public_token).map(row=>[row.display_name,row.guest_count,recipientUrl(location.origin,project.publicId!,row.public_token!)])].map(row=>row.map(csvCell).join(";")).join("\r\n");
     const url=URL.createObjectURL(new Blob(["\uFEFF",csv],{type:"text/csv;charset=utf-8"}));const anchor=document.createElement("a");anchor.href=url;anchor.download="liens-invites.csv";anchor.click();URL.revokeObjectURL(url);
   };
-  return createPortal(<div className="modal-backdrop recipient-backdrop"><section className="recipient-modal" ref={panel} role="dialog" aria-modal="true" aria-labelledby="recipient-title">
-    <header><div><h2 id="recipient-title">Liste des invités</h2><p>Préparez les familles et les personnes qui recevront votre faire-part. Chaque destinataire disposera de son propre lien après publication.</p></div><button onClick={onClose} disabled={busy}>Fermer</button></header>
+  return <ModalLayer label="Liste des invités et liens" onClose={onClose} busy={busy}><div className="modal-backdrop recipient-backdrop"><section className="recipient-modal" role="dialog" aria-modal="true" aria-labelledby="recipient-title">
+    <header><div><h2 id="recipient-title">Liste des invités</h2><p>Préparez les familles et les personnes qui recevront votre faire-part. Chaque destinataire disposera de son propre lien après publication.</p></div><button onClick={onClose} disabled={busy} aria-label="Fermer la liste des invités">✕</button></header>
     {guest && <p className="recipient-warning">Mode découverte — cette liste reste uniquement en mémoire. Elle sera perdue si vous quittez le site. Créez un compte pour la sauvegarder.</p>}
     {project.publicId && <section><h3>Liens de vos invités</h3><p>Ces liens sont confidentiels. Toute personne possédant un lien peut consulter l’invitation et la réponse du foyer associé, et la modifier si vous l’autorisez. Un lien peut être transféré : il ne bloque pas le partage.</p></section>}
     <div className="recipient-import"><button disabled={!loaded||busy} onClick={()=>file.current?.click()}>Importer Excel / CSV</button><a href="/models/liste-invites.xlsx" download>Télécharger un modèle Excel</a><input ref={file} hidden type="file" accept=".xlsx,.csv" onChange={event=>{void importFile(event.target.files?.[0]);event.currentTarget.value="";}} /></div>
@@ -92,5 +77,5 @@ export function RecipientListModal({ project, onClose }: { project: WeddingProje
       {project.publicId&&row.public_token&&<button onClick={()=>void navigator.clipboard.writeText(recipientUrl(location.origin,project.publicId!,row.public_token!)).then(()=>setNotice("Lien copié.")).catch(()=>setError("Copie indisponible."))}>Copier le lien</button>}
       {project.paymentStatus==="paid"&&(!row.public_token||(row.allocated_guest_count??0)<row.guest_count)&&<small>Places supplémentaires en attente d’upgrade</small>}</td></tr>)}</tbody></table></div>
     <footer><strong>Nombre de destinataires : {totals.households}</strong><strong>Nombre total d’invités : {totals.guests}</strong>{project.purchasedGuestCapacity!=null&&<span>Capacité achetée : {project.purchasedGuestCapacity}{totals.guests>project.purchasedGuestCapacity?` · ${totals.guests-project.purchasedGuestCapacity} place(s) à régler via Publier / Capacité`:""}</span>}{project.publicId&&<button onClick={downloadLinks}>Exporter les liens en CSV</button>}</footer>
-  </section></div>,document.body);
+  </section></div></ModalLayer>;
 }

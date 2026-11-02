@@ -1,3 +1,4 @@
+import { ModalLayer } from "../../components/ui/ModalLayer";
 import { Check, ImagePlus, LayoutTemplate, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { publishProjectAsTemplate, uploadTemplateThumbnail } from "../../services/templateRepository";
@@ -49,7 +50,7 @@ export function TemplatePublishModal({ project, onClose }: { project: WeddingPro
     }
   };
 
-  return <div className="modal-backdrop template-admin-backdrop" onMouseDown={() => !saving && onClose()}>
+  return <ModalLayer label="Publier comme template" onClose={onClose} busy={saving}><div className="modal-backdrop template-admin-backdrop" onMouseDown={() => !saving && onClose()}>
     <section className="template-admin-modal" role="dialog" aria-modal="true" aria-labelledby="template-publish-title" onMouseDown={(event) => event.stopPropagation()}>
       <button className="modal-close" disabled={saving} onClick={onClose} aria-label="Fermer"><X size={18} /></button>
       <p className="eyebrow"><LayoutTemplate size={14} /> Administration</p>
@@ -73,7 +74,7 @@ export function TemplatePublishModal({ project, onClose }: { project: WeddingPro
       <p className="publication-responsive-help">Chaque format du snapshot restera indépendant dans les projets créés depuis ce modèle.</p>
       {error && <div className="template-admin-message error">{error}</div>}
       {success && <div className="template-admin-message success"><Check size={15} /> {success}</div>}
-      <div className="template-admin-actions"><button onClick={onClose}>Annuler</button><button className="primary" disabled={!name.trim() || !slug || !verifiedResponsive || saving || Boolean(success)} onClick={() => void submit()}>{saving ? "Création du snapshot…" : isPublished ? "Publier le template" : "Enregistrer en brouillon"}</button></div>
+      <div className="template-admin-actions"><button disabled={saving} onClick={onClose}>Annuler</button><button className="primary" disabled={!name.trim() || !slug || !verifiedResponsive || saving || Boolean(success)} onClick={() => void submit()}>{saving ? "Création du snapshot…" : isPublished ? "Publier le template" : "Enregistrer en brouillon"}</button></div>
     </section>
-  </div>;
+  </div></ModalLayer>;
 }
