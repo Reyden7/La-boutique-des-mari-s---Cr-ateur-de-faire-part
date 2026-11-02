@@ -6,6 +6,7 @@ import { calculateGuestUpgrade, calculateTotalPricing, isValidGuestCount, PRICIN
 import { guestCheckoutMetadata, guestReceiptAmount, matchesGuestCheckout, type GuestPaymentReceipt } from "../_shared/guestPayment.ts";
 import { calculatePromoDiscount, normalizePromoCode } from "../_shared/promo.ts";
 import { PUBLICATION_TERMS, prepareVersionCheckout } from "../_shared/publicationVersions.ts";
+import { reconcilePromoReservations, reconcilePromoSession, promoFailureMessage } from "../_shared/promoReservations.ts";
 
 const CURRENCY = "eur";
 const PRODUCTION_ORIGIN = "https://www.laboutiquedesmaries.fr";
@@ -67,6 +68,8 @@ Deno.serve(async (request) => {
         p_previous_session_id: previousSession, p_terms: body.publicationTerms ?? null, p_expected_amount: body.expectedAmount,
       });
       if (result.error) {
+        const promoMessage=promoFailureMessage(result.error.message);
+        if(promoMessage)return jsonResponse({error:promoMessage},409,true);
         const unavailable = result.error.message?.includes("PROMO_UNAVAILABLE");
         return jsonResponse({error: unavailable ? "Ce code promo n’est plus disponible." : "La validation gratuite a échoué. Actualisez puis réessayez.",code:"free_publication_conflict"},unavailable?400:409,true);
       }
@@ -89,13 +92,14 @@ Deno.serve(async (request) => {
     if (body.promoCode != null && typeof body.promoCode !== "string") return jsonResponse({ error: "Code invalide ou indisponible." }, 400, true);
     const promoCode = normalizePromoCode(body.promoCode);
     if (promoCode && isUpgrade) return jsonResponse({ error: "Les codes promos sont réservés à la première publication." }, 400, true);
-    let promo: { id: string; code: string; discount_value: number } | null = null;
+    let promo: { id: string; code: string; discount_value: number; max_uses?: number | null } | null = null;
     if (promoCode) {
       if (promoCode.length > 64) return jsonResponse({ error: "Ce code promo n’est plus disponible." }, 400, true);
-      const lookup = await admin.from("promo_codes").select("id, code, discount_value").eq("code", promoCode).eq("is_active", true).maybeSingle();
+      const lookup = await admin.from("promo_codes").select("id, code, discount_value, max_uses").eq("code", promoCode).eq("is_active", true).maybeSingle();
       if (lookup.error) throw lookup.error;
       promo = lookup.data;
       if (!promo) return jsonResponse({ error: "Ce code promo n’est plus disponible." }, 400, true);
+      if(promo.max_uses != null) await reconcilePromoReservations(admin,stripe,promo.id);
     }
     if (isUpgrade) {
       if (project.status !== "published" || project.purchased_guest_capacity == null) {
@@ -122,6 +126,7 @@ Deno.serve(async (request) => {
         && (!promo || (pending.promo_code === promo.code && Number(pending.discount_value) === Number(promo.discount_value)))
         && matchesGuestCheckout(existing, pending)) return jsonResponse({ url: existing.url, pricingVersion: PRICING.version }, 200, true);
       if (existing.status === "open") await stripe().checkout.sessions.expire(existing.id);
+      if(pending.promo_code_id) await reconcilePromoSession(admin,stripe(),pending.id,existing.id);
     }
     // Resolve/expire a legacy pending Checkout before switching prices.
     if (!isUpgrade) {
@@ -154,15 +159,19 @@ Deno.serve(async (request) => {
       ...(confirmedInitial ? {p_terms:body.publicationTerms,p_expected_amount:body.expectedAmount} : {}),
     });
     if (reserveError) {
+      const promoMessage=promoFailureMessage(reserveError.message);
+      if(promoMessage)return jsonResponse({error:promoMessage},409,true);
       if (reserveError.message?.includes("PROMO_UNAVAILABLE")) return jsonResponse({ error: "Ce code promo n’est plus disponible." }, 400, true);
       if (reserveError.message?.includes("PROMO_FIRST_PURCHASE_ONLY")) return jsonResponse({ error: "Les codes promos sont réservés à la première publication." }, 400, true);
       console.warn("guest_checkout_reservation_refused", { code: reserveError.code });
       return jsonResponse({ error: "Checkout changed or is already being prepared. Refresh and retry.", code: "checkout_conflict" }, 409, true);
     }
     const payment = receipt as GuestPaymentReceipt;
+    let stripeCreationAttempted=false;
     try {
       if (!payment || payment.pricing_version !== PRICING.version || payment.amount_cents <= 0 || payment.amount_cents !== guestReceiptAmount(payment)) throw new Error("Server quote mismatch");
       if (payment.amount_cents < PRICING.minimumCheckoutCents) {
+        if(payment.promo_code_id)await admin.rpc("release_promo_reservation",{p_receipt_id:payment.id,p_session_id:null,p_reason:"server_not_started"});
         await admin.rpc("fail_guest_checkout", { p_receipt_id: payment.id, p_session_id: null });
         return jsonResponse({error:PAYMENT_MINIMUM_MESSAGE,code:"amount_below_minimum"},409,true);
       }
@@ -178,7 +187,9 @@ Deno.serve(async (request) => {
         if (payment.purchase_type === "initial_publication") addItem("Faire-part — licence pour un événement, jusqu’à 40 invités", PRICING.basePriceCents);
         if (payment.additional_guests) addItem("Invité supplémentaire", PRICING.extraGuestPriceCents, payment.additional_guests);
       }
+      stripeCreationAttempted=true;
       const session = await stripe().checkout.sessions.create({
+        expires_at: Math.floor(Date.now()/1000)+3600,
         mode: "payment", managed_payments: { enabled: false }, integration_identifier: integrationIdentifier(),
         client_reference_id: projectId, line_items: lineItems, metadata, payment_intent_data: { metadata },
         success_url: `${siteUrl}/payment/success?projectId=${encodeURIComponent(projectId)}&kind=${payment.purchase_type}&session_id={CHECKOUT_SESSION_ID}`,
@@ -192,7 +203,12 @@ Deno.serve(async (request) => {
         throw attached.error;
       }
       return jsonResponse({ url: session.url, pricingVersion: PRICING.version }, 200, true);
-    } catch {
+    } catch (cause) {
+      const rejected=cause as {type?:string;statusCode?:number};
+      if(payment?.promo_code_id&&(!stripeCreationAttempted||(rejected.type==="StripeInvalidRequestError"&&rejected.statusCode===400))) {
+        const release=await admin.rpc("release_promo_reservation",{p_receipt_id:payment.id,p_session_id:null,p_reason:stripeCreationAttempted?"stripe_creation_rejected":"server_not_started"});
+        if(release.error)console.warn("promo_reservation_reconciliation_required",{receiptId:payment.id});
+      }
       await admin.rpc("fail_guest_checkout", { p_receipt_id: payment.id, p_session_id: null });
       console.error("guest_checkout_failed", { projectId, receiptId: payment.id });
       return jsonResponse({ error: "Stripe Checkout Session creation failed" }, 502, true);

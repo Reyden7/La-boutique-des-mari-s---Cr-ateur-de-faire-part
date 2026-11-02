@@ -11,15 +11,16 @@ import type { PromoCodeRecord } from "../src/services/promoCodeRepository";
 import type { WeddingProject } from "../src/types/editor";
 import "../src/styles.css";
 
-let records: PromoCodeRecord[] = [{id:"wp21",code:"WP21",discount_value:10,discount_type:"percentage",is_active:true,created_at:"2026-10-07T00:00:00Z",updated_at:"2026-10-07T00:00:00Z"}];
+let records: PromoCodeRecord[] = [{id:"wp21",code:"WP21",discount_value:10,discount_type:"percentage",is_active:true,created_at:"2026-10-07T00:00:00Z",updated_at:"2026-10-07T00:00:00Z"},
+ ...[{code:"UNIQUE_USED",confirmed_uses:1,reserved_uses:0,is_active:true},{code:"UNIQUE_RESERVED",confirmed_uses:0,reserved_uses:1,is_active:true},{code:"OLD_DISABLED",confirmed_uses:1,reserved_uses:0,is_active:false}].map(item=>({...item,id:item.code,discount_value:100,discount_type:"percentage" as const,max_uses:1,created_at:"2026-11-02T10:00:00Z",updated_at:"2026-11-02T10:00:00Z"}))];
 const api = {
-  list: async () => records.filter((r) => r.is_active),
-  save: async (id: string | null, code: string, rate: number) => {
+  list: async () => records,
+  save: async (id: string | null, code: string, rate: number,maxUses:number|null=null) => {
     const normalized = normalizePromoCode(code);
     if (records.some((r) => r.code === normalized && r.id !== id)) throw new Error("Ce code promo existe déjà.");
     const previous = records.find((r) => r.id === id);
     const now = new Date().toISOString();
-    const saved: PromoCodeRecord = {id: id ?? crypto.randomUUID(),code:normalized,discount_type:"percentage",discount_value:rate,is_active:true,created_at:previous?.created_at ?? now,updated_at:now};
+    const saved: PromoCodeRecord = {...previous,id: id ?? crypto.randomUUID(),code:normalized,discount_type:"percentage",discount_value:rate,max_uses:maxUses,is_active:true,created_at:previous?.created_at ?? now,updated_at:now};
     records = [saved,...records.filter((r) => r.id !== saved.id)];
     return saved;
   },

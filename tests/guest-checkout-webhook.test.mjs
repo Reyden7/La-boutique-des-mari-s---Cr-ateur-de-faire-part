@@ -27,6 +27,7 @@ function query(table) {
     if (table === "custom_invitation_requests") rows = mock.customRequest ? [mock.customRequest] : [];
     if (table === "promo_codes") rows = mock.promos;
     if (table === "publication_version_payments") rows = mock.versionReceipts;
+    if (table === "partner_sale_attributions") rows=mock.attribution?[mock.attribution]:[];
     rows = rows.filter((row) => filters.every(([key,value]) => row[key] === value));
     rows = rows.filter(row => memberships.every(([key,values])=>values.includes(row[key])));
     if (patch) rows.forEach((row) => Object.assign(row,patch));
@@ -46,13 +47,20 @@ const client = {
   auth: {getUser:async () => ({data:{user:mock.user},error:null})}, from: query,
   rpc: async (name,params) => {
     if (name === "recipient_checkout_total") return {data:mock.listTotal,error:null};
+    if (name === "promo_code_availability") {
+      if(mock.promoReason)return {data:{valid:false,reason:mock.promoReason},error:null};
+      const p=mock.promos.find(p=>p.code===params.p_code&&p.is_active);
+      return {data:p?{valid:true,code:p.code,discountType:"percentage",discountValue:p.discount_value}:{valid:false},error:null};
+    }
     mock.calls.push({kind:"rpc",name,params});
     if (name === "complete_free_initial_publication") {
+      if(mock.promoReason)return {data:null,error:{message:mock.promoReason}};
       if (mock.invalidateOnReserve) return {data:null,error:{message:'PROMO_UNAVAILABLE'}};
       if (mock.rejectReservation) return {data:null,error:{message:'FREE_REPLAY_CONFLICT'}};
       return {data:{kind:'free_publication',completed:true,transactionId:'55555555-5555-4555-8555-555555555555',projectId,publicationVersionId:'snapshot-free'},error:null};
     }
     if (name !== "reserve_guest_checkout_v2" && name !== "reserve_confirmed_initial_publication") return {data:null,error:null};
+    if(mock.promoReason)return {data:null,error:{message:mock.promoReason}};
     if (mock.rejectReservation) return {data:null,error:{code:"P0001",message:"CHECKOUT_BUSY"}};
     if (mock.invalidateOnReserve) return {data:null,error:{code:"P0001",message:"PROMO_UNAVAILABLE"}};
     const upgrade = mock.project.payment_status === "paid";
@@ -84,7 +92,7 @@ class FakeStripe {
   checkout = {sessions:{
     create:async (params,options) => {
       mock.calls.push({kind:"stripe-create",params,options});
-      const session = {id:"cs_created",url:"https://checkout.stripe.invalid/session",status:"open",payment_status:"unpaid",currency:"eur",metadata:params.metadata,payment_intent:"pi_created",amount_total:params.line_items.reduce((sum,item)=>sum+item.quantity*item.price_data.unit_amount,0)};
+      const session = {id:"cs_created",url:"https://checkout.stripe.invalid/session",status:"open",payment_status:"unpaid",currency:"eur",total_details:{amount_tax:0},metadata:params.metadata,payment_intent:"pi_created",amount_total:params.line_items.reduce((sum,item)=>sum+item.quantity*item.price_data.unit_amount,0)};
       mock.sessions[session.id] = session; return session;
     },
     retrieve:async (id) => mock.sessions[id],
@@ -118,8 +126,49 @@ current="webhook";await import("../supabase/functions/stripe-webhook/index.ts");
 current="validate";await import("../supabase/functions/validate-promo-code/index.ts");
 current="commerce";await import("../supabase/functions/create-commerce-checkout/index.ts");
 const checkout = (body,auth=true) => { const {listGuestCount,...payload}=body;if ("listGuestCount" in body) mock.listTotal=listGuestCount;return handlers.checkout(new Request("https://edge.invalid",{method:"POST",headers:{"Content-Type":"application/json",...(auth?{Authorization:"Bearer token"}:{})},body:JSON.stringify({pricingVersion:"guest-v3",...payload})})); };
-const webhook = (type,object,signature="valid-test-signature") => handlers.webhook(new Request("https://edge.invalid",{method:"POST",headers:{"Stripe-Signature":signature},body:JSON.stringify({type,data:{object}})}));
+const webhook = (type,object,signature="valid-test-signature") => handlers.webhook(new Request("https://edge.invalid",{method:"POST",headers:{"Stripe-Signature":signature},body:JSON.stringify({id:'evt_synthetic_'+type,type,data:{object}})}));
 const calls = (kind) => mock.calls.filter((call)=>call.kind===kind);
+
+test('partner commissions use trusted Stripe tax after paid receipt finalization; attribution never enters customer metadata',async()=>{
+ reset();await checkout({projectId,promoCode:'WP21'});mock.attribution={receipt_id:mock.receipts[0].id};mock.calls=[];
+ const session=mock.sessions.cs_created;session.payment_status='paid';session.status='complete';session.total_details.amount_tax=300;
+ assert.equal(Object.keys(session.metadata).some(key=>/partner|commission/.test(key)),false);
+ assert.equal((await webhook('checkout.session.completed',session)).status,200);
+ assert.deepEqual(calls('rpc').map(c=>c.name),['finalize_guest_checkout','confirm_partner_commission']);
+ assert.equal(calls('rpc').at(-1).params.p_tax_cents,300);
+ mock.calls=[];assert.equal((await webhook('checkout.session.async_payment_succeeded',session)).status,200);assert.equal(calls('rpc').at(-1).name,'confirm_partner_commission');
+});
+
+test('partner partial refund adjusts ledger without revocation; full refund retains existing refund logic',async()=>{
+ reset();await checkout({projectId,promoCode:'WP21'});mock.attribution={receipt_id:mock.receipts[0].id};
+ const session=mock.sessions.cs_created;session.payment_status='paid';session.status='complete';mock.calls=[];
+ const charge={refunded:false,payment_intent:'pi_created',currency:'eur',amount_refunded:1000};
+ assert.equal((await webhook('charge.refunded',charge)).status,200);assert.equal(calls('rpc').some(c=>c.name==='refund_guest_checkout'),false);
+ assert.equal(calls('rpc').at(-1).name,'refund_partner_commission');assert.equal(calls('rpc').at(-1).params.p_refunded_cents,1000);
+ mock.calls=[];assert.equal((await webhook('charge.refunded',{...charge,refunded:true,amount_refunded:session.amount_total})).status,200);
+ assert.equal(calls('rpc').some(c=>c.name==='refund_guest_checkout'),true);assert.equal(calls('rpc').at(-1).name,'refund_partner_commission');
+});
+
+test('actual Edge handlers report used/reserved safely and never create Checkout after a rejected reservation',async()=>{
+ for(const [reason,message] of [['PROMO_USED',"Ce code promotionnel a déjà été utilisé et n'est plus disponible."],['PROMO_RESERVED','Ce code est temporairement indisponible. Réessayez ultérieurement.']]) {
+  reset();mock.promoReason=reason;
+  const validation=await handlers.validate(new Request('https://edge.invalid',{method:'POST',headers:{Authorization:'Bearer token','Content-Type':'application/json'},body:JSON.stringify({promoCode:'WP21'})}));
+  assert.equal((await validation.json()).error,message);assert.equal(calls('stripe-create').length,0);
+  const paid=await checkout({projectId,promoCode:'WP21'});assert.equal(paid.status,409);assert.equal((await paid.json()).error,message);assert.equal(calls('stripe-create').length,0);
+  mock.promos[0].discount_value=100;
+  const free=await checkout({projectId,promoCode:'WP21',expectedAmount:0});assert.equal(free.status,409);assert.equal((await free.json()).error,message);assert.equal(calls('stripe-create').length,0);
+ }
+});
+
+test('actual expiry webhook rechecks provider state; a delayed payment cannot release a code',async()=>{
+ reset();await checkout({projectId,promoCode:'WP21'});mock.calls=[];
+ const session=mock.sessions.cs_created;session.status='expired';
+ assert.equal((await webhook('checkout.session.expired',session)).status,200);
+ assert.equal(calls('rpc').at(-1).name,'release_promo_reservation');
+ mock.calls=[];session.status='complete';session.payment_status='paid';
+ assert.equal((await webhook('checkout.session.expired',{...session,status:'expired',payment_status:'unpaid'})).status,200);
+ assert.equal(calls('rpc').length,0,'stale expired event cannot release a paid operation');
+});
 
 test('server maintenance blocks both checkout handlers before all side effects; body cannot disable it; CORS remains available',async()=>{
  reset();env.PAYMENTS_MAINTENANCE='true';

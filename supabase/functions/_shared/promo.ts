@@ -1,4 +1,6 @@
 /** Shared normalization and cent-based arithmetic; never grants a discount alone. */
+export const PROMO_USED_MESSAGE = "Ce code promotionnel a déjà été utilisé et n'est plus disponible.";
+export const PROMO_RESERVED_MESSAGE = "Ce code est temporairement indisponible. Réessayez ultérieurement.";
 export const normalizePromoCode = (value: unknown): string => typeof value === "string" ? value.trim().toUpperCase() : "";
 export function isValidDiscountValue(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 1 && value <= 100

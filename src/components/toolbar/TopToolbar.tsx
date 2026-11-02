@@ -9,7 +9,7 @@ import { PRICING, PRICING_CHANGED_MESSAGE, PAYMENT_MINIMUM_MESSAGE, calculateTot
 import { useAuth } from "../../contexts/AuthContext";
 import { TemplatePublishModal } from "../../features/templates/TemplatePublishModal";
 import { PromoCodeInput } from "./PromoCodeInput";
-import { calculatePromoDiscount, type AppliedPromo } from "../../config/promo";
+import { calculatePromoDiscount, PROMO_USED_MESSAGE, PROMO_RESERVED_MESSAGE, type AppliedPromo } from "../../config/promo";
 import { validatePromoCode } from "../../services/promoCodeRepository";
 import { isDiscoveryProject, requestDiscoveryAccount, useDiscoverySession } from "../../features/discovery/discoverySession";
 import { TutorialHelpButton } from "../../features/tutorial/TutorialHelp";
@@ -104,7 +104,7 @@ export function TopToolbar({ onPreview, promoValidation = validatePromoCode }: {
       }
     } catch (error) {
       console.warn("Création du paiement impossible", remoteErrorSummary(error));
-      setPublishError(error instanceof Error && ["Ce code promo n’est plus disponible.", PRICING_CHANGED_MESSAGE, PAYMENT_MINIMUM_MESSAGE].includes(error.message) ? error.message : discount?.finalAmount === 0 ? "La publication gratuite n’a pas pu être confirmée. Actualisez le projet puis réessayez." : "Le paiement n’a pas pu être préparé. Vérifiez votre connexion puis réessayez.");
+      setPublishError(error instanceof Error && [PROMO_USED_MESSAGE,PROMO_RESERVED_MESSAGE,"Ce code promo n’est plus disponible.", PRICING_CHANGED_MESSAGE, PAYMENT_MINIMUM_MESSAGE].includes(error.message) ? error.message : discount?.finalAmount === 0 ? "La publication gratuite n’a pas pu être confirmée. Actualisez le projet puis réessayez." : "Le paiement n’a pas pu être préparé. Vérifiez votre connexion puis réessayez.");
       setPromo(null);
     } finally {
       setPublishing(false);

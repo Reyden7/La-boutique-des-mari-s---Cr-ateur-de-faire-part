@@ -5,6 +5,7 @@ import { flushPreviewVideoCleanup } from "./previewVideoRepository";
 import { hasTemporaryReferences, isDiscoveryProject } from "../features/discovery/discoverySession.ts";
 import type { PublicationCheckoutOptions } from "../features/publication/publicationState";
 import { PUBLICATION_TERMS } from "../../supabase/functions/_shared/publicationVersions.ts";
+import { PROMO_USED_MESSAGE, PROMO_RESERVED_MESSAGE } from "../../supabase/functions/_shared/promo.ts";
 
 export interface ProjectRow {
   id: string;
@@ -192,7 +193,7 @@ export async function startProjectCheckout(projectId: string, guestCount: number
       const result = await error.context.clone().json().catch(() => null);
       if (result?.code === "amount_below_minimum") throw new Error(PAYMENT_MINIMUM_MESSAGE);
       if (result?.code === "pricing_changed") throw new Error(PRICING_CHANGED_MESSAGE);
-      if (result?.error === "Ce code promo n’est plus disponible." || result?.error === "Les codes promos sont réservés à la première publication.") throw new Error(result.error);
+      if ([PROMO_USED_MESSAGE,PROMO_RESERVED_MESSAGE,"Ce code promo n’est plus disponible.","Les codes promos sont réservés à la première publication."].includes(result?.error)) throw new Error(result.error);
     }
     throw error;
   }

@@ -3,6 +3,8 @@ import { createClient } from "npm:@supabase/supabase-js@2.116.0";
 import { jsonResponse } from "../_shared/http.ts";
 import { matchesGuestCheckout } from "../_shared/guestPayment.ts";
 import { matchesVersionPayment } from "../_shared/publicationVersions.ts";
+import { reconcilePromoSession } from "../_shared/promoReservations.ts";
+import {confirmPartnerSale,refundPartnerSale} from "../_shared/partnerCommissions.ts";
 
 // Only historical sessions use the previous fixed tariff.
 const LEGACY_PRICE_CENTS = 2490;
@@ -99,7 +101,7 @@ Deno.serve(async (request) => {
   };
   // Shared receipt validation dispatches guest-v2 per-guest and historical
   // guest-v1 snapshots separately; never reprice an old Stripe payment.
-  const processGuestPayment = async (session: Stripe.Checkout.Session, refund = false) => {
+  const processGuestPayment = async (session: Stripe.Checkout.Session, refund = false, confirmCommission = true) => {
     const receiptId = session.metadata?.receipt_id;
     const ownerId = session.metadata?.owner_id;
     const paymentIntentId = stripeId(session.payment_intent);
@@ -120,6 +122,7 @@ Deno.serve(async (request) => {
       p_payment_intent_id: paymentIntentId, p_amount_cents: session.amount_total,
     });
     if (result.error) throw result.error;
+    if(!refund&&confirmCommission)await confirmPartnerSale(admin,stripe,session,receipt);
     return jsonResponse({ received: true });
   };
   try {
@@ -237,6 +240,11 @@ Deno.serve(async (request) => {
         checkoutSessionId: session.id,
         paymentIntentId,
       });
+    } else if (event.type === "checkout.session.expired") {
+      const session=event.data.object as Stripe.Checkout.Session;
+      if(purchaseTypeFromSession(session)==="initial_publication" && session.metadata?.receipt_id) {
+        await reconcilePromoSession(admin,stripe,session.metadata.receipt_id,session.id);
+      }
     } else if (event.type === "checkout.session.async_payment_failed") {
       const session = event.data.object as Stripe.Checkout.Session;
       const purchaseType = purchaseTypeFromSession(session);
@@ -250,6 +258,7 @@ Deno.serve(async (request) => {
       if (purchaseType === "initial_publication" || purchaseType === "guest_capacity_upgrade") {
         const receiptId = session.metadata?.receipt_id;
         if (!receiptId) return jsonResponse({ error: "Missing guest receipt" }, 400);
+        if (purchaseType === "initial_publication") await reconcilePromoSession(admin,stripe,receiptId,session.id,undefined,true);
         const failed = await admin.rpc("fail_guest_checkout", { p_receipt_id: receiptId, p_session_id: session.id });
         if (failed.error) throw failed.error;
         return jsonResponse({ received: true });
@@ -285,7 +294,7 @@ Deno.serve(async (request) => {
       });
     } else if (event.type === "charge.refunded") {
       const charge = event.data.object as Stripe.Charge;
-      if (!charge.refunded) return jsonResponse({ received: true });
+      if (!charge.refunded && !(charge.amount_refunded>0)) return jsonResponse({ received: true });
       const paymentIntentId = stripeId(charge.payment_intent);
       if (!paymentIntentId) {
         return jsonResponse({ error: "Refund has no PaymentIntent" }, 400);
@@ -299,6 +308,22 @@ Deno.serve(async (request) => {
       if (!session || !purchaseType) {
         return jsonResponse({ error: "Refund purchase type is missing" }, 400);
       }
+      if(!charge.refunded) {
+        // Partial refunds adjust only the partner ledger; existing publication rights stay intact.
+        if(purchaseType==="initial_publication") {
+          if(charge.currency!==CURRENCY||!Number.isSafeInteger(charge.amount_refunded)||charge.amount_refunded<=0||charge.amount_refunded>Number(session.amount_total))return jsonResponse({error:"Partner refund amount mismatch"},400);
+          // A refund can precede checkout.completed. Only finalize attributed, actually paid sales.
+          const a=await admin.from("partner_sale_attributions").select("receipt_id").eq("receipt_id",session.metadata?.receipt_id).maybeSingle();
+          if(a.error)throw a.error;
+          if(a.data) {
+            if(session.payment_status!=="paid")throw new Error("Partner refund payment pending");
+            const finalized=await processGuestPayment(session,false,false);
+            if(finalized.status!==200)return finalized;
+            await refundPartnerSale(admin,stripe,session,charge.amount_refunded,event.id);
+          }
+        }
+        return jsonResponse({received:true});
+      }
       if (purchaseType === "paid_version") {
         if(charge.currency!==CURRENCY||charge.amount_refunded!==session.amount_total)return jsonResponse({error:"Version refund mismatch"},400);
         return await processVersionPayment(session,true);
@@ -307,7 +332,9 @@ Deno.serve(async (request) => {
         if (charge.currency !== CURRENCY || charge.amount_refunded !== session.amount_total) {
           return jsonResponse({ error: "Guest refund amount mismatch" }, 400);
         }
-        return await processGuestPayment(session, true);
+        const response=await processGuestPayment(session, true);
+        if(response.status===200&&purchaseType==="initial_publication")await refundPartnerSale(admin,stripe,session,charge.amount_refunded,event.id);
+        return response;
       }
       const commerceOwnerId = session?.metadata?.owner_id;
       const commerceEntityId = purchaseType === "custom_invitation"

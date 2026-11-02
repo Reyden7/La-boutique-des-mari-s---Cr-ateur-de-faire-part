@@ -1728,6 +1728,11 @@ html:has(.public-invite .png-doors-stage) { scrollbar-gutter: stable; }
 .promo-table tr.selected, .promo-table tbody tr:hover { background: #f0e5d9; }
 .promo-table tbody tr { cursor: pointer; }
 .promo-table td button { text-align: left; padding: 8px 0; }
+.partner-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 16px; margin: 20px 0; }
+.partner-filters .field { flex: 1 1 180px; }
+.partner-settlement-dialog { width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); overflow: auto; padding: 28px; background: #fffaf4; border: 1px solid #dfd2c6; border-radius: 18px; }
+.partner-settlement-dialog form { display: grid; gap: 16px; margin-top: 20px; }
+.partner-settlement-dialog li { overflow-wrap: anywhere; }
 .promo-delete-dialog { background: #fffaf4; padding: 26px; border-radius: 16px; max-width: 480px; margin: 20px; }
 .promo-delete-dialog p { margin: 15px 0 22px; }
 
